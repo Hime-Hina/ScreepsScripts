@@ -80,6 +80,7 @@ module.exports = {
     "no-var": "error",
     "object-shorthand": "error",
     "one-var": ["error", "never"],
+    "operator-linebreak": ["warn", "before"],
     "quote-props": "off",
     radix: "error",
     "sort-imports": "warn",

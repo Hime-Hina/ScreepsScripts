@@ -1,10 +1,10 @@
 "use strict";
 
-import clear from 'rollup-plugin-clear';
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
-import typescript from 'rollup-plugin-typescript2';
-import screeps from 'rollup-plugin-screeps';
+import clear from "rollup-plugin-clear";
+import commonjs from "@rollup/plugin-commonjs";
+import resolve from "@rollup/plugin-node-resolve";
+import screeps from "rollup-plugin-screeps";
+import typescript from "rollup-plugin-typescript2";
 
 let cfg;
 const dest = process.env.DEST;
@@ -25,8 +25,12 @@ export default {
   plugins: [
     clear({ targets: ["dist"] }),
     resolve({ rootDir: "src" }),
-    commonjs(),
-    typescript({tsconfig: "./tsconfig.json"}),
-    screeps({config: cfg, dryRun: cfg == null})
+    commonjs({
+      namedExports: {
+        "node_modules/screeps-profiler/screeps-profiler.js": ["enable", "wrap"]
+      }
+    }),
+    typescript({ tsconfig: "./tsconfig.json" }),
+    screeps({ config: cfg, dryRun: cfg == null })
   ]
-}
+};

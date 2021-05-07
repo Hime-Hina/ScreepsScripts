@@ -1,3 +1,4 @@
+/* eslint-disable no-underscore-dangle */
 import { SourceMapConsumer } from "source-map";
 
 export class ErrorMapper {
@@ -75,7 +76,7 @@ export class ErrorMapper {
       } catch (e) {
         if (e instanceof Error) {
           if ("sim" in Game.rooms) {
-            const message = `Source maps don't work in the simulator - displaying original error`;
+            const message = `Source Map 不能在模拟器中工作，显示原始调用栈`;
             console.log(`<span style='color:red'>${message}<br>${_.escape(e.stack)}</span>`);
           } else {
             console.log(`<span style='color:red'>${_.escape(this.sourceMappedStackTrace(e))}</span>`);
