@@ -12,6 +12,7 @@
     "strict": true,
     "experimentalDecorators": true,
     "noImplicitReturns": true,
+    "noImplicitThis": true,
     "allowSyntheticDefaultImports": true,
     "allowUnreachableCode": false,
     "noEmitOnError": true,

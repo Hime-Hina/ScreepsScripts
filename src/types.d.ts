@@ -1,3 +1,6 @@
+type StructureNeedFill = StructureSpawn | StructureExtension | StructureStorage | StructureContainer | StructureTower;
+type Roles = "harvester" | "upgrader" | "builder" | "repairer" | "worker" | "defender" | "carrier";
+type RolesBodiesConfig = { [name in Roles]: { bodies: BodyPartConstant[]; cost: number } };
 // Memory extension
 
 /**
@@ -7,17 +10,24 @@ interface CreepMemory {
   role: string;
   room?: string;
   working?: boolean;
+  sourceId?: Id<Source> | null;
+  destId?: Id<Structure> | null;
+  sentryId?: Id<StructureRampart> | null;
+  configName?: string;
 }
 
 /**
  * The interface of Room.memory
  */
 interface RoomMemory {
-  myCreeps: { [name: string]: { name: string; role: string } };
-  hostileCreeps: Creep[];
-  sources: SourceInfo[];
+  sources: ISourcesInfo;
   spawns: StructureSpawn[];
   flags: Flag[];
+  towers: Id<StructureTower>[];
+  sentries: { [id: string]: boolean };
+  rclContainerId: Id<StructureContainer> | null;
+  targetsToRepair: { [id: string]: { amtAcquired: number; finished: boolean }; };
+  targetsToFill: { [id: string]: { amtAcquired: number; finished: boolean; } };
 }
 
 /**
@@ -26,20 +36,50 @@ interface RoomMemory {
 interface Memory {
   uuid: number;
   log: any;
+  creepConfigs: { [configName: string]: ICreepConfig };
 }
 // Memory extension
+
+interface IWorkingData {
+  srcId: Id<RoomObject>;
+  targetId: Id<RoomObject>;
+}
+
+interface ICreepConfig {
+  role: Roles;
+  args: IWorkingData;
+}
+
+interface ICreepStates {
+  /**
+   * [optional] 准备阶段
+   */
+  Start?: (creep: Creep) => boolean;
+  /**
+   * [required] 执行主要工作
+   */
+  DoWork: (creep: Creep) => boolean;
+  /**
+   * [optional] 进行资源获取, 处理获得的资源.
+   */
+  Update?: (creep: Creep) => boolean;
+}
+
+interface IRolesBehavior {
+  (workingData: IWorkingData): ICreepStates;
+}
 
 interface CreepsInfo {
   [rolesName: string]: Creep[] | undefined;
   harvesters: Creep[];
   upgraders: Creep[];
-  builder: Creep[];
+  builders: Creep[];
   hostileCreeps?: Creep[];
 }
 
-interface SourceInfo {
-  id: Id<Source>;
-  miningPos: MiningPos[];
+interface ISourcesInfo {
+  [id: string]: { activePosAmt: number };
+  // miningPos: MiningPos[];
 }
 
 interface MiningPos {
@@ -48,21 +88,48 @@ interface MiningPos {
   isActive: boolean;
 }
 
-interface RoomInfo {
+interface IRoomInfo {
   creepsInfo: CreepsInfo;
   sources: Source[];
   spawns: StructureSpawn[];
+  extensions: StructureExtension[] | Structure[];
   flags: Flag[];
 }
 
-interface RoomsInfo {
-  [roomName: string]: RoomInfo;
+interface IRoomsInfo {
+  [roomName: string]: IRoomInfo;
+}
+
+interface ITask {
+  [id: string]: { amtAcquired: number; finished: boolean };
+}
+
+interface Creep {
+  Run(): void;
 }
 
 // `global` extension samples
 declare namespace NodeJS {
   interface Global {
     log: any;
-    roomsInfo: RoomsInfo | undefined;
+    rolesRun: { [roleName in Roles]: (creep: Creep) => void; };
+    roomsInfo: IRoomsInfo | undefined;
+    harvesterCounter: number;
+    upgraderCounter: number;
+    builderCounter: number;
+    repairerCounter: number;
+    carrierCounter: number;
+    roleCounters: { [roleName in Roles]: number };
+    GetStructToRepair: (roomName: string, idx: number) => Structure | null;
+    InitRolesMem: (room: Room) => void;
+    InitCarriersMem: (room: Room) => void;
+    GlobalInit: () => void;
+    FindTargetToRepair: (room: Room) => Structure | null;
+    CreepConfig: {
+      Add: (configName: string, specificRole: Roles, ...args: any[]) => boolean;
+      Get: (configName: string) => ICreepConfig | undefined;
+      Remove: (configName: string) => true;
+      ChangeConfigArgs: (configName: string, newArgs: IWorkingData) => boolean;
+    };
   }
 }
