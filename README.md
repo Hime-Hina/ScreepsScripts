@@ -53,4 +53,8 @@
   在有`Carrier`存在的情况下, 自动收获`Source`并将`energy`存放在附近的`Container`;
   不存在`Carrier`则将能量放在`Spawn`或`Extension`.
 
+* 修改Upgrader逻辑.
+
+  检查RCL附近是否有`Container`. 若有(`rclContainer`), 则只从其中取能量; 若无, 则从`Storege`, `Container`或`Spawn`中获取能量.
+
 * 尽量用函数式的方式编码.
