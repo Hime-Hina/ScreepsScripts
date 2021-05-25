@@ -114,11 +114,6 @@ declare namespace NodeJS {
     log: any;
     rolesRun: { [roleName in Roles]: (creep: Creep) => void; };
     roomsInfo: IRoomsInfo | undefined;
-    harvesterCounter: number;
-    upgraderCounter: number;
-    builderCounter: number;
-    repairerCounter: number;
-    carrierCounter: number;
     roleCounters: { [roleName in Roles]: number };
     GetStructToRepair: (roomName: string, idx: number) => Structure | null;
     InitRolesMem: (room: Room) => void;
