@@ -5,10 +5,7 @@ import {
 } from "Constants";
 import { Initialize, FindTargetsToRepair, FindTargetsToFill } from "utils/Initialize";
 import { ErrorMapper } from "utils/ErrorMapper";
-import { GetDestIdForRepairer } from "Roles/Repairer";
-import { GetDestIdForCarrier } from "Roles/Carrier";
 import { Tower } from "Roles/Tower";
-import { GetSentryId } from "Roles/Defender";
 
 Initialize();
 
@@ -18,7 +15,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
     for (const creepName in Memory.creeps) {
       if (!(creepName in Game.creeps)) {
         if (Memory.creeps[creepName].role === "harvester" && Memory.creeps[creepName].sourceId) {
-          ++Memory.rooms[roomName].sources[Memory.creeps[creepName].sourceId as keyof ISourcesInfo].activePosAmt;
+          const sourceMem = Memory.rooms[roomName].sources[Memory.creeps[creepName].sourceId as keyof ISourcesInfo];
+          ++sourceMem.activePosAmt;
+          if (Memory.creeps[creepName].containerId) {
+            const sourceContainersMem = sourceMem.containers[Memory.creeps[creepName].containerId as keyof SourceContainersMemory];
+            ++sourceContainersMem.amtAcquired;
+          }
         } else if (Memory.creeps[creepName].role === "defender" && Memory.creeps[creepName].sentryId) {
           Memory.rooms[roomName].sentries[Memory.creeps[creepName].sentryId as Id<StructureRampart>] = true;
         }
