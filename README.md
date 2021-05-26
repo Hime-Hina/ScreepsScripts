@@ -41,7 +41,7 @@
 * 添加全局挂载(GlobalAPI.ts), 方便在控制台中调用.
 
   ```ts
-  rolesRun: { [roleName in Roles]: (creep: Creep) => void; };
+  RolesRun: { [roleName in Roles]: (creep: Creep) => void; };
   roomsInfo: IRoomsInfo | undefined;
   roleCounters: { [roleName in Roles]: number };
   GetStructToRepair: (roomName: string, idx: number) => Structure | null;
@@ -62,3 +62,16 @@
   检查RCL附近是否有`Container`. 若有(`rclContainer`), 则只从其中取能量; 若无, 则从`Storege`, `Container`或`Spawn`中获取能量.
 
 * 尽量用函数式的方式编码.
+
+### 2021年5月26日
+
+主要更新Creep角色相关逻辑.
+
+* 修改`CreepMemory`的初始化方式.
+  每个Role都有相应的`GetMemConfigFor${Role}`函数, 并在`global`上挂载`GetRolesMemConfig: { [roleName in Roles]: IGetMemConfig }`.
+* 修改`Harvester`的逻辑.
+  初始化时自动获取`Source`周围的`Container`的Id并存储在`room.sources`中,
+  默认Creep数量需求为1(只需一个`Harvester`维护).
+  `Harvester`会自动驻留在分配到的`Container`上. 将要消亡时(`ticksToLive <= 2`), 丢出存储的能量.
+  若没有分配`Container`或者没有`Carrier`, 就执行一般逻辑(给`Spawn`或`Extension`填充能量).
+* 将函数`FindRCLContainer`更换成`GetRCLContainerId`.

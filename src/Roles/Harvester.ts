@@ -77,7 +77,7 @@ export const Harvester = {
       }
     }
 
-    if (creep.ticksToLive && creep.ticksToLive < 2) {
+    if (creep.ticksToLive && creep.ticksToLive <= 2) {
       creep.drop(RESOURCE_ENERGY);
       creep.suicide();
     }
