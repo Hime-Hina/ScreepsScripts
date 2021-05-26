@@ -5,14 +5,11 @@ import {
 } from "Constants";
 import { Initialize, FindTargetsToRepair, FindTargetsToFill } from "utils/Initialize";
 import { ErrorMapper } from "utils/ErrorMapper";
-import { GetSourceIdForHarvester } from "Roles/Harvester";
 import { GetDestIdForRepairer } from "Roles/Repairer";
-import { GlobalAPI } from "utils/GlobalAPI";
 import { GetDestIdForCarrier } from "Roles/Carrier";
 import { Tower } from "Roles/Tower";
 import { GetSentryId } from "Roles/Defender";
 
-GlobalAPI();
 Initialize();
 
 export const loop = ErrorMapper.wrapLoop(() => {
@@ -42,14 +39,14 @@ export const loop = ErrorMapper.wrapLoop(() => {
     });
   }
 
-  _.forIn(Game.creeps, (v, k, o) => {
-    if (v.memory.role) global.rolesRun[v.memory.role as Roles](v);
+  _.forIn(Game.creeps, (v) => {
+    if (v.memory.role) global.RolesRun[v.memory.role as Roles](v);
     else console.log(`${v.name}<${v.id}>, whose memory.role was not assigned!`);
   });
 
   if (!Game.spawns.Spawn0.spawning) {
     // Automatically spawn creeps.
-    _.forIn(global.roleCounters, (v, k, o) => {
+    _.forIn(global.roleCounters, (v, k) => {
       if (k && v < ROLES_AMOUNT_PER_ROOM[k as Roles]) {
         const newCreepName = k[0].toUpperCase() + k.slice(1);
         const canBeSpawned
@@ -61,10 +58,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
           const args: { memory: CreepMemory } = {
             memory: { role: k as Roles, working: false, }
           };
-          if (k === "harvester") args.memory.sourceId = GetSourceIdForHarvester(Game.spawns.Spawn0.room);
-          else if (k === "repairer") args.memory.destId = GetDestIdForRepairer(Game.spawns.Spawn0.room);
-          else if (k === "carrier") args.memory.destId = GetDestIdForCarrier(Game.spawns.Spawn0.room);
-          else if (k === "defender") args.memory.sentryId = GetSentryId(Game.spawns.Spawn0.room);
+          args.memory = global.GetRolesMemConfig[k as Roles](Game.spawns.Spawn0.room);
           ++global.roleCounters[k as Roles];
           Game.spawns.Spawn0.spawnCreep(ROLES_BODIES[k as Roles].bodies, `${newCreepName}${Game.time}`, args);
           return false;

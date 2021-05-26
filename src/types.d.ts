@@ -11,6 +11,7 @@ interface CreepMemory {
   room?: string;
   working?: boolean;
   sourceId?: Id<Source> | null;
+  containerId?: Id<StructureContainer> | null;
   destId?: Id<Structure> | null;
   sentryId?: Id<StructureRampart> | null;
   configName?: string;
@@ -78,7 +79,7 @@ interface CreepsInfo {
 }
 
 interface ISourcesInfo {
-  [id: string]: { activePosAmt: number };
+  [id: string]: { activePosAmt: number; containers: { [id: string]: { amtAcquired: number; } } };
   // miningPos: MiningPos[];
 }
 
@@ -112,7 +113,8 @@ interface Creep {
 declare namespace NodeJS {
   interface Global {
     log: any;
-    rolesRun: { [roleName in Roles]: (creep: Creep) => void; };
+    RolesRun: { [roleName in Roles]: (creep: Creep) => void; };
+    GetRolesMemConfig: { [roleName in Roles]: (room: Room) => CreepMemory };
     roomsInfo: IRoomsInfo | undefined;
     roleCounters: { [roleName in Roles]: number };
     GetStructToRepair: (roomName: string, idx: number) => Structure | null;

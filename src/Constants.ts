@@ -3,11 +3,11 @@ const CountBodiesCost = (bodies: BodyPartConstant[]): number => _.sum(_.map(bodi
 export const ROLES_AMOUNT_PER_ROOM: {
   [roleName in Roles]: number;
 } = {
-  harvester: 6,
+  harvester: 4,
   carrier: 4,
   upgrader: 2,
   builder: 1,
-  repairer: 4,
+  repairer: 2,
   worker: 0,
   defender: 3,
 };
@@ -52,7 +52,7 @@ export const creepsAmtAcquiredForEachRepairing: { [name: string]: number } = {
   [STRUCTURE_STORAGE]: 1,
   [STRUCTURE_ROAD]: 1,
   [STRUCTURE_RAMPART]: ROLES_AMOUNT_PER_ROOM.repairer,
-  [STRUCTURE_WALL]: 2,
+  [STRUCTURE_WALL]: 0,
 };
 export const creepsAmtAcquiredForEachFilling: { [name: string]: number } = {
   [STRUCTURE_SPAWN]: 2,
