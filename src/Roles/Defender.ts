@@ -8,7 +8,7 @@ export const GetSentryId = (room: Room): Id<StructureRampart> | null => {
   return null;
 }
 
-export const GetMemConfigForDefender = (room: Room): CreepMemory => {
+export const GetMemConfigForDefender: IGetMemConfig = (room: Room): CreepMemory => {
   return {
     role: "defender",
     working: false,

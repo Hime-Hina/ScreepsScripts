@@ -1,4 +1,4 @@
-export const GetMemConfigForBulider = (room: Room): CreepMemory => {
+export const GetMemConfigForBulider: IGetMemConfig = (room: Room): CreepMemory => {
   return {
     role: "builder",
     working: false,

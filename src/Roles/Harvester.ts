@@ -3,7 +3,7 @@
  * @param room: Room
  * @return 返回接口类型为CreepMemory的Object.
  */
-export const GetMemConfigForHarvester = (room: Room): CreepMemory => {
+export const GetMemConfigForHarvester: IGetMemConfig = (room: Room): CreepMemory => {
   const harvesterMem: CreepMemory = {
     role: "harvester",
     working: false,

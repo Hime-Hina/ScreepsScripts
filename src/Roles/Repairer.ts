@@ -1,4 +1,4 @@
-export const GetMemConfigForRepairer = (room: Room): CreepMemory => {
+export const GetMemConfigForRepairer: IGetMemConfig = (room: Room): CreepMemory => {
   return {
     role: "repairer",
     working: false,

@@ -8,7 +8,7 @@ export const GetDestIdForCarrier = (room: Room): Id<Structure> | null => {
   return null;
 }
 
-export const GetMemConfigForCarrier = (room: Room): CreepMemory => {
+export const GetMemConfigForCarrier: IGetMemConfig = (room: Room): CreepMemory => {
   return {
     role: "carrier",
     working: false,

@@ -1,4 +1,4 @@
-export const GetMemConfigForUpgrader = (room: Room): CreepMemory => {
+export const GetMemConfigForUpgrader: IGetMemConfig = (room: Room): CreepMemory => {
   return {
     role: "upgrader",
     working: false,
