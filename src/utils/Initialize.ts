@@ -3,15 +3,19 @@ import { Builder, GetMemConfigForBulider } from "Roles/Builder";
 import { Carrier, GetDestIdForCarrier, GetMemConfigForCarrier } from "Roles/Carrier";
 import { Defender, GetMemConfigForDefender } from "Roles/Defender";
 import { GetMemConfigForHarvester, Harvester } from "Roles/Harvester";
-import { Repairer, GetMemConfigForRepairer } from "Roles/Repairer";
-import { Upgrader, GetMemConfigForUpgrader } from "Roles/Upgrader";
+import { GetMemConfigForRepairer, Repairer } from "Roles/Repairer";
+import { GetMemConfigForUpgrader, Upgrader } from "Roles/Upgrader";
 
 const dirX = [-1, 1, 0, 0, -1, 1, -1, 1];
 const dirY = [0, 0, -1, 1, -1, 1, 1, -1];
 
-const FindRCLContainer = (room: Room): StructureContainer | undefined | null => room.controller?.pos.findClosestByRange(FIND_STRUCTURES, {
-  filter: struct => struct.structureType === STRUCTURE_CONTAINER
-}) as (StructureContainer | undefined | null);
+const GetRCLContainerId = (room: Room): Id<StructureContainer> | null => {
+  const rclContainer = room.controller?.pos.findClosestByRange(FIND_STRUCTURES, {
+    filter: struct => struct.structureType === STRUCTURE_CONTAINER
+  }) as (StructureContainer | undefined | null);
+  if (rclContainer) return rclContainer.id;
+  else return null;
+}
 
 const ReturnTowersId = (room: Room): Id<StructureTower>[] => {
   const towers = room.find(FIND_STRUCTURES, { filter: struct => struct.structureType === STRUCTURE_TOWER }) as StructureTower[];
@@ -38,11 +42,11 @@ export const FindTargetsToRepair = (room: Room): ITask => {
 }
 
 export const FindTargetsToFill = (room: Room): ITask => {
-  const rclContainer = FindRCLContainer(room);
+  const rclContainerId = GetRCLContainerId(room);
   const structsToFill = room.find(FIND_STRUCTURES, {
     filter: (struct: StructureNeedFill) => {
       if (struct.structureType in priorityStructureNeedToBeFilled) {
-        if (struct.structureType === STRUCTURE_CONTAINER && struct.id !== rclContainer?.id) return false;
+        if (struct.structureType === STRUCTURE_CONTAINER && struct.id !== rclContainerId) return false;
         const newStore = struct.store as StoreDefinition;
         return newStore.getUsedCapacity(RESOURCE_ENERGY) < newStore.getCapacity(RESOURCE_ENERGY);
       } else return false;
@@ -50,7 +54,10 @@ export const FindTargetsToFill = (room: Room): ITask => {
   }) as StructureNeedFill[];
   const ret: ITask = {};
 
-  if (rclContainer) structsToFill.push(rclContainer);
+  if (rclContainerId) {
+    const rclContainer = Game.getObjectById(rclContainerId);
+    if (rclContainer) structsToFill.push(rclContainer);
+  }
   _.map(
     (structsToFill).sort(
       (a: StructureNeedFill, b: StructureNeedFill) =>
@@ -76,7 +83,7 @@ const ReturnAdjacentMiningPos = (source: Source): MiningPos[] => {
   return ret;
 }
 
-const FindSourceContainers = (source: Source): { [id: string]: { amtAcquired: number; } } => {
+const FindSourceContainers = (source: Source): SourceContainersMemory => {
   const ret: { [id: string]: { amtAcquired: number; } } = {};
   source.pos.findInRange(
     FIND_STRUCTURES, 2,
@@ -195,11 +202,10 @@ export function Initialize(): void {
       flags: [],
       sentries: FindSentryPos(Game.rooms[roomName]),
       towers: ReturnTowersId(Game.rooms[roomName]),
-      rclContainerId: null,
+      rclContainerId: GetRCLContainerId(Game.rooms[roomName]),
       targetsToRepair: FindTargetsToRepair(Game.rooms[roomName]),
       targetsToFill: FindTargetsToFill(Game.rooms[roomName])
     };
-    Memory.rooms[roomName].rclContainerId = FindRCLContainer(Game.rooms[roomName])?.id as (Id<StructureContainer> | null);
     _.forIn(Game.creeps, (v) => {
       if (v.memory.role) ++global.roleCounters[v.memory.role as Roles];
     });
