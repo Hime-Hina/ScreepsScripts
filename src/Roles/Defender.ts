@@ -6,6 +6,14 @@ export const GetSentryId = (room: Room): Id<StructureRampart> | null => {
     }
   }
   return null;
+}
+
+export const GetMemConfigForDefender = (room: Room): CreepMemory => {
+  return {
+    role: "defender",
+    working: false,
+    sentryId: GetSentryId(room),
+  };
 };
 
 const Defend = (creep: Creep): void => {

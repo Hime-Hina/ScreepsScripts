@@ -1,3 +1,10 @@
+export const GetMemConfigForBulider = (room: Room): CreepMemory => {
+  return {
+    role: "builder",
+    working: false,
+  };
+}
+
 export const Builder = {
   run: (creep: Creep): void => {
     if (creep.memory.working && creep.store[RESOURCE_ENERGY] === 0) {

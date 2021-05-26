@@ -1,16 +1,29 @@
 /**
- * 返回有空闲开采位的Source的Id.
- * @param creep: Creep
- * @return 当有足够的矿位时返回一个Id, 否则返回null.
+ * 返回Harvester初始的Memory设置
+ * @param room: Room
+ * @return 返回接口类型为CreepMemory的Object.
  */
-export function GetSourceIdForHarvester(room: Room): Id<Source> | null {
+export const GetMemConfigForHarvester = (room: Room): CreepMemory => {
+  const harvesterMem: CreepMemory = {
+    role: "harvester",
+    working: false,
+  };
   for (const sourceId in room.memory.sources) {
-    if (room.memory.sources[sourceId].activePosAmt > 0) {
-      --room.memory.sources[sourceId].activePosAmt;
-      return sourceId as Id<Source>;
+    const sourceMem = room.memory.sources[sourceId];
+    if (sourceMem.activePosAmt > 0) {
+      for (const containerId in sourceMem.containers) {
+        if (sourceMem.containers[containerId].amtAcquired > 0) {
+          harvesterMem.containerId = containerId as Id<StructureContainer>;
+          --sourceMem.containers[containerId].amtAcquired;
+          break;
+        }
+      }
+      --sourceMem.activePosAmt;
+      harvesterMem.sourceId = sourceId as Id<Source>;
+      break;
     }
   }
-  return null;
+  return harvesterMem;
 }
 
 export const Harvester = {
@@ -31,15 +44,16 @@ export const Harvester = {
         }
       }
     } else {
-      const targetContainer = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: (struct: StructureContainer) =>
-          struct.structureType === STRUCTURE_CONTAINER && struct.pos.inRangeTo(creep, 2) && struct.store.getFreeCapacity() > 0
-      }) as StructureContainer | null;
-      if (targetContainer) {
-        if (creep.transfer(targetContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-          creep.moveTo(targetContainer, { visualizePathStyle: { stroke: "#ffffff" } });
+      if (creep.memory.containerId && global.roleCounters.carrier !== 0) {
+        const sourceContainer = Game.getObjectById(creep.memory.containerId);
+        if (sourceContainer) {
+          if (!creep.pos.isEqualTo(sourceContainer)) {
+            creep.moveTo(sourceContainer, { visualizePathStyle: { stroke: "#ffffff" } });
+          } else {
+            creep.transfer(sourceContainer, RESOURCE_ENERGY);
+          }
         }
-      } else if (global.roleCounters.carrier === 0) {
+      } else {
         const targetsSpawn: StructureSpawn[] = creep.room.find(FIND_MY_SPAWNS, {
           filter: (spawn: StructureSpawn) =>
             spawn.store.energy < SPAWN_ENERGY_CAPACITY
@@ -61,6 +75,11 @@ export const Harvester = {
           }
         }
       }
+    }
+
+    if (creep.ticksToLive && creep.ticksToLive < 2) {
+      creep.drop(RESOURCE_ENERGY);
+      creep.suicide();
     }
   }
 };

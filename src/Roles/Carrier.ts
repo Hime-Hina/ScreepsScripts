@@ -1,11 +1,19 @@
-export function GetDestIdForCarrier(room: Room): Id<Structure> | null {
-  for (const targetId in room.memory.targetsToFill) {
-    if (room.memory.targetsToFill[targetId].amtAcquired > 0) {
-      --room.memory.targetsToFill[targetId].amtAcquired;
-      return targetId as Id<Structure>;
+export const GetDestIdForCarrier = (room: Room): Id<Structure> | null => {
+  for (const destId in room.memory.targetsToFill) {
+    if (room.memory.targetsToFill[destId].amtAcquired > 0) {
+      --room.memory.targetsToFill[destId].amtAcquired;
+      return destId as Id<Structure>;
     }
   }
   return null;
+}
+
+export const GetMemConfigForCarrier = (room: Room): CreepMemory => {
+  return {
+    role: "carrier",
+    working: false,
+    destId: GetDestIdForCarrier(room),
+  };
 }
 
 export const Carrier = {

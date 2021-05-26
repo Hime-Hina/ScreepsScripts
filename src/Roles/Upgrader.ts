@@ -1,3 +1,25 @@
+export const GetMemConfigForUpgrader = (room: Room): CreepMemory => {
+  return {
+    role: "upgrader",
+    working: false,
+  };
+};
+
+const GetEnergyFromOther = (creep: Creep): void => {
+  if (creep.room.storage && creep.room.storage.store.energy > 0) {
+    if (creep.withdraw(creep.room.storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+      creep.moveTo(creep.room.storage, { visualizePathStyle: { stroke: "#ffffff" } });
+    }
+  } else {
+    const spawnsForEnergy = creep.room.find(FIND_MY_SPAWNS, { filter: spawn => spawn.store.energy > 250 });
+    if (spawnsForEnergy.length > 0) {
+      if (creep.withdraw(spawnsForEnergy[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+        creep.moveTo(spawnsForEnergy[0], { visualizePathStyle: { stroke: "#ffffff" } });
+      }
+    }
+  }
+}
+
 export const Upgrader = {
   run: (creep: Creep): void => {
     if (creep.memory.working && creep.store[RESOURCE_ENERGY] === 0) {
@@ -7,28 +29,21 @@ export const Upgrader = {
     }
 
     if (creep.memory.working) {
-      if (creep.upgradeController(creep.room.controller!) === ERR_NOT_IN_RANGE) {
-        creep.moveTo(creep.room.controller!, { visualizePathStyle: { stroke: "#ffffff" } });
+      if (creep.room.controller && creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
+        creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: "#ffffff" } });
       }
     } else {
       if (creep.room.memory.rclContainerId) {
         const rclContainer = Game.getObjectById(creep.room.memory.rclContainerId);
-        if (rclContainer) {
+        if (rclContainer && rclContainer.store.energy > 0) {
           if (creep.withdraw(rclContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
             creep.moveTo(rclContainer, { visualizePathStyle: { stroke: "#ffffff" } });
           }
-        }
-      } else if (creep.room.storage && creep.room.storage.store.energy > 0) {
-        if (creep.withdraw(creep.room.storage, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-          creep.moveTo(creep.room.storage, { visualizePathStyle: { stroke: "#ffffff" } });
+        } else {
+          GetEnergyFromOther(creep);
         }
       } else {
-        const spawnsForEnergy = creep.room.find(FIND_MY_SPAWNS, { filter: spawn => spawn.store.energy > 250 });
-        if (spawnsForEnergy.length > 0) {
-          if (creep.withdraw(spawnsForEnergy[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-            creep.moveTo(spawnsForEnergy[0], { visualizePathStyle: { stroke: "#ffffff" } });
-          }
-        }
+        GetEnergyFromOther(creep);
       }
     }
   }

@@ -1,8 +1,16 @@
+export const GetMemConfigForRepairer = (room: Room): CreepMemory => {
+  return {
+    role: "repairer",
+    working: false,
+    destId: GetDestIdForRepairer(room),
+  };
+};
+
 export function GetDestIdForRepairer(room: Room): Id<Structure> | null {
-  for (const targetId in room.memory.targetsToRepair) {
-    if (room.memory.targetsToRepair[targetId].amtAcquired > 0) {
-      --room.memory.targetsToRepair[targetId].amtAcquired;
-      return targetId as Id<Structure>;
+  for (const destId in room.memory.targetsToRepair) {
+    if (room.memory.targetsToRepair[destId].amtAcquired > 0) {
+      --room.memory.targetsToRepair[destId].amtAcquired;
+      return destId as Id<Structure>;
     }
   }
   return null;
