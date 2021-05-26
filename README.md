@@ -74,4 +74,5 @@
   默认Creep数量需求为1(只需一个`Harvester`维护).
   `Harvester`会自动驻留在分配到的`Container`上. 将要消亡时(`ticksToLive <= 2`), 丢出存储的能量.
   若没有分配`Container`或者没有`Carrier`, 就执行一般逻辑(给`Spawn`或`Extension`填充能量).
+* 将`GlobalAPI.ts`合并到`Initialize.ts`.
 * 将函数`FindRCLContainer`更换成`GetRCLContainerId`.
