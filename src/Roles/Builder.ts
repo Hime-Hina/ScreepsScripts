@@ -37,14 +37,12 @@ export const Builder = {
               creep.moveTo(targetsExt[0], { visualizePathStyle: { stroke: "#ffffff" } });
             }
           } else {
-            const targetContainer = creep.pos.findClosestByRange(FIND_STRUCTURES,
-              {
-                filter: (struct: StructureContainer) =>
-                  struct.structureType === STRUCTURE_CONTAINER && struct.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            const rclContainerId = creep.room.memory.rclContainerId;
+            if (rclContainerId) {
+              const rclContainer = Game.getObjectById(rclContainerId);
+              if (rclContainer && creep.transfer(rclContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                creep.moveTo(rclContainer, { visualizePathStyle: { stroke: "#ffffff" } });
               }
-            );
-            if (targetContainer && creep.transfer(targetContainer, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-              creep.moveTo(targetContainer, { visualizePathStyle: { stroke: "#ffffff" } });
             }
           }
         }
