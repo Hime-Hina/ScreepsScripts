@@ -9,10 +9,8 @@ export const Builder = {
   run: (creep: Creep): void => {
     if (creep.memory.working && creep.store[RESOURCE_ENERGY] === 0) {
       creep.memory.working = false;
-      // creep.say("More ⚡!");
     } else if (creep.store.getFreeCapacity() === 0) {
       creep.memory.working = true;
-      // creep.say("🔨Building...");
     }
 
     if (creep.memory.working) {
@@ -56,7 +54,7 @@ export const Builder = {
         }
       } else {
         const container = creep.pos.findClosestByRange(FIND_STRUCTURES, {
-          filter: (struct: StructureContainer) => struct.structureType === STRUCTURE_CONTAINER && struct.store.energy > 0
+          filter: (struct: StructureContainer) => struct.structureType === STRUCTURE_CONTAINER && struct.id !== creep.room.memory.rclContainerId && struct.store.energy > 0
         });
         if (container) {
           if (creep.withdraw(container, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {

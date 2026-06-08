@@ -1,4 +1,4 @@
-import { creepsAmtAcquiredForEachFilling, creepsAmtAcquiredForEachRepairing, priorityStructureNeedToBeFilled, priorityStructureNeedToBeRepaired } from "Constants";
+import { ROLES_BODIES, creepsAmtAcquiredForEachFilling, creepsAmtAcquiredForEachRepairing, priorityStructureNeedToBeFilled, priorityStructureNeedToBeRepaired } from "Constants";
 import { Builder, GetMemConfigForBulider } from "Roles/Builder";
 import { Carrier, GetDestIdForCarrier, GetMemConfigForCarrier } from "Roles/Carrier";
 import { Defender, GetMemConfigForDefender } from "Roles/Defender";
@@ -121,8 +121,28 @@ const FindSentryPos = (room: Room): { [id: string]: boolean } => {
 }
 
 export const GlobalAPI = (): void => {
-  global.GetStructToRepair = (roomName: string, idx: number): Structure | null => {
-    return Game.getObjectById(Object.keys(Memory.rooms[roomName].targetsToRepair)[idx] as Id<Structure>);
+  global.GlobalInit = Initialize;
+  global.GloCreepConfig = {
+    Add(configName: string, specificRole: Roles, args: IWorkingData): boolean {
+      if (!Memory.creepConfigs) Memory.creepConfigs = {};
+      if (Memory.creepConfigs[configName]) return false;
+
+      Memory.creepConfigs[configName] = { role: specificRole, args };
+      return true;
+    },
+    Get(configName: string): ICreepConfig | undefined {
+      if (!Memory.creepConfigs) return undefined;
+      return Memory.creepConfigs[configName];
+    },
+    Remove(configName: string): true {
+      delete Memory.creepConfigs[configName];
+      return true;
+    },
+    ChangeConfigArgs(configName: string, newArgs: IWorkingData): boolean {
+      if (!Memory.creepConfigs || !Memory.creepConfigs[configName]) return false;
+      Memory.creepConfigs[configName].args = newArgs;
+      return true;
+    }
   };
   global.roleCounters = {
     harvester: 0,
@@ -151,7 +171,6 @@ export const GlobalAPI = (): void => {
     repairer: GetMemConfigForRepairer,
     worker: (room: Room) => { console.log("GetRolesMemConfig.worker is unimplemented!"); return {} as CreepMemory }
   };
-  global.GlobalInit = Initialize;
   global.InitRolesMem = (room: Room): void => {
     _.map(room.find(FIND_MY_CREEPS), crp => {
       crp.memory = global.GetRolesMemConfig[crp.memory.role as Roles](crp.room);
@@ -161,35 +180,28 @@ export const GlobalAPI = (): void => {
     _.map(room.find(FIND_MY_CREEPS, { filter: crp => crp.memory.role === "carrier" }),
       crp => { crp.memory.destId = GetDestIdForCarrier(crp.room); });
   };
-  global.CreepConfig = {
-    Add(configName: string, specificRole: Roles, args: IWorkingData): boolean {
-      if (!Memory.creepConfigs) Memory.creepConfigs = {};
-      if (Memory.creepConfigs[configName]) return false;
-
-      Memory.creepConfigs[configName] = { role: specificRole, args };
-      return true;
-    },
-    Get(configName: string): ICreepConfig | undefined {
-      if (!Memory.creepConfigs) return undefined;
-      return Memory.creepConfigs[configName];
-    },
-    Remove(configName: string): true {
-      delete Memory.creepConfigs[configName];
-      return true;
-    },
-    ChangeConfigArgs(configName: string, newArgs: IWorkingData): boolean {
-      if (!Memory.creepConfigs || !Memory.creepConfigs[configName]) return false;
-      Memory.creepConfigs[configName].args = newArgs;
-      return true;
-    }
-  };
   global.FindTargetToRepair = (room: Room): Structure | null => {
     const targets = room.find(FIND_STRUCTURES, {
-      filter: struct => struct.structureType !== STRUCTURE_WALL && struct.hits < struct.hitsMax
+      filter: struct => struct.hits < struct.hitsMax
     }).sort((a, b) => a.hits / a.hitsMax - b.hits / b.hitsMax);
     if (targets.length > 0) return Game.getObjectById(targets[0].id as Id<Structure>);
     else return null;
   };
+  global.GetStructToRepair = (roomName: string, idx: number): Structure | null => {
+    return Game.getObjectById(Object.keys(Memory.rooms[roomName].targetsToRepair)[idx] as Id<Structure>);
+  };
+  global.SpawnRole = (spawn: StructureSpawn, roleName: string & Roles): boolean => {
+    if (spawn.spawning) return false;
+    const newCreepName = roleName[0].toUpperCase() + roleName.slice(1);
+    if (spawn.spawnCreep(
+      ROLES_BODIES[roleName].bodies,
+      `${newCreepName}${Game.time}`,
+      { memory: global.GetRolesMemConfig[roleName](spawn.room) }
+    ) === OK) {
+      ++global.roleCounters[roleName];
+      return true;
+    } else return false;
+  }
 }
 
 export function Initialize(): void {

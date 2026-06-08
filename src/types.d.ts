@@ -127,7 +127,8 @@ declare namespace NodeJS {
     InitCarriersMem: (room: Room) => void;
     GlobalInit: () => void;
     FindTargetToRepair: (room: Room) => Structure | null;
-    CreepConfig: {
+    SpawnRole: (spawn: StructureSpawn, roleName: string & Roles) => boolean;
+    GloCreepConfig: {
       Add: (configName: string, specificRole: Roles, ...args: any[]) => boolean;
       Get: (configName: string) => ICreepConfig | undefined;
       Remove: (configName: string) => true;

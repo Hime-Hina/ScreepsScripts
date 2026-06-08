@@ -9,14 +9,14 @@ export const ROLES_AMOUNT_PER_ROOM: {
   builder: 1,
   repairer: 2,
   worker: 0,
-  defender: 3,
+  defender: 2,
 };
 
 const ROLES_BODIES: RolesBodiesConfig = {
   harvester: { bodies: [WORK, WORK, WORK, WORK, CARRY, MOVE, MOVE], cost: 0 },
   upgrader: { bodies: [WORK, WORK, WORK, CARRY, MOVE, MOVE, MOVE], cost: 0 },
   carrier: { bodies: [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], cost: 0 },
-  builder: { bodies: [WORK, CARRY, CARRY, MOVE, MOVE, MOVE], cost: 0 },
+  builder: { bodies: [WORK, WORK, WORK, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], cost: 0 },
   repairer: { bodies: [WORK, WORK, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE], cost: 0 },
   worker: { bodies: [], cost: 0 },
   defender: { bodies: [TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK], cost: 0 },

@@ -57,12 +57,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
             `${newCreepName}${Game.time}`, { dryRun: true }
           ) === OK;
         if (canBeSpawned) {
-          const args: { memory: CreepMemory } = {
-            memory: { role: k as Roles, working: false, }
-          };
-          args.memory = global.GetRolesMemConfig[k as Roles](Game.spawns.Spawn0.room);
           ++global.roleCounters[k as Roles];
-          Game.spawns.Spawn0.spawnCreep(ROLES_BODIES[k as Roles].bodies, `${newCreepName}${Game.time}`, args);
+          Game.spawns.Spawn0.spawnCreep(
+            ROLES_BODIES[k as Roles].bodies,
+            `${newCreepName}${Game.time}`,
+            { memory: global.GetRolesMemConfig[k as Roles](Game.spawns.Spawn0.room) }
+          );
           return false;
         } else return true;
       } else return true;
