@@ -7,9 +7,12 @@ flowchart LR
   Screeps["Screeps 运行时"] --> Main["src/main.ts loop"]
   Main --> Boundary["运行时边界"]
   Boundary --> Memory["Memory 边界"]
+  Boundary --> SpawnSnapshot["Spawn/Creep 快照"]
   Memory --> Kernel["runTick"]
-  Kernel --> Domain["领域决策（未来）"]
-  Domain --> Actions["运行时动作执行（未来）"]
+  SpawnSnapshot --> Kernel
+  Kernel --> Spawning["src/spawning"]
+  Spawning --> SpawnDecision["SpawnDecision"]
+  SpawnDecision --> Actions["运行时动作执行（未来）"]
   Kernel --> Telemetry["TickTelemetry"]
 ```
 
@@ -17,11 +20,13 @@ flowchart LR
 
 `src/runtime/` 拥有对 Screeps 全局对象的直接访问权。策略模块应从该边界接收明确输入，而不是自行读取全局对象。
 
-`src/kernel/` 拥有 tick 级编排。当前第一版实现只记录并返回 tick telemetry，用于在策略开发前验证构建、测试和部署链路。
+`src/kernel/` 拥有 tick 级编排。当前实现记录 tick telemetry，并把 runtime 快照交给 spawning 边界产出可测试的 spawn decision。
 
 `src/memory/` 负责原始 `Memory` 的校验、schema version、迁移入口和写回。当前 schema 只有项目 root 与 `schemaVersion`，在 creep、room、spawn 状态进入前先建立单一持久化边界。
 
-未来领域模块应围绕 Screeps 概念划分，例如 colony、spawning、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由一个运行时拥有的操作统一裁决和执行。
+`src/spawning/` 拥有 spawn 决策。当前只有第一个 initial worker 的纯 decision，不直接调用 `spawnCreep`。
+
+其他未来领域模块应围绕 Screeps 概念划分，例如 colony、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由一个运行时拥有的操作统一裁决和执行。
 
 CPU 和 bucket 行为是架构的一部分。Pathfinding、room scan、market scan、cache rebuild 在实现前必须明确预算、执行频率和低 bucket 行为。
 

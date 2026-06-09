@@ -10,7 +10,7 @@
 
 Current reference:
 
-- `src/main.ts` calls `runTick(captureScreepsTickRuntime())`.
+- `src/main.ts` calls `runScreepsTick(captureScreepsTickRuntime())`.
 
 Do not put strategy decisions, memory schema parsing, spawn planning, pathfinding, or deployment logic in `src/main.ts`.
 
@@ -20,7 +20,7 @@ Direct access to Screeps globals belongs in `src/runtime/`.
 
 Current reference:
 
-- `src/runtime/screeps-runtime.ts` reads `Game.time`, `Game.cpu.getUsed()`, and `console.log`.
+- `src/runtime/screeps-runtime.ts` reads `Game.time`, `Game.cpu.getUsed()`, `Game.creeps`, `Game.spawns`, `Memory`, `RESOURCE_ENERGY`, and `console.log`.
 - `src/kernel/run-tick.ts` receives `ScreepsTickRuntime` and does not read globals.
 
 When adding a Screeps global, expose only the smallest operation needed by the runtime interface. Avoid passing raw global objects inward when a narrower method or value preserves the invariant.
@@ -30,7 +30,7 @@ When adding a Screeps global, expose only the smallest operation needed by the r
 Validate external inputs once at the boundary:
 
 - Screeps globals and console behavior in `src/runtime/`.
-- Future `Memory` deserialization at the memory boundary.
+- `Memory` deserialization at the memory boundary.
 - Future deployment configuration at deployment script entrypoints.
 
 After the boundary establishes an invariant, internal modules trust it. Repeated null, type, or state checks inside `src/kernel/` or strategy modules indicate the boundary is wrong.
@@ -41,7 +41,7 @@ Put complexity where the decision is owned:
 
 - Tick orchestration belongs in `src/kernel/`.
 - Screeps API capture belongs in `src/runtime/`.
-- Room, creep, spawn, logistics, and combat decisions belong in future domain modules named after those Screeps concepts.
+- Spawn decisions belong in `src/spawning/`; room, creep, logistics, and combat decisions belong in future domain modules named after those Screeps concepts.
 
 Forbidden module names include `utils`, `helpers`, `manager`, `handler`, and other context-dependent names.
 

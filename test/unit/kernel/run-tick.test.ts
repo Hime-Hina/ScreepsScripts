@@ -10,6 +10,16 @@ describe('runTick', () => {
     const tickRuntime: ScreepsTickIO = {
       gameTime: 42,
       readCpuUsed: () => 1.25,
+      readSpawningWorld: () => ({
+        creepCount: 0,
+        spawns: [
+          {
+            availableEnergy: 300,
+            isSpawning: false,
+            name: 'Spawn1',
+          },
+        ],
+      }),
       writeConsoleLine: (message) => consoleLines.push(message),
     };
 
@@ -18,6 +28,11 @@ describe('runTick', () => {
     expect(tickExecution).toEqual({
       memoryState: {
         schemaVersion: 1,
+      },
+      spawnDecision: {
+        body: ['work', 'carry', 'move'],
+        creepName: 'Worker1',
+        spawnName: 'Spawn1',
       },
       telemetry: {
         cpuAtTickStart: 1.25,

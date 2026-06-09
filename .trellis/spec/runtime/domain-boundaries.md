@@ -12,6 +12,7 @@ Future game modules must be named after Screeps domain concepts and own complete
 | Screeps global capture | `src/runtime/` |
 | Tick orchestration | `src/kernel/` |
 | Persistent memory boundary | `src/memory/` |
+| Initial spawning decision | `src/spawning/` |
 
 ## Future Owners
 
@@ -20,7 +21,7 @@ Use these boundaries when the behavior exists:
 | Domain | Owns | Does Not Own |
 | --- | --- | --- |
 | Colony | Room-level goals, resource priorities, high-level work allocation | Raw Screeps globals |
-| Spawning | Spawn queues, body selection, spawn availability | Creep execution |
+| Spawning | Future spawn queues and richer body selection | Creep execution |
 | Creeps | Per-creep action execution from assigned intent | Colony-wide prioritization |
 | Logistics | Energy/resource movement decisions | Combat or market policy |
 | Pathing | Path search, cost matrix policy, route cache | Creep business goals |
@@ -29,7 +30,7 @@ Use these boundaries when the behavior exists:
 
 Only create a domain module when a task adds behavior that belongs there.
 
-Standard future directory names:
+Standard domain directory names:
 
 - `src/memory/`
 - `src/colony/`
@@ -40,7 +41,7 @@ Standard future directory names:
 - `src/defense/`
 - `src/market/`
 
-These names are reserved for the domain concepts above. Do not create the directory until the first accepted behavior in that domain exists.
+These names are reserved for the domain concepts above. Do not create a domain directory until the first accepted behavior in that domain exists.
 
 ## Data Flow
 

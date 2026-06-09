@@ -8,14 +8,26 @@ describe('Screeps main loop', () => {
   it('reads the Screeps globals at loop time', async () => {
     const consoleLines: string[] = [];
     const screepsMemory: Record<string, unknown> = {};
+    const firstSpawn = {
+      name: 'Spawn1',
+      spawning: null,
+      store: {
+        getUsedCapacity: () => 300,
+      },
+    };
 
     vi.stubGlobal('Game', {
+      creeps: {},
       cpu: {
         getUsed: () => 0.5,
+      },
+      spawns: {
+        Spawn1: firstSpawn,
       },
       time: 7,
     });
     vi.stubGlobal('Memory', screepsMemory);
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
     vi.stubGlobal('console', {
       log: (message: string) => consoleLines.push(message),
     });

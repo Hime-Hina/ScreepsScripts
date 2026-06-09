@@ -14,14 +14,26 @@ describe('compiled Screeps bundle', () => {
     const commonjsExports: { loop?: unknown } = {};
     const consoleLines: string[] = [];
     const screepsMemory: Record<string, unknown> = {};
+    const firstSpawn = {
+      name: 'Spawn1',
+      spawning: null,
+      store: {
+        getUsedCapacity: () => 300,
+      },
+    };
     const scriptContext = {
       Game: {
+        creeps: {},
         cpu: {
           getUsed: () => 2.5,
+        },
+        spawns: {
+          Spawn1: firstSpawn,
         },
         time: 99,
       },
       Memory: screepsMemory,
+      RESOURCE_ENERGY: 'energy',
       console: {
         log: (message: string) => consoleLines.push(message),
       },

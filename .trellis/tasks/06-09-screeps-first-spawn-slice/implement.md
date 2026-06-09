@@ -2,14 +2,14 @@
 
 ## Checklist
 
-- [ ] Confirm Memory boundary task is committed.
-- [ ] Add one failing unit test for the spawn decision public behavior.
-- [ ] Add the minimal spawning boundary and typed decision.
-- [ ] Thread runtime snapshot and memory state through kernel only as needed.
-- [ ] Add integration coverage for `loop` if runtime capture changes.
-- [ ] Update docs/spec when a new domain boundary is introduced.
-- [ ] Run focused tests, then `pnpm check`.
-- [ ] Commit this task independently.
+- [x] Confirm Memory boundary task is committed.
+- [x] Add one failing unit test for the spawn decision public behavior.
+- [x] Add the minimal spawning boundary and typed decision.
+- [x] Thread runtime snapshot and memory state through kernel only as needed.
+- [x] Add integration coverage for `loop` if runtime capture changes.
+- [x] Update docs/spec when a new domain boundary is introduced.
+- [x] Run focused tests, then `pnpm check`.
+- [x] Commit this task independently.
 
 ## Validation Commands
 
