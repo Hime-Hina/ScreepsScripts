@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "Defines code/docs/spec completion gate."}
+{"file": ".trellis/spec/runtime/memory-schema.md", "reason": "Check raw Memory is decoded and written through one boundary."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Check Screeps globals stay in runtime boundary."}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "Check behavior tests exist and pass."}

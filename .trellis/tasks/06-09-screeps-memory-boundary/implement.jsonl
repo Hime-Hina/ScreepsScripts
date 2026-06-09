@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/runtime/memory-schema.md", "reason": "Owns Memory schema, migration, and writeback contract."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Defines global access and runtime boundary ownership."}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Prevents strategy leakage into Memory boundary work."}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "Requires red-green-refactor for behavior changes."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Keeps Memory work to a boundary slice."}

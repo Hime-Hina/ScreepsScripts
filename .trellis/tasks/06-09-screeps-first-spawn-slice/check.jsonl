@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "Defines behavior, docs, and full gate completion requirements."}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Check spawning behavior sits in the right owner."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Check runtime boundary owns Screeps global access."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Check the behavior remains a single vertical slice."}

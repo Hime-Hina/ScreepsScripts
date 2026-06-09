@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Owns spawning domain boundary and complete operations."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Keeps Screeps global access out of strategy code."}
+{"file": ".trellis/spec/runtime/memory-schema.md", "reason": "Ensures spawn/creep state uses typed Memory boundary."}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "Requires failing behavior test before implementation."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Defines Given/When/Then slice shape for spawn decision."}
