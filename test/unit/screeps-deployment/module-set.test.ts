@@ -24,6 +24,33 @@ describe('Screeps module set', () => {
     expect(moduleSetModule.moduleSetsAreEqual(firstModuleSet, secondModuleSet)).toBe(true);
   });
 
+  it('matches required deployment modules while allowing separately reported remote extras', async () => {
+    const moduleSetModule = await loadModuleSetModule();
+
+    expect(
+      moduleSetModule.requiredModulesMatch(
+        {
+          main: 'local-main',
+        },
+        {
+          main: 'local-main',
+          'main.js.map': 'historical-map',
+        },
+      ),
+    ).toBe(true);
+    expect(
+      moduleSetModule.requiredModulesMatch(
+        {
+          main: 'local-main',
+        },
+        {
+          main: 'different-main',
+          'main.js.map': 'historical-map',
+        },
+      ),
+    ).toBe(false);
+  });
+
   it('reads dist/main.js as the only local deployment module', async () => {
     const workspacePath = await mkdtemp(join(tmpdir(), 'screeps-module-set-'));
 

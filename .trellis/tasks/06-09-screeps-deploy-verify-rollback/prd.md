@@ -25,7 +25,7 @@
   - 上传明确的目标模块，不隐式清理或保留未记录策略的额外模块。
   - readback 远端模块并校验 hash。
 - 回滚脚本必须从 snapshot 恢复同一 branch 的上一份远端模块集，并用 readback hash 验证恢复结果。
-- verify 脚本只证明 live API readback 与本地构建产物一致；不得声称已经证明自然生产 tick 执行。
+- verify 脚本只证明 live API readback 中的 `main` module 与本地构建产物一致；不得声称已经证明自然生产 tick 执行。
 - `docs/development.md`、`docs/game-state.md` 和 `screeps.example.json` 必须与脚本契约一致。
 
 ## Acceptance Criteria

@@ -51,6 +51,6 @@ https://screeps.com/a/#!/account/auth-tokens
 
 `deploy:screeps` 会在 live 上传前运行 `pnpm check`，随后立即重新构建 `dist/main.js`。脚本先读取当前远端 module set，写入 Git 忽略的 `.screeps/rollback/latest.json`，再上传本地 `main` module，并通过 API readback 校验 hash。
 
-`verify:live:screeps` 只校验 Screeps API readback 与本地 `dist/main.js` 一致。它不证明自然生产 tick 已执行。
+`verify:live:screeps` 只校验 Screeps API readback 中的 `main` module 与本地 `dist/main.js` 一致，并报告远端 module 列表。它不证明自然生产 tick 已执行。
 
 `rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并再次 readback 校验。没有 snapshot 或 snapshot branch 与 `screeps.json` 不一致时，脚本会停止。

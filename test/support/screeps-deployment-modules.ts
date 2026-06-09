@@ -21,6 +21,10 @@ export interface ModuleSetModule {
     rightModuleSet: Record<string, string>,
   ): boolean;
   readLocalMainModuleSetFrom(workspacePath: string): Promise<Record<string, string>>;
+  requiredModulesMatch(
+    requiredModuleSet: Record<string, string>,
+    candidateModuleSet: Record<string, string>,
+  ): boolean;
 }
 
 export interface RollbackSnapshot {
@@ -113,7 +117,8 @@ const isModuleSetModule = (candidateModule: unknown): candidateModule is ModuleS
   hasFunction(candidateModule, 'describeModuleNames') &&
   hasFunction(candidateModule, 'hashModuleSet') &&
   hasFunction(candidateModule, 'moduleSetsAreEqual') &&
-  hasFunction(candidateModule, 'readLocalMainModuleSetFrom');
+  hasFunction(candidateModule, 'readLocalMainModuleSetFrom') &&
+  hasFunction(candidateModule, 'requiredModulesMatch');
 
 const isRollbackSnapshotModule = (
   candidateModule: unknown,

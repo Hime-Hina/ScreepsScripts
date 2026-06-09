@@ -7,8 +7,8 @@ import { readMainScreepsConfig } from './config.mjs';
 import {
   describeModuleNames,
   hashModuleSet,
-  moduleSetsAreEqual,
   readLocalMainModuleSet,
+  requiredModulesMatch,
 } from './module-set.mjs';
 import { readRemoteModuleSet } from './screeps-api.mjs';
 
@@ -17,14 +17,14 @@ export const verifyLiveScreepsReadback = async () => {
   const localModules = await readLocalMainModuleSet();
   const remoteModules = await readRemoteModuleSet(screepsConfig);
 
-  if (!moduleSetsAreEqual(localModules, remoteModules)) {
-    throw new Error('Live API readback does not match dist/main.js.');
+  if (!requiredModulesMatch(localModules, remoteModules)) {
+    throw new Error('Live API readback main module does not match dist/main.js.');
   }
 
   console.log(
-    `[verify:live:screeps] apiReadback=matched branch=${screepsConfig.branch} modules=${describeModuleNames(
-      remoteModules,
-    )} hash=${hashModuleSet(remoteModules)}`,
+    `[verify:live:screeps] apiReadback=main-matched branch=${screepsConfig.branch} localModules=${describeModuleNames(
+      localModules,
+    )} remoteModules=${describeModuleNames(remoteModules)} hash=${hashModuleSet(remoteModules)}`,
   );
   console.log('[verify:live:screeps] naturalTickHeartbeat=not-verified-by-this-script');
 };

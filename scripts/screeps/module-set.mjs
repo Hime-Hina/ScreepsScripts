@@ -55,6 +55,16 @@ export const hashEachModule = (moduleSet) => {
 export const moduleSetsAreEqual = (leftModuleSet, rightModuleSet) =>
   serializeModuleSet(leftModuleSet) === serializeModuleSet(rightModuleSet);
 
+export const requiredModulesMatch = (requiredModuleSet, candidateModuleSet) => {
+  for (const [moduleName, requiredModuleSource] of Object.entries(requiredModuleSet)) {
+    if (candidateModuleSet[moduleName] !== requiredModuleSource) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 export const describeModuleNames = (moduleSet) => {
   const moduleNames = sortedModuleNames(moduleSet);
 
