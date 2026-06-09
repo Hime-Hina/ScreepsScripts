@@ -1,78 +1,35 @@
-# Screeps代码文件
+# ScreepsScripts
 
-本仓库是从 [screeps-typescript-starter](https://github.com/screepers/screeps-typescript-starter/) Fork过来的.
+从 2021 年旧单房间项目重建的新 TypeScript Screeps AI 代码库。
 
-## 更新记录
+## 当前状态
 
-不久前重新开了个房间, 在 `shard3 E27S46`
+- 旧运行时设计已移除。
+- 已初始化 Trellis，并采用 TDD 工作流。
+- 包管理器为 `pnpm`。
+- `src/main.ts` 导出 Screeps `loop`。
+- 策略代码尚未实现。
+- 可见 shard 已记录为 `shard3`。
+- Live Screeps 部署 branch 已记录为 `main`；远端 `main` 已读回，并与本地 `dist/main.js` 一致。
+- Owned room、spawn 和自然生产 tick heartbeat 尚未验证。
 
-### 2021年5月8日
+## 命令
 
-上传了本仓库, 说是Fork, 其实是先Clone了原项目, 然后后改了个名再上传的.
-大部分时间在配置本地开发环境, 基本上没什么修改, 现在还只是勉强能维持房间的存在.
+```powershell
+pnpm install
+pnpm check
+pnpm build
+```
 
-### 2021年5月25日
+## 文档
 
-添加大量新东西.
+- `CONTEXT.md`：项目语言、当前游戏状态和架构规则。
+- `docs/architecture.md`：运行时和测试结构。
+- `docs/development.md`：本地开发命令和 TDD 规则。
+- `docs/game-state.md`：生产部署前需要记录的事实。
+- `docs/references.md`：官方文档克隆和需要研究的外部仓库。
+- `docs/adr/`：架构决策。
 
-* 添加Constants
+## 本地参考资料
 
-  ```ts
-  export const ROLES_AMOUNT_PER_ROOM: { [roleName in Roles]: number; };
-  export const ROLES_BODIES: RolesBodiesConfig;
-  export const priorityStructureNeedToBeFilled: { [name: string]: number };
-  export const priorityStructureNeedToBeRepaired: { [name: string]: number };
-  export const creepsAmtAcquiredForEachRepairing: { [name: string]: number };
-  export const creepsAmtAcquiredForEachFilling: { [name: string]: number };
-  ```
-
-* 添加Creep角色: Builder, Carrier, Defender, Repairer
-
-  * Builder: 建筑工人. 不存在`ConstructionSite`时, 承担`Carrier`的部分职责.
-  * Carrier: 搬运工. 将`Harvester`收获的存储在`Container`的能量转移到`Spawn`, `Extension`, RCL附近的`Container`和`Storege`.
-  当`Spawn`正在生成creep, 更新`room.memory.targetsToFill`.
-  * Defender: 守卫, 以`rangeAttack`为主. 驻守在房间内的`Rampart`中, 消灭入侵的敌方.
-  * Repairer: 维修工人. 从`room.memory.targetsToRepair`获取需要维修的建筑物, 并且`room.memory.targetsToRepair`会定期(200 ticks)更新.
-
-* 添加Tower控制逻辑
-
-  * 优先级: `attack` -> `heal` -> `repair`
-
-* 添加全局挂载(GlobalAPI.ts), 方便在控制台中调用.
-
-  ```ts
-  RolesRun: { [roleName in Roles]: (creep: Creep) => void; };
-  roomsInfo: IRoomsInfo | undefined;
-  roleCounters: { [roleName in Roles]: number };
-  GetStructToRepair: (roomName: string, idx: number) => Structure | null;
-  InitRolesMem: (room: Room) => void;
-  InitCarriersMem: (room: Room) => void;
-  GlobalInit: () => void;
-  FindTargetToRepair: (room: Room) => Structure | null;
-  ```
-
-* 添加全局初始化(Initialize.ts), 主要初始化房间相应的`Memory`
-* 修改Harvester逻辑.
-
-  在有`Carrier`存在的情况下, 自动收获`Source`并将`energy`存放在附近的`Container`;
-  不存在`Carrier`则将能量放在`Spawn`或`Extension`.
-
-* 修改Upgrader逻辑.
-
-  检查RCL附近是否有`Container`. 若有(`rclContainer`), 则只从其中取能量; 若无, 则从`Storege`, `Container`或`Spawn`中获取能量.
-
-* 尽量用函数式的方式编码.
-
-### 2021年5月26日
-
-主要更新Creep角色相关逻辑.
-
-* 修改`CreepMemory`的初始化方式.
-  每个Role都有相应的`GetMemConfigFor${Role}`函数, 并在`global`上挂载`GetRolesMemConfig: { [roleName in Roles]: IGetMemConfig }`.
-* 修改`Harvester`的逻辑.
-  初始化时自动获取`Source`周围的`Container`的Id并存储在`room.sources`中,
-  默认Creep数量需求为1(只需一个`Harvester`维护).
-  `Harvester`会自动驻留在分配到的`Container`上. 将要消亡时(`ticksToLive <= 2`), 丢出存储的能量.
-  若没有分配`Container`或者没有`Carrier`, 就执行一般逻辑(给`Spawn`或`Extension`填充能量).
-* 将`GlobalAPI.ts`合并到`Initialize.ts`.
-* 将函数`FindRCLContainer`更换成`GetRCLContainerId`.
+官方 Screeps 文档已克隆到 `references/screeps-docs/`，并被 Git 忽略。
