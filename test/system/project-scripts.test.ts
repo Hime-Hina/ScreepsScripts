@@ -40,13 +40,16 @@ describe('project scripts', () => {
     const requiredScriptNames = [
       'build',
       'check',
+      'deploy:screeps',
       'lint',
+      'rollback:screeps',
       'test:coverage',
       'test:e2e',
       'test:integration',
       'test:system',
       'test:unit',
       'typecheck',
+      'verify:live:screeps',
     ];
 
     expect(packageManifest.packageManager).toMatch(/^pnpm@/);
@@ -54,5 +57,26 @@ describe('project scripts', () => {
     for (const scriptName of requiredScriptNames) {
       expect(typeof packageManifest.scripts[scriptName]).toBe('string');
     }
+  });
+
+  it('keeps live Screeps credentials and rollback snapshots out of tracked source', () => {
+    const gitIgnoreText = readFileSync('.gitignore', 'utf8');
+
+    expect(gitIgnoreText).toContain('screeps.json');
+    expect(gitIgnoreText).toContain('.screeps/');
+  });
+
+  it('keeps live Screeps operations explicit and outside the default check gate', () => {
+    const packageManifest = readPackageManifest();
+
+    expect(packageManifest.scripts['deploy:screeps']).toBe(
+      'pnpm check && pnpm build && node scripts/screeps/deploy.mjs',
+    );
+    expect(packageManifest.scripts['verify:live:screeps']).toBe(
+      'pnpm build && node scripts/screeps/verify-live.mjs',
+    );
+    expect(packageManifest.scripts['rollback:screeps']).toBe('node scripts/screeps/rollback.mjs');
+    expect(packageManifest.scripts['check']).not.toContain('deploy:screeps');
+    expect(packageManifest.scripts['check']).not.toContain('rollback:screeps');
   });
 });

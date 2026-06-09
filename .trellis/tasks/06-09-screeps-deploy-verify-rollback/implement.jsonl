@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/operations/deployment.md", "reason": "Owns deploy/readback/remote module-set contract."}
+{"file": ".trellis/spec/operations/rollback.md", "reason": "Owns rollback snapshot and restore contract."}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "Separates API readback from natural tick verification."}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "Defines secret handling and screeps.json boundary."}
+{"file": ".trellis/spec/tooling/package-manager.md", "reason": "Defines explicit pnpm live operation script names."}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "Requires behavior-first tests for executable changes."}

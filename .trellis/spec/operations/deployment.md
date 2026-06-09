@@ -27,7 +27,7 @@ Future deployment commands must use explicit names such as:
 
 ```text
 deploy:screeps
-verify:screeps
+verify:live:screeps
 rollback:screeps
 ```
 

@@ -7,5 +7,6 @@ coverage/
 .env.*
 !.env.example
 screeps.json
+.screeps/
 references/screeps-docs/
 references/player-code/

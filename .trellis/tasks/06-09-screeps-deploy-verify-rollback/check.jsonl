@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "Defines completion gate for code, docs, live-affecting work, and commits."}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "Check deploy/readback behavior against operations contract."}
+{"file": ".trellis/spec/operations/rollback.md", "reason": "Check snapshot, restore, and branch mismatch behavior."}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "Check no secrets are printed or committed."}
+{"file": ".trellis/spec/tooling/package-manager.md", "reason": "Check pnpm scripts remain explicit and outside pnpm check."}

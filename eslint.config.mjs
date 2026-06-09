@@ -58,7 +58,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['*.config.mjs'],
+    files: ['*.config.mjs', 'scripts/**/*.mjs'],
     extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 'latest',

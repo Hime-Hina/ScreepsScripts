@@ -34,7 +34,7 @@
 - Screeps IDE branch：`main`（`observed`，UI）。
 - 本地 `screeps.json` branch：`main`（`observed`，本地配置；未记录 secret 值）。
 - 替换前远端已有模块：`main`、`main.js.map`（`observed`，API readback）。
-- 远端残留模块决策：已观察到 `main.js.map`，尚未分配 ownership policy（`blocked`）。
+- 远端残留模块决策：`deploy:screeps` 只发布本地 `dist/main.js` 对应的 `main` module；部署前会把既有远端 module set 保存到 rollback snapshot，因此 `main.js.map` 不作为当前部署目标保留（`derived`，本地脚本契约）。
 - 已部署模块：`main`（`observed`，API readback）。
 - 已部署本地产物：`dist/main.js`（`derived`，本地构建）。
 - API readback：
@@ -43,7 +43,7 @@
   - Modules：`main` length `534`，`main.js.map` length `80881`（`observed`，API readback）
 - 远端 `main` 内容与本地 `dist/main.js` 一致（`derived`，API readback + 本地 hash）。
 - SHA-256：`5271f78c0eebfd0c5ec1b8acc2c7c1768770d9b395bde7e9a48399434cd7b308`（`derived`）。
-- Rollback path：尚未记录（`blocked`）。
+- Rollback path：`pnpm rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并用 API readback 校验（`derived`，本地脚本契约；尚未执行 live rollback）。
 - Previous remote hash：尚未记录（`blocked`）。
 - Live runtime verification：blocked；API readback 只能确认代码同步，不等于自然 tick 运行验证。
 - 已保存行为：

@@ -9,10 +9,12 @@
   "scripts": {
     "build": "rollup --config rollup.config.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm format && pnpm test:coverage && pnpm test:system && pnpm test:e2e",
+    "deploy:screeps": "pnpm check && pnpm build && node scripts/screeps/deploy.mjs",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "rollback:screeps": "node scripts/screeps/rollback.mjs",
     "test": "vitest run test/unit test/integration",
     "test:e2e": "pnpm build && vitest run test/e2e",
     "test:integration": "vitest run test/integration",
@@ -20,7 +22,8 @@
     "test:unit": "vitest run test/unit",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage test/unit test/integration",
-    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.vitest.json --noEmit && tsc --project tsconfig.node.json --noEmit"
+    "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.vitest.json --noEmit && tsc --project tsconfig.node.json --noEmit",
+    "verify:live:screeps": "pnpm build && node scripts/screeps/verify-live.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
