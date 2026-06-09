@@ -2,14 +2,14 @@
 
 ## Checklist
 
-- [ ] Add failing unit tests for Memory decode and writeback behavior.
-- [ ] Add memory boundary module with schema version and typed state.
-- [ ] Extend runtime boundary with narrow raw Memory read/write operations.
-- [ ] Thread typed memory state through tick execution without adding strategy behavior.
-- [ ] Update integration/e2e tests for loop behavior with Memory present.
-- [ ] Update docs/spec if the implemented boundary changes project contract.
-- [ ] Run focused tests, then `pnpm check`.
-- [ ] Commit this task independently.
+- [x] Add failing unit tests for Memory decode and writeback behavior.
+- [x] Add memory boundary module with schema version and typed state.
+- [x] Extend runtime boundary with narrow raw Memory read/write operations.
+- [x] Thread typed memory state through tick execution without adding strategy behavior.
+- [x] Update integration/e2e tests for loop behavior with Memory present.
+- [x] Update docs/spec if the implemented boundary changes project contract.
+- [x] Run focused tests, then `pnpm check`.
+- [x] Commit this task independently.
 
 ## Validation Commands
 

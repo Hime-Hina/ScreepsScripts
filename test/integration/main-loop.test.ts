@@ -7,6 +7,7 @@ describe('Screeps main loop', () => {
 
   it('reads the Screeps globals at loop time', async () => {
     const consoleLines: string[] = [];
+    const screepsMemory: Record<string, unknown> = {};
 
     vi.stubGlobal('Game', {
       cpu: {
@@ -14,6 +15,7 @@ describe('Screeps main loop', () => {
       },
       time: 7,
     });
+    vi.stubGlobal('Memory', screepsMemory);
     vi.stubGlobal('console', {
       log: (message: string) => consoleLines.push(message),
     });
@@ -23,5 +25,10 @@ describe('Screeps main loop', () => {
     mainModule.loop();
 
     expect(consoleLines).toEqual(['[tick 7] cpu=0.50']);
+    expect(screepsMemory).toEqual({
+      screepsScripts: {
+        schemaVersion: 1,
+      },
+    });
   });
 });

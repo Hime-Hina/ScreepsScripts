@@ -10,7 +10,7 @@ This contract applies before any project-owned code reads or writes Screeps `Mem
 
 ### 2. Signatures
 
-Future memory boundary must expose a complete operation similar to:
+Memory boundary exposes complete operations with this shape:
 
 ```typescript
 export const SCREEPS_MEMORY_SCHEMA_VERSION = 1;
@@ -23,12 +23,15 @@ export const readScreepsMemoryState = (rawMemory: unknown): ScreepsMemoryState =
   // validate and migrate at the boundary
 };
 
-export const writeScreepsMemoryState = (state: ScreepsMemoryState): void => {
+export const writeScreepsMemoryState = (
+  rawMemory: unknown,
+  state: ScreepsMemoryState,
+): void => {
   // write typed state back to Memory
 };
 ```
 
-Exact names may change when implemented, but the ownership must not: one boundary module owns raw `Memory` validation, migration, and typed projection.
+Current implementation lives in `src/memory/screeps-memory.ts`. The ownership must not change: one boundary module owns raw `Memory` validation, migration, and typed projection.
 
 The schema version constant belongs to the memory boundary module. Domain modules import typed state and must not define private schema-version constants.
 

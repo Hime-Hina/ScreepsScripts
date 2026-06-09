@@ -6,7 +6,7 @@
 flowchart LR
   Screeps["Screeps 运行时"] --> Main["src/main.ts loop"]
   Main --> Boundary["运行时边界"]
-  Boundary --> Memory["Memory 边界（未来）"]
+  Boundary --> Memory["Memory 边界"]
   Memory --> Kernel["runTick"]
   Kernel --> Domain["领域决策（未来）"]
   Domain --> Actions["运行时动作执行（未来）"]
@@ -19,7 +19,7 @@ flowchart LR
 
 `src/kernel/` 拥有 tick 级编排。当前第一版实现只记录并返回 tick telemetry，用于在策略开发前验证构建、测试和部署链路。
 
-未来的 `src/memory/` 将负责原始 `Memory` 的校验、迁移、写回和垃圾回收，然后再把 typed state 交给领域模块。
+`src/memory/` 负责原始 `Memory` 的校验、schema version、迁移入口和写回。当前 schema 只有项目 root 与 `schemaVersion`，在 creep、room、spawn 状态进入前先建立单一持久化边界。
 
 未来领域模块应围绕 Screeps 概念划分，例如 colony、spawning、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由一个运行时拥有的操作统一裁决和执行。
 

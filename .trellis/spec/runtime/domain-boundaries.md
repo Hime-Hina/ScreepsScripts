@@ -11,7 +11,7 @@ Future game modules must be named after Screeps domain concepts and own complete
 | Screeps entrypoint | `src/main.ts` |
 | Screeps global capture | `src/runtime/` |
 | Tick orchestration | `src/kernel/` |
-| Persistent memory boundary | future `src/memory/` or equivalent explicit boundary |
+| Persistent memory boundary | `src/memory/` |
 
 ## Future Owners
 

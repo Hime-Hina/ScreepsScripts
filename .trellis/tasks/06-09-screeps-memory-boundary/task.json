@@ -3,7 +3,7 @@
   "name": "screeps-memory-boundary",
   "title": "实现 Memory 边界",
   "description": "实现 Memory schema、version、迁移和写回边界，防止运行态状态散落。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

@@ -13,6 +13,7 @@ describe('compiled Screeps bundle', () => {
     const compiledSource = readFileSync('dist/main.js', 'utf8');
     const commonjsExports: { loop?: unknown } = {};
     const consoleLines: string[] = [];
+    const screepsMemory: Record<string, unknown> = {};
     const scriptContext = {
       Game: {
         cpu: {
@@ -20,6 +21,7 @@ describe('compiled Screeps bundle', () => {
         },
         time: 99,
       },
+      Memory: screepsMemory,
       console: {
         log: (message: string) => consoleLines.push(message),
       },
@@ -40,5 +42,10 @@ describe('compiled Screeps bundle', () => {
     commonjsExports.loop();
 
     expect(consoleLines).toEqual(['[tick 99] cpu=2.50']);
+    expect(screepsMemory).toEqual({
+      screepsScripts: {
+        schemaVersion: 1,
+      },
+    });
   });
 });
