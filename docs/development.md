@@ -67,4 +67,4 @@ pnpm scout:screeps -- --shard shard3 --area W10S20:W19S29
 pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28
 ```
 
-输出包含候选排序、room status、source 数量、推荐 spawn 坐标、到 sources/controller 的路径距离、沼泽/墙比例、矿物、候选房间和邻居风险明细、拒绝原因。最终房间与 spawn 名称仍必须写入 `docs/game-state.md`，放置 spawn 后再记录自然 tick heartbeat。
+输出包含候选排序、room status、起始适合度、source 数量、推荐 spawn 坐标、到 sources/controller 的路径距离、局部开阔度、沼泽/墙比例、路径/地形/risk 评分拆解、矿物、候选房间和邻居风险明细、警告原因、拒绝原因。最终房间与 spawn 名称仍必须写入 `docs/game-state.md`，放置 spawn 后再记录自然 tick heartbeat。

@@ -38,7 +38,7 @@ pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 -
 
 - 筛选命令：`pnpm scout:screeps`（`observed`，API readback + 本地脚本）
 - 筛选范围：`shard3` 的 `W13S27`、`W12S28`、`W12S29`、`W17S29`、`W18S26`（`observed`，API）
-- 当前排序：
+- 当时排序：
   1. `W17S29`：score `86.5`，推荐 spawn `15,27`，source distances `21/17`，controller `5`，swamp `7.2%`，wall `25.7%`，risk `32.0`，mineral `K`（`observed`，API + derived scoring）
   2. `W12S29`：score `88.2`，推荐 spawn `25,21`，source distances `17/17`，controller `22`，swamp `1.6%`，wall `27.6%`，risk `36.0`，mineral `O`（`observed`，API + derived scoring）
   3. `W13S27`：score `96.4`，推荐 spawn `14,24`，source distances `5/5`，controller `25`，swamp `3.5%`，wall `32.4%`，risk `72.0`，mineral `K`（`observed`，API + derived scoring）
@@ -57,12 +57,21 @@ pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 -
 - 2026-06-10 复核低沼泽候选（`pnpm scout:screeps -- --shard shard3 --room W12S6 --room W15S27`）：
   - `W12S6`：score `57.7`，推荐 spawn `23,23`，source distances `10/11`，controller `11`，swamp `1.4%`，wall `27.8%`，risk `26.0`，mineral `H`（`observed`，API + derived scoring）。
   - `W15S27`：score `58.2`，推荐 spawn `44,30`，source distances `17/17`，controller `16`，swamp `4.1%`，wall `40.7%`，risk `7.0`，mineral `O`（`observed`，API + derived scoring）。
+- 2026-06-10 增强启发式后重新复核 `shard3` 低沼泽候选（`pnpm scout:screeps -- --shard shard3 --room W12S6 --room W15S27 --room W18S25 --room W18S26`）：
+  - `W15S27`：rank `1`，suitability `good`，score `52.6`，推荐 spawn `44,30`，source distances `17/17`，controller `16`，swamp `4.1%`，wall `40.7%`，pathPenalty `0.0`，terrainPenalty `0.7`，risk `3.0`，mineral `O`；限制是 wall `40.7%` 高于起始房间 target，且有 `1` 个 reserved neighboring room（`observed`，API + derived scoring）。
+  - `W12S6`：rank `2`，suitability `excellent`，score `55.9`，推荐 spawn `23,23`，source distances `10/11`，controller `11`，swamp `1.4%`，wall `27.8%`，pathPenalty `0.0`，terrainPenalty `0.0`，risk `25.0`，mineral `H`；限制是邻居中有 `5` creeps、`1` owned room、`3` towers、`2` spawns（`observed`，API + derived scoring）。
+  - `W18S25`：rank `3`，suitability `poor`，score `146.2`，swamp `24.9%`，terrainPenalty `65.9`，因高沼泽、source 距离失衡和局部 spawn 周边沼泽较多淘汰（`observed`，API + derived scoring）。
+  - `W18S26`：rank `4`，suitability `poor`，score `395.6`，swamp `41.5%`，terrainPenalty `198.7`，因高沼泽、source/controller 距离过长淘汰（`observed`，API + derived scoring）。
+- 2026-06-10 增强启发式后重新复核 `shard2` 候选（`pnpm scout:screeps -- --shard shard2 --room W54S41 --room W54S43 --room W58S45`）：
+  - `W54S43`：suitability `poor`，score `133.6`，swamp `17.8%`，risk `58.0`，因沼泽超过起始房间 ceiling 且邻居拥有房间/creeps/spawns 较多淘汰（`observed`，API + derived scoring）。
+  - `W54S41`：suitability `poor`，score `209.0`，swamp `13.4%`，wall `58.8%`，controller distance `59`，因高墙、高 controller 距离和局部沼泽淘汰（`observed`，API + derived scoring）。
+  - `W58S45`：`rejected`，controller is reserved，当前不作为起始区域候选（`observed`，API）。
 - `shard1 / W100S40:W109S49` 已扫描；全部候选返回 `api-error` 并拒绝，当前不作为起始区域候选（`observed`，API）。
-- 当前最强候选：`shard3 / W12S6`，推荐 spawn `23,23`，原因是两源、room swamp `1.4%`、source distances `10/11`、controller distance `11`、open5x5 `25`，综合 score `57.7` 略优于 `W15S27` 的 `58.2`；限制是 neighbor risk `26.0`，高于 `W15S27` 的 `7.0`（`derived`，筛选脚本评分）。
-- 当前备选候选：`shard3 / W15S27`，推荐 spawn `44,30`，原因是 neighbor risk `7.0` 更低且 room swamp `4.1%`，但 source/controller 距离和 wall ratio 高于 `W12S6`（`derived`，筛选脚本评分）。
+- 当前增强启发式排序第一候选：`shard3 / W15S27`，推荐 spawn `44,30`，原因是两源、low swamp `4.1%`、source distances `17/17`、controller distance `16`、open5x5 `25`、neighbor risk `3.0`；限制是 wall `40.7%` 超过 target（`derived`，筛选脚本评分）。
+- 当前增强启发式排序第二候选：`shard3 / W12S6`，推荐 spawn `23,23`，原因是两源、room swamp `1.4%`、source distances `10/11`、controller distance `11`、open5x5 `25`、terrainPenalty `0.0`；限制是 neighbor risk `25.0` 高于 `W15S27`（`derived`，筛选脚本评分）。
 - 最终起始房间：尚未确认（`blocked`）。
 - Spawn 放置状态：尚未放置（`blocked`）。
-- 当前阻塞原因：spawn 放置是不可逆 live 操作，正在等待用户明确确认是否在 `shard3 / W12S6` 的 `23,23` 放置名为 `Spawn1` 的第一个 spawn（`blocked`）。
+- 当前阻塞原因：spawn 放置是不可逆 live 操作，正在等待用户明确确认最终选择 `shard3 / W15S27` 的 `44,30`，或因低沼泽/近源优先选择 `shard3 / W12S6` 的 `23,23`；尚未放置名为 `Spawn1` 的第一个 spawn（`blocked`）。
 
 ## 代码部署
 

@@ -12,6 +12,21 @@ const MINIMUM_SOURCE_COUNT = 2;
 const MINIMUM_SPAWN_COORDINATE = 2;
 const MAXIMUM_SPAWN_COORDINATE = 47;
 const IMPASSABLE_PATH_COST = Number.POSITIVE_INFINITY;
+const STARTING_ROOM_SWAMP_TARGET_PERCENT = 8;
+const STARTING_ROOM_SWAMP_CEILING_PERCENT = 15;
+const STARTING_ROOM_WALL_TARGET_PERCENT = 40;
+const STARTING_ROOM_WALL_CEILING_PERCENT = 45;
+const STARTING_ROOM_SOURCE_DISTANCE_TARGET = 22;
+const STARTING_ROOM_SOURCE_DISTANCE_CEILING = 25;
+const STARTING_ROOM_CONTROLLER_DISTANCE_TARGET = 18;
+const STARTING_ROOM_CONTROLLER_DISTANCE_CEILING = 25;
+const STARTING_ROOM_SOURCE_IMBALANCE_TARGET = 6;
+const STARTING_ROOM_OPEN_5X5_TARGET = 22;
+const MARGINAL_STARTING_SCORE_CEILING = 115;
+const GOOD_STARTING_SCORE_CEILING = 85;
+const EXCELLENT_STARTING_SCORE_CEILING = 65;
+const EXCELLENT_STARTING_ROOM_SOURCE_DISTANCE_CEILING = 18;
+const EXCELLENT_STARTING_ROOM_CONTROLLER_DISTANCE_CEILING = 18;
 
 const SPAWN_BLOCKING_OBJECT_TYPES = new Set([
   'constructedWall',
@@ -139,7 +154,7 @@ export const getCardinalNeighborRoomNames = (roomName) => {
 export const formatStartingRoomScoutReport = (scoutReport) => {
   const reportLines = [
     `[scout:screeps] shard=${scoutReport.shardName} branch=${scoutReport.branch} rooms=${scoutReport.roomCount}`,
-    'rank room status accepted sources score spawn sourceDistances controller open5x5 localSwamps7x7 swamp wall risk riskDetails mineral reasons',
+    'rank room status suitability accepted sources score spawn sourceDistances controller open5x5 localSwamps7x7 swamp wall pathPenalty terrainPenalty risk riskDetails mineral reasons',
   ];
 
   for (const candidateEvaluation of scoutReport.candidateEvaluations) {
@@ -206,9 +221,17 @@ const evaluateStartingRoomCandidate = (roomSnapshot) => {
   }
 
   const accepted = rejectionReasons.length === 0;
-  const score = accepted
-    ? roundScore(bestSpawn.score + terrainSummary.swampPercent * 0.55 + roomRisk.riskScore)
-    : null;
+  const scoreBreakdown = buildStartingScoreBreakdown({
+    bestSpawn: accepted ? bestSpawn : null,
+    roomRisk,
+    terrainSummary,
+  });
+  const score = scoreBreakdown.totalScore;
+  const warningReasons = describeWarningReasons({
+    bestSpawn: accepted ? bestSpawn : null,
+    roomRisk,
+    terrainSummary,
+  });
 
   return {
     accepted,
@@ -227,11 +250,19 @@ const evaluateStartingRoomCandidate = (roomSnapshot) => {
     risk: roomRisk,
     roomName: roomSnapshot.roomName,
     score,
+    scoreBreakdown,
     sourceCount: sourceObjects.length,
     sourcePositions: sourceObjects.map(toRoomPosition),
+    startingSuitability: classifyStartingSuitability({
+      accepted,
+      bestSpawn: accepted ? bestSpawn : null,
+      roomRisk,
+      score,
+      terrainSummary,
+    }),
     status: roomSnapshot.status,
     terrain: terrainSummary,
-    warningReasons: describeWarningReasons(roomRisk),
+    warningReasons,
   };
 };
 
@@ -280,8 +311,58 @@ const describeRejectionReasons = ({ controllerObject, roomSnapshot, sourceObject
   return rejectionReasons;
 };
 
-const describeWarningReasons = (roomRisk) => {
+const describeWarningReasons = ({ bestSpawn, roomRisk, terrainSummary }) => {
   const warningReasons = [];
+
+  if (terrainSummary.swampPercent >= STARTING_ROOM_SWAMP_CEILING_PERCENT) {
+    warningReasons.push(
+      `room swamp ${terrainSummary.swampPercent.toFixed(1)}% exceeds ${STARTING_ROOM_SWAMP_CEILING_PERCENT}% starting-room ceiling`,
+    );
+  } else if (terrainSummary.swampPercent >= STARTING_ROOM_SWAMP_TARGET_PERCENT) {
+    warningReasons.push(
+      `room swamp ${terrainSummary.swampPercent.toFixed(1)}% exceeds ${STARTING_ROOM_SWAMP_TARGET_PERCENT}% starting-room target`,
+    );
+  }
+
+  if (terrainSummary.wallPercent >= STARTING_ROOM_WALL_CEILING_PERCENT) {
+    warningReasons.push(
+      `room wall ${terrainSummary.wallPercent.toFixed(1)}% exceeds ${STARTING_ROOM_WALL_CEILING_PERCENT}% starting-room ceiling`,
+    );
+  } else if (terrainSummary.wallPercent >= STARTING_ROOM_WALL_TARGET_PERCENT) {
+    warningReasons.push(
+      `room wall ${terrainSummary.wallPercent.toFixed(1)}% exceeds ${STARTING_ROOM_WALL_TARGET_PERCENT}% starting-room target`,
+    );
+  }
+
+  if (bestSpawn !== null) {
+    const furthestSourceDistance = Math.max(...bestSpawn.sourceDistances);
+    const nearestSourceDistance = Math.min(...bestSpawn.sourceDistances);
+    const sourceDistanceImbalance = furthestSourceDistance - nearestSourceDistance;
+
+    if (furthestSourceDistance >= STARTING_ROOM_SOURCE_DISTANCE_CEILING) {
+      warningReasons.push(
+        `furthest source distance ${furthestSourceDistance} exceeds ${STARTING_ROOM_SOURCE_DISTANCE_CEILING}`,
+      );
+    }
+
+    if (bestSpawn.controllerDistance >= STARTING_ROOM_CONTROLLER_DISTANCE_CEILING) {
+      warningReasons.push(
+        `controller distance ${bestSpawn.controllerDistance} exceeds ${STARTING_ROOM_CONTROLLER_DISTANCE_CEILING}`,
+      );
+    }
+
+    if (sourceDistanceImbalance > STARTING_ROOM_SOURCE_IMBALANCE_TARGET) {
+      warningReasons.push(`source distance imbalance is ${sourceDistanceImbalance}`);
+    }
+
+    if (bestSpawn.localSwamps7x7 > 0) {
+      warningReasons.push(`${bestSpawn.localSwamps7x7} swamp tiles within spawn 7x7`);
+    }
+
+    if (bestSpawn.openTiles5x5 < STARTING_ROOM_OPEN_5X5_TARGET) {
+      warningReasons.push(`only ${bestSpawn.openTiles5x5} open tiles within spawn 5x5`);
+    }
+  }
 
   if (roomRisk.candidateHostileCreeps > 0) {
     warningReasons.push(`${roomRisk.candidateHostileCreeps} creeps currently in room`);
@@ -316,6 +397,122 @@ const describeWarningReasons = (roomRisk) => {
   }
 
   return warningReasons;
+};
+
+const buildStartingScoreBreakdown = ({ bestSpawn, roomRisk, terrainSummary }) => {
+  if (bestSpawn === null) {
+    return {
+      pathPenalty: 0,
+      riskPenalty: roomRisk.riskScore,
+      spawnPlacementScore: 0,
+      terrainPenalty: 0,
+      totalScore: null,
+    };
+  }
+
+  const pathPenalty = scorePathPenalty(bestSpawn);
+  const terrainPenalty = scoreTerrainPenalty({ bestSpawn, terrainSummary });
+  const totalScore = roundScore(
+    bestSpawn.score + pathPenalty + terrainPenalty + roomRisk.riskScore,
+  );
+
+  return {
+    pathPenalty,
+    riskPenalty: roomRisk.riskScore,
+    spawnPlacementScore: bestSpawn.score,
+    terrainPenalty,
+    totalScore,
+  };
+};
+
+const scorePathPenalty = (bestSpawn) => {
+  const furthestSourceDistance = Math.max(...bestSpawn.sourceDistances);
+  const nearestSourceDistance = Math.min(...bestSpawn.sourceDistances);
+  const sourceDistanceImbalance = furthestSourceDistance - nearestSourceDistance;
+
+  return roundScore(
+    Math.max(0, furthestSourceDistance - STARTING_ROOM_SOURCE_DISTANCE_TARGET) * 1.7 +
+      Math.max(0, bestSpawn.controllerDistance - STARTING_ROOM_CONTROLLER_DISTANCE_TARGET) * 1.2 +
+      Math.max(0, sourceDistanceImbalance - STARTING_ROOM_SOURCE_IMBALANCE_TARGET) * 1.5,
+  );
+};
+
+const scoreTerrainPenalty = ({ bestSpawn, terrainSummary }) =>
+  roundScore(
+    scoreSwampPercentPenalty(terrainSummary.swampPercent) +
+      scoreWallPercentPenalty(terrainSummary.wallPercent) +
+      bestSpawn.localSwamps7x7 * 2 +
+      Math.max(0, STARTING_ROOM_OPEN_5X5_TARGET - bestSpawn.openTiles5x5) * 4,
+  );
+
+const scoreSwampPercentPenalty = (swampPercent) => {
+  if (swampPercent <= STARTING_ROOM_SWAMP_TARGET_PERCENT) {
+    return 0;
+  }
+
+  const targetToCeilingPercent =
+    Math.min(swampPercent, STARTING_ROOM_SWAMP_CEILING_PERCENT) -
+    STARTING_ROOM_SWAMP_TARGET_PERCENT;
+  const overCeilingPercent = Math.max(0, swampPercent - STARTING_ROOM_SWAMP_CEILING_PERCENT);
+
+  return targetToCeilingPercent * 1.5 + overCeilingPercent * 4 + overCeilingPercent ** 2 * 0.1;
+};
+
+const scoreWallPercentPenalty = (wallPercent) => {
+  if (wallPercent <= STARTING_ROOM_WALL_TARGET_PERCENT) {
+    return 0;
+  }
+
+  const targetToCeilingPercent =
+    Math.min(wallPercent, STARTING_ROOM_WALL_CEILING_PERCENT) - STARTING_ROOM_WALL_TARGET_PERCENT;
+  const overCeilingPercent = Math.max(0, wallPercent - STARTING_ROOM_WALL_CEILING_PERCENT);
+
+  return targetToCeilingPercent + overCeilingPercent * 2;
+};
+
+const classifyStartingSuitability = ({ accepted, bestSpawn, roomRisk, score, terrainSummary }) => {
+  if (!accepted || bestSpawn === null || score === null) {
+    return 'rejected';
+  }
+
+  const furthestSourceDistance = Math.max(...bestSpawn.sourceDistances);
+
+  if (
+    terrainSummary.swampPercent >= 25 ||
+    terrainSummary.wallPercent >= 55 ||
+    furthestSourceDistance >= 35 ||
+    bestSpawn.controllerDistance >= 35 ||
+    roomRisk.riskScore >= 80
+  ) {
+    return 'poor';
+  }
+
+  if (
+    score <= EXCELLENT_STARTING_SCORE_CEILING &&
+    terrainSummary.swampPercent <= 5 &&
+    terrainSummary.wallPercent <= STARTING_ROOM_WALL_TARGET_PERCENT &&
+    furthestSourceDistance <= EXCELLENT_STARTING_ROOM_SOURCE_DISTANCE_CEILING &&
+    bestSpawn.controllerDistance <= EXCELLENT_STARTING_ROOM_CONTROLLER_DISTANCE_CEILING &&
+    roomRisk.riskScore <= 30
+  ) {
+    return 'excellent';
+  }
+
+  if (
+    score <= GOOD_STARTING_SCORE_CEILING &&
+    terrainSummary.swampPercent <= STARTING_ROOM_SWAMP_CEILING_PERCENT &&
+    furthestSourceDistance <= STARTING_ROOM_SOURCE_DISTANCE_CEILING &&
+    bestSpawn.controllerDistance <= STARTING_ROOM_CONTROLLER_DISTANCE_CEILING &&
+    roomRisk.riskScore <= 45
+  ) {
+    return 'good';
+  }
+
+  if (score <= MARGINAL_STARTING_SCORE_CEILING) {
+    return 'marginal';
+  }
+
+  return 'poor';
 };
 
 const roomStatusAllowsSpawn = (roomStatus) => roomStatus === 'normal' || roomStatus === 'respawn';
@@ -660,6 +857,7 @@ const formatCandidateEvaluation = (candidateEvaluation) => {
     candidateEvaluation.rank,
     candidateEvaluation.roomName,
     candidateEvaluation.status,
+    candidateEvaluation.startingSuitability,
     candidateEvaluation.accepted ? 'yes' : 'no',
     candidateEvaluation.sourceCount,
     scoreText,
@@ -670,6 +868,8 @@ const formatCandidateEvaluation = (candidateEvaluation) => {
     localSwampText,
     `${candidateEvaluation.terrain.swampPercent.toFixed(1)}%`,
     `${candidateEvaluation.terrain.wallPercent.toFixed(1)}%`,
+    candidateEvaluation.scoreBreakdown.pathPenalty.toFixed(1),
+    candidateEvaluation.scoreBreakdown.terrainPenalty.toFixed(1),
     candidateEvaluation.risk.riskScore.toFixed(1),
     riskDetailText,
     mineralText,

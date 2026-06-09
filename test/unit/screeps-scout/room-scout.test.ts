@@ -38,10 +38,19 @@ interface NeighborRoomSnapshot {
 interface RoomCandidateEvaluation {
   readonly roomName: string;
   readonly status: string;
+  readonly startingSuitability: 'excellent' | 'good' | 'marginal' | 'poor' | 'rejected';
   readonly accepted: boolean;
   readonly sourceCount: number;
   readonly score: number | null;
+  readonly scoreBreakdown: {
+    readonly pathPenalty: number;
+    readonly riskPenalty: number;
+    readonly spawnPlacementScore: number;
+    readonly terrainPenalty: number;
+    readonly totalScore: number | null;
+  };
   readonly rejectionReasons: readonly string[];
+  readonly warningReasons: readonly string[];
   readonly bestSpawn: {
     readonly position: RoomCoordinate;
     readonly sourceDistances: readonly number[];
@@ -147,8 +156,10 @@ describe('Screeps room scout scoring', () => {
       'W19S26',
     ]);
     expect(rankedCandidates[0]?.accepted).toBe(true);
+    expect(rankedCandidates[0]?.startingSuitability).toBe('excellent');
     expect(rankedCandidates[0]?.status).toBe('normal');
     expect(rankedCandidates[0]?.sourceCount).toBe(2);
+    expect(rankedCandidates[0]?.scoreBreakdown.terrainPenalty).toBe(0);
     expect(typeof rankedCandidates[0]?.bestSpawn?.position.x).toBe('number');
     expect(typeof rankedCandidates[0]?.bestSpawn?.position.y).toBe('number');
     expect(rankedCandidates[0]?.bestSpawn?.sourceDistances).toHaveLength(2);
@@ -156,10 +167,17 @@ describe('Screeps room scout scoring', () => {
     expect(Number.isFinite(rankedCandidates[0]?.bestSpawn?.controllerDistance)).toBe(true);
     expect(rankedCandidates[0]?.terrain.swampPercent).toBe(0);
     expect(rankedCandidates[1]?.accepted).toBe(true);
+    expect(rankedCandidates[1]?.startingSuitability).toBe('poor');
     expect(rankedCandidates[1]?.terrain.swampPercent).toBeGreaterThan(30);
+    expect(rankedCandidates[1]?.scoreBreakdown.terrainPenalty).toBeGreaterThan(100);
+    expect(rankedCandidates[1]?.warningReasons).toContain(
+      'room swamp 38.4% exceeds 15% starting-room ceiling',
+    );
     expect(rankedCandidates[2]?.accepted).toBe(false);
+    expect(rankedCandidates[2]?.startingSuitability).toBe('rejected');
     expect(rankedCandidates[2]?.sourceCount).toBe(1);
     expect(rankedCandidates[2]?.score).toBeNull();
+    expect(rankedCandidates[2]?.scoreBreakdown.totalScore).toBeNull();
     expect(rankedCandidates[2]?.rejectionReasons).toContain('room has fewer than two sources');
   });
 
@@ -289,7 +307,7 @@ describe('Screeps room scout scoring', () => {
     });
 
     expect(formattedReport).toContain(
-      'rank room status accepted sources score spawn sourceDistances controller open5x5 localSwamps7x7 swamp wall risk riskDetails mineral reasons',
+      'rank room status suitability accepted sources score spawn sourceDistances controller open5x5 localSwamps7x7 swamp wall pathPenalty terrainPenalty risk riskDetails mineral reasons',
     );
     expect(formattedReport).toContain('1 creeps currently in room');
     expect(formattedReport).toContain('candidateCreeps=1');
