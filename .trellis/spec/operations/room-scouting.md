@@ -32,6 +32,7 @@ Authentication must use the `X-Token` header from the typed `screeps.json` main 
 - At least one `--room` or `--area` is required.
 - `--area` expands inclusive room-name corners such as `W10S20:W19S29`.
 - The scout command may read cardinal neighbors for risk scoring.
+- Area scans must count adjacent requested candidate rooms as cardinal neighbors, not only rooms outside the requested area.
 - Output must include candidate rank, room status, accepted/rejected state, source count, score, spawn coordinate, source distances, controller distance, local open area, local swamp count, room swamp/wall percentages, risk details, mineral, warning reasons, and rejection reasons.
 - Terrain decoder must support live sparse terrain arrays with entries like `{ room, x, y, type }`, where omitted tiles are plain and `type` is `wall` or `swamp`.
 - Terrain decoder may also accept a top-level 2500-character terrain string or an array entry with `{ room, terrain }` when returned by compatible API variants.
@@ -64,6 +65,7 @@ Authentication must use the `X-Token` header from the typed `screeps.json` main 
 - Unit tests for room-name area expansion and world-axis boundary behavior.
 - Unit tests for terrain and argument validation failures.
 - Integration tests for API endpoint URLs, `X-Token` header use, live terrain payload shapes, and bounded GET retry behavior.
+- Integration tests for command-level area scans where an adjacent requested candidate contributes neighbor risk.
 - System tests that expose `scout:screeps` as an explicit script and keep it outside `pnpm check`.
 
 ### 7. Wrong vs Correct

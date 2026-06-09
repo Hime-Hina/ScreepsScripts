@@ -30,43 +30,49 @@ export const scoutScreepsRooms = async (commandArguments = process.argv.slice(2)
 };
 
 const readCandidateRoomSnapshots = async (screepsConfig, scoutRequest) => {
-  const neighborRoomNames = collectNeighborRoomNames(scoutRequest.roomNames);
-  const neighborSnapshotsByRoomName = new Map();
-  const candidateRoomSnapshots = [];
+  const externalNeighborRoomNames = collectExternalNeighborRoomNames(scoutRequest.roomNames);
+  const externalNeighborSnapshotsByRoomName = new Map();
+  const candidateSnapshotsByRoomName = new Map();
 
-  for (const neighborRoomName of neighborRoomNames) {
-    neighborSnapshotsByRoomName.set(
+  for (const roomName of scoutRequest.roomNames) {
+    candidateSnapshotsByRoomName.set(
+      roomName,
+      await readCandidateRoomSnapshot(screepsConfig, scoutRequest.shardName, roomName),
+    );
+  }
+
+  for (const neighborRoomName of externalNeighborRoomNames) {
+    externalNeighborSnapshotsByRoomName.set(
       neighborRoomName,
       await readNeighborRoomSnapshot(screepsConfig, scoutRequest.shardName, neighborRoomName),
     );
   }
 
-  for (const roomName of scoutRequest.roomNames) {
+  return scoutRequest.roomNames.map((roomName) => {
+    const candidateSnapshot = candidateSnapshotsByRoomName.get(roomName);
     const neighborSnapshots = getCardinalNeighborRoomNames(roomName)
-      .map((neighborRoomName) => neighborSnapshotsByRoomName.get(neighborRoomName))
+      .map(
+        (neighborRoomName) =>
+          candidateSnapshotsByRoomName.get(neighborRoomName) ??
+          externalNeighborSnapshotsByRoomName.get(neighborRoomName),
+      )
       .filter((neighborSnapshot) => neighborSnapshot !== undefined);
 
-    candidateRoomSnapshots.push(
-      await readCandidateRoomSnapshot(
-        screepsConfig,
-        scoutRequest.shardName,
-        roomName,
-        neighborSnapshots,
-      ),
-    );
-  }
-
-  return candidateRoomSnapshots;
+    return {
+      ...candidateSnapshot,
+      neighborSnapshots,
+    };
+  });
 };
 
-const readCandidateRoomSnapshot = async (screepsConfig, shardName, roomName, neighborSnapshots) => {
+const readCandidateRoomSnapshot = async (screepsConfig, shardName, roomName) => {
   try {
     const roomStatus = await readRoomStatus(screepsConfig, shardName, roomName);
     const roomObjects = await readRoomObjects(screepsConfig, shardName, roomName);
     const terrainText = await readRoomTerrainText(screepsConfig, shardName, roomName);
 
     return {
-      neighborSnapshots,
+      neighborSnapshots: [],
       objects: roomObjects,
       roomName,
       status: roomStatus,
@@ -99,7 +105,7 @@ const readNeighborRoomSnapshot = async (screepsConfig, shardName, roomName) => {
   }
 };
 
-const collectNeighborRoomNames = (roomNames) => {
+const collectExternalNeighborRoomNames = (roomNames) => {
   const candidateRoomNames = new Set(roomNames);
   const neighborRoomNames = new Set();
 
