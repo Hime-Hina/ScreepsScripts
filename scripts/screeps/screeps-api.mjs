@@ -157,6 +157,10 @@ const decodeRoomObjectsResponse = (apiPayload) => {
 };
 
 const decodeRoomStatusResponse = (apiPayload) => {
+  if (apiPayload.room === null) {
+    return 'unknown';
+  }
+
   if (
     !isPlainObject(apiPayload.room) ||
     typeof apiPayload.room.status !== 'string' ||

@@ -141,6 +141,23 @@ describe('Screeps API deployment boundary', () => {
     );
   });
 
+  it('decodes missing room status as unknown for map areas outside visible room records', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: 1, room: null }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(screepsApiModule.readRoomStatus(screepsConfig, 'shard1', 'W106S41')).resolves.toBe(
+      'unknown',
+    );
+  });
+
   it('retries transient read failures before decoding a room response', async () => {
     let fetchCallCount = 0;
 

@@ -46,7 +46,10 @@ Authentication must use the `X-Token` header from the typed `screeps.json` main 
 | Missing token or malformed config | Fail through the config boundary without printing token contents |
 | Transient GET network failure | Retry read-only API calls a small bounded number of times |
 | HTTP/auth/API semantic failure | Do not retry as if it were transient; surface a non-secret API error |
+| Candidate-room API read fails inside a multi-room scout | Keep the room as rejected `api-error` instead of aborting the whole scout |
+| Neighbor-room API read fails inside a multi-room scout | Keep the neighbor as `unknown` with empty objects instead of aborting candidate scoring |
 | Terrain payload has invalid tile coordinate or type | Fail with room-specific non-secret error |
+| `room-status` returns `ok=1` with `room=null` | Decode status as `unknown` and reject through normal room status rules |
 | Candidate is owned, reserved, missing controller, or has fewer than two sources | Keep it in output as rejected with reasons |
 
 ### 5. Good/Base/Bad Cases

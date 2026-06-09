@@ -45,6 +45,12 @@ pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 -
   4. `W12S28`：score `119.5`，推荐 spawn `24,19`，source distances `16/15`，controller `11`，swamp `5.6%`，wall `32.0%`，risk `73.0`，mineral `Z`（`observed`，API + derived scoring）
   5. `W18S26`：score `147.3`，推荐 spawn `19,20`，source distances `37/42`，controller `50`，swamp `41.5%`，wall `28.4%`，risk `0.0`，mineral `U`（`observed`，API + derived scoring）
 - `W18S26`：因 room swamp `41.5%`、推荐 spawn 周边 local swamps `6`、source/controller 路径距离过长，当前淘汰（`derived`，筛选脚本评分）。
+- `shard2 / W50S40:W59S49` 已扫描（`observed`，API + derived scoring）：
+  - `W54S43`：score `61.4`，推荐 spawn `24,34`，source distances `15/22`，controller `9`，swamp `17.8%`，wall `34.6%`，risk `0.0`，mineral `U`（`observed`，API + derived scoring）。
+  - `W58S45`：score `72.1`，推荐 spawn `39,40`，source distances `37/7`，controller `24`，swamp `0.0%`，wall `35.8%`，risk `0.0`，mineral `O`（`observed`，API + derived scoring）。
+  - `W54S41`：score `72.5`，推荐 spawn `12,35`，source distances `7/19`，controller `59`，swamp `13.4%`，wall `58.8%`，risk `0.0`，mineral `K`（`observed`，API + derived scoring）。
+- `shard1 / W100S40:W109S49` 已扫描；全部候选返回 `api-error` 并拒绝，当前不作为起始区域候选（`observed`，API）。
+- 当前最强候选：`shard2 / W54S43`，原因是两源、controller 距离短、邻居风险 `0.0`，综合 score 低于已扫描 `shard3` 候选；限制是 room swamp `17.8%` 高于 `W17S29`、`W12S29` 等低沼泽候选（`derived`，筛选脚本评分）。
 - 最终起始房间：尚未确认（`blocked`）。
 - Spawn 放置状态：尚未放置（`blocked`）。
 
