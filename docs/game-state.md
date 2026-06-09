@@ -53,6 +53,7 @@ pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 -
 - 当前最强候选：`shard2 / W54S43`，原因是两源、controller 距离短、邻居风险 `0.0`，综合 score 低于已扫描 `shard3` 候选；限制是 room swamp `17.8%` 高于 `W17S29`、`W12S29` 等低沼泽候选（`derived`，筛选脚本评分）。
 - 最终起始房间：尚未确认（`blocked`）。
 - Spawn 放置状态：尚未放置（`blocked`）。
+- 当前阻塞原因：spawn 放置是不可逆 live 操作，正在等待用户明确确认是否在 `shard2 / W54S43` 的 `24,34` 放置名为 `Spawn1` 的第一个 spawn（`blocked`）。
 
 ## 代码部署
 
