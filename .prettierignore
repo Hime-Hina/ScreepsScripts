@@ -1,0 +1,9 @@
+.agents/
+.codex/
+.trellis/
+coverage/
+dist/
+node_modules/
+pnpm-lock.yaml
+references/screeps-docs/
+references/player-code/
