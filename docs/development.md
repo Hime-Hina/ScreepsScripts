@@ -19,6 +19,7 @@
 | `pnpm deploy:screeps`      | 本地完整验证、重新构建并部署到 Screeps live branch     |
 | `pnpm verify:live:screeps` | 构建并通过 Screeps API readback 校验 live branch       |
 | `pnpm rollback:screeps`    | 用本地 rollback snapshot 恢复上一份 Screeps 远端模块集 |
+| `pnpm scout:screeps`       | 只读读取 Screeps API 并按启发式排序起始房间候选        |
 | `pnpm test:unit`           | 运行单元测试                                           |
 | `pnpm test:integration`    | 运行集成测试                                           |
 | `pnpm test:system`         | 构建并运行系统测试                                     |
@@ -54,3 +55,16 @@ https://screeps.com/a/#!/account/auth-tokens
 `verify:live:screeps` 只校验 Screeps API readback 中的 `main` module 与本地 `dist/main.js` 一致，并报告远端 module 列表。它不证明自然生产 tick 已执行。
 
 `rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并再次 readback 校验。没有 snapshot 或 snapshot branch 与 `screeps.json` 不一致时，脚本会停止。
+
+## Screeps 房间筛选
+
+`scout:screeps` 是只读候选房间筛选工具。它读取 `screeps.json` 中的 API token，通过 `X-Token` 调用 room objects、room status 和 room terrain endpoint，不部署代码、不保存 IDE、不放置 spawn。
+
+示例：
+
+```powershell
+pnpm scout:screeps -- --shard shard3 --area W10S20:W19S29
+pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28
+```
+
+输出包含候选排序、room status、source 数量、推荐 spawn 坐标、到 sources/controller 的路径距离、沼泽/墙比例、矿物、候选房间和邻居风险明细、拒绝原因。最终房间与 spawn 名称仍必须写入 `docs/game-state.md`，放置 spawn 后再记录自然 tick heartbeat。

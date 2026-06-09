@@ -44,8 +44,10 @@ describe('Screeps API deployment boundary', () => {
   it('uploads a complete branch module set without putting the token in the URL', async () => {
     let capturedUrl = '';
     let capturedInit: RequestInit | undefined;
+    let fetchCallCount = 0;
 
     vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      fetchCallCount += 1;
       capturedUrl = requestInput.toString();
       capturedInit = requestInit;
 
@@ -72,6 +74,175 @@ describe('Screeps API deployment boundary', () => {
     expect(capturedInit?.body).toBe(
       JSON.stringify({ branch: 'main', modules: { main: 'local-main' } }),
     );
+    expect(fetchCallCount).toBe(1);
+  });
+
+  it('reads room objects through the shard and room query with X-Token authentication', async () => {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrl = requestInput.toString();
+      capturedInit = requestInit;
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            objects: [
+              {
+                type: 'source',
+                x: 12,
+                y: 18,
+              },
+            ],
+            ok: 1,
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        ),
+      );
+    });
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(
+      screepsApiModule.readRoomObjects(screepsConfig, 'shard3', 'W13S27'),
+    ).resolves.toEqual([
+      {
+        type: 'source',
+        x: 12,
+        y: 18,
+      },
+    ]);
+    expect(capturedUrl).toBe(
+      'http://127.0.0.1:21025/api/game/room-objects?room=W13S27&shard=shard3',
+    );
+    expect(capturedInit?.headers).toEqual({
+      'X-Token': 'secret-token',
+    });
+  });
+
+  it('reads room status without logging credential material', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: 1, room: { status: 'normal' } }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(screepsApiModule.readRoomStatus(screepsConfig, 'shard3', 'W13S27')).resolves.toBe(
+      'normal',
+    );
+  });
+
+  it('retries transient read failures before decoding a room response', async () => {
+    let fetchCallCount = 0;
+
+    vi.stubGlobal('fetch', () => {
+      fetchCallCount += 1;
+
+      if (fetchCallCount === 1) {
+        return Promise.reject(new TypeError('fetch failed'));
+      }
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: 1, room: { status: 'normal' } }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(screepsApiModule.readRoomStatus(screepsConfig, 'shard3', 'W13S27')).resolves.toBe(
+      'normal',
+    );
+    expect(fetchCallCount).toBe(2);
+  });
+
+  it('reads the requested room terrain string from the terrain endpoint', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ok: 1,
+            terrain: [
+              {
+                room: 'W13S27',
+                terrain: '0'.repeat(2500),
+              },
+            ],
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(
+      screepsApiModule.readRoomTerrainText(screepsConfig, 'shard3', 'W13S27'),
+    ).resolves.toBe('0'.repeat(2500));
+  });
+
+  it('reads top-level room terrain strings returned by the live terrain endpoint', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: 1, terrain: '2'.repeat(2500) }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(
+      screepsApiModule.readRoomTerrainText(screepsConfig, 'shard3', 'W18S26'),
+    ).resolves.toBe('2'.repeat(2500));
+  });
+
+  it('decodes sparse terrain arrays returned by the live terrain endpoint', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ok: 1,
+            terrain: [
+              { room: 'W18S26', type: 'wall', x: 1, y: 2 },
+              { room: 'W18S26', type: 'swamp', x: 3, y: 4 },
+              { room: 'W18S25', type: 'swamp', x: 5, y: 6 },
+            ],
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        ),
+      ),
+    );
+
+    const screepsApiModule = await loadScreepsApiModule();
+    const terrainText = await screepsApiModule.readRoomTerrainText(
+      screepsConfig,
+      'shard3',
+      'W18S26',
+    );
+
+    expect(terrainText).toHaveLength(2500);
+    expect(terrainText[2 * 50 + 1]).toBe('1');
+    expect(terrainText[4 * 50 + 3]).toBe('2');
+    expect(terrainText[6 * 50 + 5]).toBe('0');
   });
 
   it('rejects non-JSON API responses', async () => {

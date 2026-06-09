@@ -48,6 +48,21 @@ export interface RollbackSnapshotModule {
 }
 
 export interface ScreepsApiModule {
+  readRoomObjects(
+    screepsConfig: ScreepsConfig,
+    shardName: string,
+    roomName: string,
+  ): Promise<unknown[]>;
+  readRoomStatus(
+    screepsConfig: ScreepsConfig,
+    shardName: string,
+    roomName: string,
+  ): Promise<string>;
+  readRoomTerrainText(
+    screepsConfig: ScreepsConfig,
+    shardName: string,
+    roomName: string,
+  ): Promise<string>;
   readRemoteModuleSet(screepsConfig: ScreepsConfig): Promise<Record<string, string>>;
   uploadRemoteModuleSet(
     screepsConfig: ScreepsConfig,
@@ -131,6 +146,9 @@ const isRollbackSnapshotModule = (
 
 const isScreepsApiModule = (candidateModule: unknown): candidateModule is ScreepsApiModule =>
   isRecord(candidateModule) &&
+  hasFunction(candidateModule, 'readRoomObjects') &&
+  hasFunction(candidateModule, 'readRoomStatus') &&
+  hasFunction(candidateModule, 'readRoomTerrainText') &&
   hasFunction(candidateModule, 'readRemoteModuleSet') &&
   hasFunction(candidateModule, 'uploadRemoteModuleSet');
 

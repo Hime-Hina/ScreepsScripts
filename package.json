@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "rollback:screeps": "node scripts/screeps/rollback.mjs",
+    "scout:screeps": "node scripts/screeps/scout-rooms.mjs",
     "test": "vitest run test/unit test/integration",
     "test:e2e": "pnpm build && vitest run test/e2e",
     "test:integration": "vitest run test/integration",

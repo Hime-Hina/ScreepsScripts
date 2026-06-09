@@ -28,6 +28,26 @@
 - Mineral：当前 UI 状态不可见（`blocked`）。
 - Hostile 状态：当前 UI 状态不可见（`blocked`）。
 
+## 起始房间候选筛选
+
+2026-06-10 通过只读 API 脚本记录：
+
+```powershell
+pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 --room W17S29 --room W18S26
+```
+
+- 筛选命令：`pnpm scout:screeps`（`observed`，API readback + 本地脚本）
+- 筛选范围：`shard3` 的 `W13S27`、`W12S28`、`W12S29`、`W17S29`、`W18S26`（`observed`，API）
+- 当前排序：
+  1. `W17S29`：score `86.5`，推荐 spawn `15,27`，source distances `21/17`，controller `5`，swamp `7.2%`，wall `25.7%`，risk `32.0`，mineral `K`（`observed`，API + derived scoring）
+  2. `W12S29`：score `88.2`，推荐 spawn `25,21`，source distances `17/17`，controller `22`，swamp `1.6%`，wall `27.6%`，risk `36.0`，mineral `O`（`observed`，API + derived scoring）
+  3. `W13S27`：score `96.4`，推荐 spawn `14,24`，source distances `5/5`，controller `25`，swamp `3.5%`，wall `32.4%`，risk `72.0`，mineral `K`（`observed`，API + derived scoring）
+  4. `W12S28`：score `119.5`，推荐 spawn `24,19`，source distances `16/15`，controller `11`，swamp `5.6%`，wall `32.0%`，risk `73.0`，mineral `Z`（`observed`，API + derived scoring）
+  5. `W18S26`：score `147.3`，推荐 spawn `19,20`，source distances `37/42`，controller `50`，swamp `41.5%`，wall `28.4%`，risk `0.0`，mineral `U`（`observed`，API + derived scoring）
+- `W18S26`：因 room swamp `41.5%`、推荐 spawn 周边 local swamps `6`、source/controller 路径距离过长，当前淘汰（`derived`，筛选脚本评分）。
+- 最终起始房间：尚未确认（`blocked`）。
+- Spawn 放置状态：尚未放置（`blocked`）。
+
 ## 代码部署
 
 - 浏览器路径：Chrome，已登录（`observed`，UI）。

@@ -2,4 +2,5 @@
 {"file": ".trellis/spec/documentation/game-state.md", "reason": "Check live facts are recorded in the right place."}
 {"file": ".trellis/spec/documentation/fact-confidence.md", "reason": "Check evidence levels are not overstated."}
 {"file": ".trellis/spec/operations/live-verification.md", "reason": "Check API readback is not misreported as natural tick verification."}
+{"file": ".trellis/spec/operations/room-scouting.md", "reason": "Check room scouting facts come from read-only API and documented scoring."}
 {"file": ".trellis/tasks/06-09-screeps-production-initial-state/research/official-starting-room-rules.md", "reason": "Check final room choice respects official GCL/start-area constraints."}

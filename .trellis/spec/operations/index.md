@@ -15,6 +15,7 @@ These rules apply to deployment, live Screeps verification, rollback, and creden
 | --- | --- |
 | [Deployment](./deployment.md) | Building, uploading, branch selection, readback, or rollback |
 | [Live Verification](./live-verification.md) | Confirming behavior in Screeps production or console |
+| [Room Scouting](./room-scouting.md) | Read-only live API room candidate scoring before spawn placement |
 | [Rollback](./rollback.md) | Restoring the previous Screeps remote module set |
 | [Credentials](./credentials.md) | Screeps tokens, local deploy config, API calls, or secret handling |
 

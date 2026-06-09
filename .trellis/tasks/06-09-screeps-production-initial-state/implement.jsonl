@@ -2,4 +2,5 @@
 {"file": ".trellis/spec/documentation/fact-confidence.md", "reason": "Defines observed/derived/blocked/assumption labels."}
 {"file": ".trellis/spec/operations/live-verification.md", "reason": "Defines natural tick heartbeat verification."}
 {"file": ".trellis/spec/operations/deployment.md", "reason": "Requires rollback path before live-affecting actions."}
+{"file": ".trellis/spec/operations/room-scouting.md", "reason": "Defines read-only room scouting command and API contracts."}
 {"file": ".trellis/tasks/06-09-screeps-production-initial-state/research/official-starting-room-rules.md", "reason": "Records official starting room constraints for GCL 6 room selection."}

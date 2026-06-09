@@ -1,5 +1,7 @@
 import { decodeRemoteModuleSet } from './module-set.mjs';
 
+const READ_REQUEST_ATTEMPTS = 3;
+
 export class ScreepsApiError extends Error {
   constructor(message) {
     super(message);
@@ -8,15 +10,64 @@ export class ScreepsApiError extends Error {
 }
 
 export const readRemoteModuleSet = async (screepsConfig) => {
-  const response = await fetch(buildReadUserCodeUrl(screepsConfig), {
+  const apiPayload = await readScreepsJsonPayloadWithRetry(buildReadUserCodeUrl(screepsConfig), {
     headers: buildAuthHeaders(screepsConfig),
   });
 
-  return decodeCodeResponse(await readScreepsJsonResponse(response));
+  return decodeCodeResponse(apiPayload);
+};
+
+export const readRoomObjects = async (screepsConfig, shardName, roomName) => {
+  const apiPayload = await readScreepsJsonPayloadWithRetry(
+    buildRoomObjectsUrl(screepsConfig, shardName, roomName),
+    {
+      headers: buildAuthHeaders(screepsConfig),
+    },
+  );
+
+  return decodeRoomObjectsResponse(apiPayload);
+};
+
+export const readRoomStatus = async (screepsConfig, shardName, roomName) => {
+  const apiPayload = await readScreepsJsonPayloadWithRetry(
+    buildRoomStatusUrl(screepsConfig, shardName, roomName),
+    {
+      headers: buildAuthHeaders(screepsConfig),
+    },
+  );
+
+  return decodeRoomStatusResponse(apiPayload);
+};
+
+export const readRoomTerrainText = async (screepsConfig, shardName, roomName) => {
+  const apiPayload = await readScreepsJsonPayloadWithRetry(
+    buildRoomTerrainUrl(screepsConfig, shardName, roomName),
+    {
+      headers: buildAuthHeaders(screepsConfig),
+    },
+  );
+
+  return decodeRoomTerrainResponse(apiPayload, roomName);
+};
+
+const readScreepsJsonPayloadWithRetry = async (requestUrl, requestInit) => {
+  for (let attemptNumber = 1; attemptNumber <= READ_REQUEST_ATTEMPTS; attemptNumber += 1) {
+    try {
+      const response = await fetch(requestUrl, requestInit);
+
+      return await readScreepsJsonResponse(response);
+    } catch (caughtError) {
+      if (caughtError instanceof ScreepsApiError || attemptNumber === READ_REQUEST_ATTEMPTS) {
+        throw caughtError;
+      }
+    }
+  }
+
+  throw new ScreepsApiError('Screeps API read retry loop exited unexpectedly.');
 };
 
 export const uploadRemoteModuleSet = async (screepsConfig, moduleSet) => {
-  const response = await fetch(buildWriteUserCodeUrl(screepsConfig), {
+  const uploadResponse = await fetch(buildWriteUserCodeUrl(screepsConfig), {
     body: JSON.stringify({
       branch: screepsConfig.branch,
       modules: moduleSet,
@@ -28,7 +79,7 @@ export const uploadRemoteModuleSet = async (screepsConfig, moduleSet) => {
     method: 'POST',
   });
 
-  await readScreepsJsonResponse(response);
+  await readScreepsJsonResponse(uploadResponse);
 };
 
 export const buildReadUserCodeUrl = (screepsConfig) => {
@@ -44,6 +95,24 @@ export const buildReadUserCodeUrl = (screepsConfig) => {
 
 export const buildWriteUserCodeUrl = (screepsConfig) =>
   new URL('/api/user/code', `${screepsConfig.protocol}://${screepsConfig.server}`);
+
+export const buildRoomObjectsUrl = (screepsConfig, shardName, roomName) =>
+  buildGameRoomUrl(screepsConfig, '/api/game/room-objects', shardName, roomName);
+
+export const buildRoomStatusUrl = (screepsConfig, shardName, roomName) =>
+  buildGameRoomUrl(screepsConfig, '/api/game/room-status', shardName, roomName);
+
+export const buildRoomTerrainUrl = (screepsConfig, shardName, roomName) =>
+  buildGameRoomUrl(screepsConfig, '/api/game/room-terrain', shardName, roomName);
+
+const buildGameRoomUrl = (screepsConfig, apiPath, shardName, roomName) => {
+  const gameRoomUrl = new URL(apiPath, `${screepsConfig.protocol}://${screepsConfig.server}`);
+
+  gameRoomUrl.searchParams.set('room', roomName);
+  gameRoomUrl.searchParams.set('shard', shardName);
+
+  return gameRoomUrl;
+};
 
 const buildAuthHeaders = (screepsConfig) => ({
   'X-Token': screepsConfig.token,
@@ -77,6 +146,91 @@ const decodeCodeResponse = (apiPayload) => {
   }
 
   return decodeRemoteModuleSet(apiPayload.modules);
+};
+
+const decodeRoomObjectsResponse = (apiPayload) => {
+  if (!Array.isArray(apiPayload.objects)) {
+    throw new ScreepsApiError('Screeps API room objects response did not include objects.');
+  }
+
+  return apiPayload.objects;
+};
+
+const decodeRoomStatusResponse = (apiPayload) => {
+  if (
+    !isPlainObject(apiPayload.room) ||
+    typeof apiPayload.room.status !== 'string' ||
+    apiPayload.room.status.trim() === ''
+  ) {
+    throw new ScreepsApiError('Screeps API room status response did not include status.');
+  }
+
+  return apiPayload.room.status.trim();
+};
+
+const decodeRoomTerrainResponse = (apiPayload, roomName) => {
+  if (typeof apiPayload.terrain === 'string') {
+    return apiPayload.terrain;
+  }
+
+  if (!Array.isArray(apiPayload.terrain)) {
+    throw new ScreepsApiError('Screeps API room terrain response did not include terrain.');
+  }
+
+  const roomTerrainEntry = apiPayload.terrain.find(
+    (terrainEntry) =>
+      isPlainObject(terrainEntry) &&
+      terrainEntry.room === roomName &&
+      typeof terrainEntry.terrain === 'string',
+  );
+
+  if (roomTerrainEntry === undefined) {
+    return decodeSparseRoomTerrain(apiPayload.terrain, roomName);
+  }
+
+  return roomTerrainEntry.terrain;
+};
+
+const decodeSparseRoomTerrain = (terrainEntries, roomName) => {
+  const terrainTiles = Array.from({ length: 2500 }, () => '0');
+  let roomTerrainEntryFound = false;
+
+  for (const terrainEntry of terrainEntries) {
+    if (!isPlainObject(terrainEntry) || terrainEntry.room !== roomName) {
+      continue;
+    }
+
+    roomTerrainEntryFound = true;
+
+    if (
+      !Number.isInteger(terrainEntry.x) ||
+      terrainEntry.x < 0 ||
+      terrainEntry.x >= 50 ||
+      !Number.isInteger(terrainEntry.y) ||
+      terrainEntry.y < 0 ||
+      terrainEntry.y >= 50
+    ) {
+      throw new ScreepsApiError(`Screeps API room terrain response has invalid ${roomName} tile.`);
+    }
+
+    if (terrainEntry.type === 'wall') {
+      terrainTiles[terrainEntry.y * 50 + terrainEntry.x] = '1';
+      continue;
+    }
+
+    if (terrainEntry.type === 'swamp') {
+      terrainTiles[terrainEntry.y * 50 + terrainEntry.x] = '2';
+      continue;
+    }
+
+    throw new ScreepsApiError(`Screeps API room terrain response has invalid ${roomName} type.`);
+  }
+
+  if (!roomTerrainEntryFound) {
+    throw new ScreepsApiError(`Screeps API room terrain response did not include ${roomName}.`);
+  }
+
+  return terrainTiles.join('');
 };
 
 const isPlainObject = (candidateValue) =>

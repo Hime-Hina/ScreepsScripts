@@ -43,6 +43,7 @@ describe('project scripts', () => {
       'deploy:screeps',
       'lint',
       'rollback:screeps',
+      'scout:screeps',
       'test:coverage',
       'test:e2e',
       'test:integration',
@@ -76,7 +77,9 @@ describe('project scripts', () => {
       'pnpm build && node scripts/screeps/verify-live.mjs',
     );
     expect(packageManifest.scripts['rollback:screeps']).toBe('node scripts/screeps/rollback.mjs');
+    expect(packageManifest.scripts['scout:screeps']).toBe('node scripts/screeps/scout-rooms.mjs');
     expect(packageManifest.scripts['check']).not.toContain('deploy:screeps');
     expect(packageManifest.scripts['check']).not.toContain('rollback:screeps');
+    expect(packageManifest.scripts['check']).not.toContain('scout:screeps');
   });
 });
