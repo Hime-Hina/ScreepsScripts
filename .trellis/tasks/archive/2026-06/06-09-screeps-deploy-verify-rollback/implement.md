@@ -8,7 +8,7 @@
 - [x] Wire `package.json` scripts so deploy runs local verification and rebuilds immediately before upload.
 - [x] Update `docs/development.md`, `docs/game-state.md`, and `screeps.example.json`.
 - [x] Run focused tests, then `pnpm typecheck`, `pnpm lint`, `pnpm test:system`, and `pnpm check`.
-- [ ] Commit this task independently.
+- [x] Commit this task independently.
 
 ## Validation Commands
 
