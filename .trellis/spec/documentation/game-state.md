@@ -10,8 +10,10 @@ Current known facts include:
 - Account: `Dragon_King`
 - World: Persistent World
 - Visible shard: `shard3`
-- Current blocker: no owned room or spawn confirmed.
-- Deployed branch recorded as `main`.
+- Active production room: `shard3 / W15S27`
+- Spawn: `Spawn1` at `44,30`
+- Deployed branch: `main`
+- Current remaining blockers: CPU bucket and CPU tick limit are not yet observed.
 
 Do not hard-code room, spawn, source, mineral, route, branch, or hostile assumptions that are listed as blocked facts.
 

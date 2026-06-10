@@ -8,10 +8,11 @@
 - 已初始化 Trellis，并采用 TDD 工作流。
 - 包管理器为 `pnpm`。
 - `src/main.ts` 导出 Screeps `loop`。
-- 策略代码尚未实现。
+- 策略代码已有第一个最小 spawn decision 切片；尚未执行 `spawnCreep` action。
 - 可见 shard 已记录为 `shard3`。
 - Live Screeps 部署 branch 已记录为 `main`；远端 `main` 已读回，并与本地 `dist/main.js` 一致。
-- Owned room、spawn 和自然生产 tick heartbeat 尚未验证。
+- Active production room 为 `shard3 / W15S27`，spawn 为 `Spawn1` at `44,30`。
+- 自然生产 tick heartbeat 已通过 console websocket 观察。
 
 ## 命令
 
@@ -26,7 +27,7 @@ pnpm build
 - `CONTEXT.md`：项目语言、当前游戏状态和架构规则。
 - `docs/architecture.md`：运行时和测试结构。
 - `docs/development.md`：本地开发命令和 TDD 规则。
-- `docs/game-state.md`：生产部署前需要记录的事实。
+- `docs/game-state.md`：当前生产状态、部署事实和 blocked facts。
 - `docs/references.md`：官方文档克隆和需要研究的外部仓库。
 - `docs/adr/`：架构决策。
 

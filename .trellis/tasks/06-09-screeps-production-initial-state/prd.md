@@ -7,9 +7,11 @@
 ## Confirmed Facts
 
 - 账号 `Dragon_King`、Persistent World、`shard3`、GCL `6`、CPU limit `20` 已通过 UI 观察记录。
-- `shard3 / W16S2` 当前可见且 UI 显示 `Place your spawn`，Owner 为 `None`。
-- 还没有 owned room、spawn 名称、controller、sources、exits、mineral、hostile 状态的 confirmed facts。
-- API readback 不能证明自然 tick heartbeat；需要放置 spawn 后观察生产 Console。
+- `shard3 / W16S2` 是历史打开房间页面，UI 显示 `Place your spawn`，Owner 为 `None`。
+- Active production room 已通过 API 记录为 `shard3 / W15S27`。
+- Spawn 已通过 API 记录为 `Spawn1` at `44,30`。
+- Controller、sources、exits、mineral 和 hostile 状态已通过 API 记录到 `docs/game-state.md`。
+- API readback 只证明部署同步；自然 tick heartbeat 已通过 console websocket 观察。
 
 ## Requirements
 
@@ -28,11 +30,11 @@
 
 ## Acceptance Criteria
 
-- [ ] `docs/game-state.md` 包含最终起始房间、spawn 位置和 spawn 名称，证据等级明确。
-- [ ] 候选房间选择依据可追溯；未选择的明显候选有简短拒绝原因。
-- [ ] spawn 放置完成后，自然生产 tick heartbeat 被观察并记录；若无法观察，blocked reason 明确。
-- [ ] 没有把 `assumption` 写入生产逻辑。
-- [ ] 任务完成前运行文档相关检查和必要本地验证，至少 `pnpm format` 与当前可运行 focused gate。
+- [x] `docs/game-state.md` 包含最终起始房间、spawn 位置和 spawn 名称，证据等级明确。
+- [x] 候选房间选择依据可追溯；未选择的明显候选有简短拒绝原因。
+- [x] spawn 放置完成后，自然生产 tick heartbeat 被观察并记录；若无法观察，blocked reason 明确。
+- [x] 没有把 `assumption` 写入生产逻辑。
+- [x] 任务完成前运行文档相关检查和必要本地验证，至少 `pnpm format` 与当前可运行 focused gate。
 
 ## Notes
 

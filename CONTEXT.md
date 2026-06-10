@@ -6,11 +6,11 @@
 
 ## 当前游戏状态
 
-- 仓库中尚未记录 active production room 或 spawn。
-- 可见 shard 已记录为 `shard3`，但 room ownership 和 spawn 事实仍处于 blocked 状态。
+- Active production room 已记录为 `shard3 / W15S27`。
+- Spawn 已记录为 `Spawn1` at `44,30`。
 - Screeps branch `main` 已用于代码部署 readback；远端 `main` 与本地 `dist/main.js` 一致。
-- heartbeat 的自然生产 tick 执行尚未验证。
-- 当前第一个已提交运行时行为只是用于验证工具链的 tick heartbeat。
+- heartbeat 的自然生产 tick 执行已通过 console websocket 验证。
+- 当前第一个已提交运行时行为是 tick heartbeat、Memory 边界和第一个最小 spawn decision；尚未执行 `spawnCreep` action。
 
 ## 领域语言
 

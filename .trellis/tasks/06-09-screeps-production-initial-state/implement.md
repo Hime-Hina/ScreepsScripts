@@ -6,13 +6,13 @@
 - [x] 增强 `pnpm scout:screeps` 起始房间启发式，明确高沼泽/高墙/长路径/邻居风险评分。
 - [x] 使用 read-only API 复核候选房间事实。
 - [x] 记录候选比较。
-- [ ] 最终房间选择。
-- [ ] 确认 spawn 位置和名称。
-- [ ] 放置 spawn。
-- [ ] 观察生产 Console 是否出现自然 tick heartbeat。
+- [x] 最终房间选择。
+- [x] 确认 spawn 位置和名称。
+- [x] 放置 spawn。
+- [x] 观察生产 Console 是否出现自然 tick heartbeat。
 - [x] 更新 `docs/game-state.md`。
 - [x] 运行可用文档/本地验证。
-- [ ] Commit 本任务。
+- [x] Commit 本任务。
 
 ## Validation Commands
 

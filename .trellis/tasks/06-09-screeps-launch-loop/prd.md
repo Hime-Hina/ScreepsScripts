@@ -6,10 +6,10 @@
 
 ## Confirmed Facts
 
-- 当前仓库没有 `deploy:screeps`、`verify:live:screeps`、`rollback:screeps` 脚本。
-- `docs/game-state.md` 已记录 `shard3 / W16S2` 是可见但未拥有房间，spawn 尚未放置。
-- Screeps `main` branch 已有 API readback 事实，但 rollback path、previous remote hash 和自然 tick heartbeat 仍为 `blocked`。
-- 当前 runtime 只输出 tick heartbeat；尚未读取 `Memory`，也没有 spawn/creep 策略。
+- 当前仓库已有 `deploy:screeps`、`verify:live:screeps`、`rollback:screeps` 脚本。
+- `docs/game-state.md` 已记录 active production room 为 `shard3 / W15S27`，spawn 为 `Spawn1` at `44,30`。
+- Screeps `main` branch 已有 API readback、rollback path、previous remote hash 和自然 tick heartbeat 记录。
+- 当前 runtime 已包含 tick heartbeat、Memory 边界和第一个最小 spawn decision；尚未执行 `spawnCreep` action。
 
 ## Requirements
 
