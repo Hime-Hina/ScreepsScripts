@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "Defines final quality, docs, and verification expectations."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Check updated layer taxonomy and command placement."}
+{"file": ".trellis/spec/tooling/package-manager.md", "reason": "Check pnpm scripts and default gate remain explicit."}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "Check no live tokens, cookies, or screeps.json content are used or printed."}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "Check local server e2e does not blur into live deployment/readback semantics."}

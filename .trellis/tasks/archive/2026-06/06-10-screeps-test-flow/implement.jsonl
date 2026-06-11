@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Defines the current layer taxonomy that this task will revise."}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "Requires behavior slices and focused tests before implementation."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Guides observable behavior slice shape for the script and server PoC."}
+{"file": ".trellis/spec/tooling/package-manager.md", "reason": "Defines pnpm-only tooling and explicit script naming constraints."}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "Defines secret handling and prohibits leaking live Screeps credentials."}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "Separates local validation from production-affecting Screeps operations."}
+{"file": ".trellis/spec/research/player-code-research.md", "reason": "Defines how to study external Screeps projects without copying code or architecture blindly."}
+{"file": "docs/references.md", "reason": "Lists Screeps community repositories used as design references."}
