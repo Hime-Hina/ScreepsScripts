@@ -38,3 +38,36 @@ Implemented the local official Screeps server smoke suite, structured the server
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Screeps PTR smoke commands
+
+**Date**: 2026-06-11
+**Task**: Screeps PTR smoke commands
+**Branch**: `master`
+
+### Summary
+
+Added explicit Screeps PTR deploy, verify, and rollback commands with independent PTR config, fixed PTR API base, tests, docs, and blocked online validation notes.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `25d2f74` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
