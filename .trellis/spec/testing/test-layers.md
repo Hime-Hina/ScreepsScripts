@@ -163,7 +163,17 @@ node scripts/screeps-server/run-suite.mjs case worker-harvest
 
 ## Official PTR Smoke
 
-Official PTR smoke is online validation against Screeps PTR. It is not part of default `pnpm check` and should use explicit PTR command names or a documented manual flow.
+Official PTR smoke is online validation against Screeps PTR. It is not part of default `pnpm check` and must use explicit PTR command names.
+
+Current PTR entrypoints:
+
+- `pnpm verify:ptr:screeps`
+- `pnpm deploy:ptr:screeps`
+- `pnpm rollback:ptr:screeps`
+
+PTR commands use `screeps.ptr.json`, fixed API base `https://screeps.com/ptr/api/`, and `X-Token`. Tests for PTR URL construction, readback, deploy, rollback, and credential failures must mock the network boundary. Do not run official PTR commands during default local checks.
+
+`verify:ptr:screeps` proves PTR API readback for remote `main` versus local `dist/main.js`. It must report natural tick as not verified by that script. PTR natural tick evidence requires separate observation; missing PTR token, reset state, or inactive CPU subscription should be recorded as blocked.
 
 Do not add local `screeps@ptr` to the standard matrix unless a PTR-specific bug needs local reproduction.
 

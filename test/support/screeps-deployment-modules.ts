@@ -8,8 +8,17 @@ export interface ScreepsConfig {
   readonly token: string;
 }
 
+export interface PtrScreepsConfig {
+  readonly branch: string;
+  readonly token: string;
+}
+
 export interface ConfigModule {
   readMainScreepsConfigFrom(workspacePath: string): Promise<ScreepsConfig>;
+}
+
+export interface PtrConfigModule {
+  readPtrScreepsConfigFrom(workspacePath: string): Promise<PtrScreepsConfig>;
 }
 
 export interface ModuleSetModule {
@@ -47,6 +56,20 @@ export interface RollbackSnapshotModule {
   writeRollbackSnapshotTo(workspacePath: string, rollbackSnapshot: RollbackSnapshot): Promise<void>;
 }
 
+export interface PtrRollbackSnapshotModule {
+  assertPtrSnapshotBranch(rollbackSnapshot: RollbackSnapshot, branch: string): void;
+  createPtrRollbackSnapshot(
+    branch: string,
+    modules: Record<string, string>,
+    capturedAt: string,
+  ): RollbackSnapshot;
+  readPtrRollbackSnapshotFrom(workspacePath: string): Promise<RollbackSnapshot>;
+  writePtrRollbackSnapshotTo(
+    workspacePath: string,
+    rollbackSnapshot: RollbackSnapshot,
+  ): Promise<void>;
+}
+
 export interface ScreepsApiModule {
   readRoomObjects(
     screepsConfig: ScreepsConfig,
@@ -70,11 +93,41 @@ export interface ScreepsApiModule {
   ): Promise<void>;
 }
 
+export interface PtrApiModule {
+  readPtrRemoteModuleSet(ptrConfig: PtrScreepsConfig): Promise<Record<string, string>>;
+  uploadPtrRemoteModuleSet(
+    ptrConfig: PtrScreepsConfig,
+    moduleSet: Record<string, string>,
+  ): Promise<void>;
+}
+
+export interface PtrDeployModule {
+  deployPtrScreepsFrom(workspacePath: string): Promise<void>;
+}
+
+export interface PtrRollbackModule {
+  rollbackPtrScreepsFrom(workspacePath: string): Promise<void>;
+}
+
+export interface PtrVerifyModule {
+  verifyPtrScreepsReadbackFrom(workspacePath: string): Promise<void>;
+}
+
 export const loadConfigModule = async (): Promise<ConfigModule> => {
   const loadedModule = await loadDeploymentModule('scripts/screeps/config.mjs');
 
   if (!isConfigModule(loadedModule)) {
     throw new Error('config.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
+export const loadPtrConfigModule = async (): Promise<PtrConfigModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/ptr-config.mjs');
+
+  if (!isPtrConfigModule(loadedModule)) {
+    throw new Error('ptr-config.mjs exports changed.');
   }
 
   return loadedModule;
@@ -100,11 +153,61 @@ export const loadRollbackSnapshotModule = async (): Promise<RollbackSnapshotModu
   return loadedModule;
 };
 
+export const loadPtrRollbackSnapshotModule = async (): Promise<PtrRollbackSnapshotModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/ptr-rollback-snapshot.mjs');
+
+  if (!isPtrRollbackSnapshotModule(loadedModule)) {
+    throw new Error('ptr-rollback-snapshot.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
 export const loadScreepsApiModule = async (): Promise<ScreepsApiModule> => {
   const loadedModule = await loadDeploymentModule('scripts/screeps/screeps-api.mjs');
 
   if (!isScreepsApiModule(loadedModule)) {
     throw new Error('screeps-api.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
+export const loadPtrApiModule = async (): Promise<PtrApiModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/ptr-api.mjs');
+
+  if (!isPtrApiModule(loadedModule)) {
+    throw new Error('ptr-api.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
+export const loadPtrDeployModule = async (): Promise<PtrDeployModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/deploy-ptr.mjs');
+
+  if (!isPtrDeployModule(loadedModule)) {
+    throw new Error('deploy-ptr.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
+export const loadPtrRollbackModule = async (): Promise<PtrRollbackModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/rollback-ptr.mjs');
+
+  if (!isPtrRollbackModule(loadedModule)) {
+    throw new Error('rollback-ptr.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
+export const loadPtrVerifyModule = async (): Promise<PtrVerifyModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/verify-ptr.mjs');
+
+  if (!isPtrVerifyModule(loadedModule)) {
+    throw new Error('verify-ptr.mjs exports changed.');
   }
 
   return loadedModule;
@@ -126,6 +229,9 @@ const hasFunction = (loadedModule: Record<string, unknown>, exportName: string) 
 const isConfigModule = (candidateModule: unknown): candidateModule is ConfigModule =>
   isRecord(candidateModule) && hasFunction(candidateModule, 'readMainScreepsConfigFrom');
 
+const isPtrConfigModule = (candidateModule: unknown): candidateModule is PtrConfigModule =>
+  isRecord(candidateModule) && hasFunction(candidateModule, 'readPtrScreepsConfigFrom');
+
 const isModuleSetModule = (candidateModule: unknown): candidateModule is ModuleSetModule =>
   isRecord(candidateModule) &&
   hasFunction(candidateModule, 'decodeRemoteModuleSet') &&
@@ -144,6 +250,15 @@ const isRollbackSnapshotModule = (
   hasFunction(candidateModule, 'readRollbackSnapshotFrom') &&
   hasFunction(candidateModule, 'writeRollbackSnapshotTo');
 
+const isPtrRollbackSnapshotModule = (
+  candidateModule: unknown,
+): candidateModule is PtrRollbackSnapshotModule =>
+  isRecord(candidateModule) &&
+  hasFunction(candidateModule, 'assertPtrSnapshotBranch') &&
+  hasFunction(candidateModule, 'createPtrRollbackSnapshot') &&
+  hasFunction(candidateModule, 'readPtrRollbackSnapshotFrom') &&
+  hasFunction(candidateModule, 'writePtrRollbackSnapshotTo');
+
 const isScreepsApiModule = (candidateModule: unknown): candidateModule is ScreepsApiModule =>
   isRecord(candidateModule) &&
   hasFunction(candidateModule, 'readRoomObjects') &&
@@ -151,6 +266,20 @@ const isScreepsApiModule = (candidateModule: unknown): candidateModule is Screep
   hasFunction(candidateModule, 'readRoomTerrainText') &&
   hasFunction(candidateModule, 'readRemoteModuleSet') &&
   hasFunction(candidateModule, 'uploadRemoteModuleSet');
+
+const isPtrApiModule = (candidateModule: unknown): candidateModule is PtrApiModule =>
+  isRecord(candidateModule) &&
+  hasFunction(candidateModule, 'readPtrRemoteModuleSet') &&
+  hasFunction(candidateModule, 'uploadPtrRemoteModuleSet');
+
+const isPtrDeployModule = (candidateModule: unknown): candidateModule is PtrDeployModule =>
+  isRecord(candidateModule) && hasFunction(candidateModule, 'deployPtrScreepsFrom');
+
+const isPtrRollbackModule = (candidateModule: unknown): candidateModule is PtrRollbackModule =>
+  isRecord(candidateModule) && hasFunction(candidateModule, 'rollbackPtrScreepsFrom');
+
+const isPtrVerifyModule = (candidateModule: unknown): candidateModule is PtrVerifyModule =>
+  isRecord(candidateModule) && hasFunction(candidateModule, 'verifyPtrScreepsReadbackFrom');
 
 const isRecord = (candidateValue: unknown): candidateValue is Record<string, unknown> =>
   typeof candidateValue === 'object' && candidateValue !== null;

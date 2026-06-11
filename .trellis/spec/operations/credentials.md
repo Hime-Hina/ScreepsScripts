@@ -8,6 +8,10 @@ Current local files:
 
 - `screeps.json`: local credential/config file, ignored by Git.
 - `screeps.example.json`: tracked shape example without secrets.
+- `screeps.ptr.json`: local PTR credential/config file, ignored by Git.
+- `screeps.ptr.example.json`: tracked PTR shape example without secrets.
+
+PTR config is independent from live config. It contains only `branch` and `token`; it must not contain `protocol`, `server`, API base, cookies, or account passwords. PTR commands use the fixed API base `https://screeps.com/ptr/api/`.
 
 Do not commit or print:
 
@@ -39,6 +43,8 @@ Credential-loading code must:
 - Return actionable errors without including secret values.
 
 Internal deployment code should receive typed credentials and must not re-read files or revalidate raw JSON.
+
+Live and PTR credential readers are separate command-boundary readers. Do not make PTR commands call `readMainScreepsConfig` or derive PTR endpoint paths from the live `server` field.
 
 ## Wrong vs Correct
 

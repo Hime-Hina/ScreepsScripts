@@ -41,8 +41,10 @@ describe('project scripts', () => {
       'build',
       'check',
       'deploy:screeps',
+      'deploy:ptr:screeps',
       'lint',
       'rollback:screeps',
+      'rollback:ptr:screeps',
       'scout:screeps',
       'test:bundle',
       'test:coverage',
@@ -52,6 +54,7 @@ describe('project scripts', () => {
       'test:unit',
       'typecheck',
       'verify:live:screeps',
+      'verify:ptr:screeps',
     ];
 
     expect(packageManifest.packageManager).toMatch(/^pnpm@/);
@@ -61,10 +64,11 @@ describe('project scripts', () => {
     }
   });
 
-  it('keeps live Screeps credentials and rollback snapshots out of tracked source', () => {
+  it('keeps Screeps credentials and rollback snapshots out of tracked source', () => {
     const gitIgnoreText = readFileSync('.gitignore', 'utf8');
 
     expect(gitIgnoreText).toContain('screeps.json');
+    expect(gitIgnoreText).toContain('screeps.ptr.json');
     expect(gitIgnoreText).toContain('.screeps/');
   });
 
@@ -79,6 +83,15 @@ describe('project scripts', () => {
     );
     expect(packageManifest.scripts['rollback:screeps']).toBe('node scripts/screeps/rollback.mjs');
     expect(packageManifest.scripts['scout:screeps']).toBe('node scripts/screeps/scout-rooms.mjs');
+    expect(packageManifest.scripts['deploy:ptr:screeps']).toBe(
+      'pnpm check && pnpm build && node scripts/screeps/deploy-ptr.mjs',
+    );
+    expect(packageManifest.scripts['verify:ptr:screeps']).toBe(
+      'pnpm build && node scripts/screeps/verify-ptr.mjs',
+    );
+    expect(packageManifest.scripts['rollback:ptr:screeps']).toBe(
+      'node scripts/screeps/rollback-ptr.mjs',
+    );
     expect(packageManifest.scripts['test:bundle']).toBe('pnpm build && vitest run test/e2e');
     expect(packageManifest.scripts['test:screeps-server']).toBe(
       'node scripts/screeps-server/run-suite.mjs smoke',
@@ -90,9 +103,12 @@ describe('project scripts', () => {
     ).toEqual([]);
     expect(packageManifest.scripts['check']).toContain('pnpm test:bundle');
     expect(packageManifest.scripts['check']).not.toContain('deploy:screeps');
+    expect(packageManifest.scripts['check']).not.toContain('deploy:ptr:screeps');
     expect(packageManifest.scripts['check']).not.toContain('rollback:screeps');
+    expect(packageManifest.scripts['check']).not.toContain('rollback:ptr:screeps');
     expect(packageManifest.scripts['check']).not.toContain('scout:screeps');
     expect(packageManifest.scripts['check']).not.toContain('test:screeps-server');
     expect(packageManifest.scripts['check']).not.toContain('verify:live:screeps');
+    expect(packageManifest.scripts['check']).not.toContain('verify:ptr:screeps');
   });
 });

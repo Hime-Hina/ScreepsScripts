@@ -1,12 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { loadScreepsApiModule, type ScreepsConfig } from '../../support/screeps-deployment-modules';
+import {
+  loadPtrApiModule,
+  loadScreepsApiModule,
+  type PtrScreepsConfig,
+  type ScreepsConfig,
+} from '../../support/screeps-deployment-modules';
 
 const screepsConfig: ScreepsConfig = {
   branch: 'main',
   protocol: 'http',
   server: '127.0.0.1:21025',
   token: 'secret-token',
+};
+
+const ptrConfig: PtrScreepsConfig = {
+  branch: 'main',
+  token: 'ptr-secret-token',
 };
 
 describe('Screeps API deployment boundary', () => {
@@ -322,6 +332,73 @@ describe('Screeps API deployment boundary', () => {
 
     await expect(screepsApiModule.readRemoteModuleSet(screepsConfig)).rejects.toThrow(
       'Screeps API code response did not include modules.',
+    );
+  });
+});
+
+describe('Screeps PTR API deployment boundary', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reads PTR remote modules from the fixed PTR API base with X-Token authentication', async () => {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrl = requestInput.toString();
+      capturedInit = requestInit;
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: 1, modules: { main: 'ptr-main' } }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const ptrApiModule = await loadPtrApiModule();
+
+    await expect(ptrApiModule.readPtrRemoteModuleSet(ptrConfig)).resolves.toEqual({
+      main: 'ptr-main',
+    });
+    expect(capturedUrl).toBe('https://screeps.com/ptr/api/user/code?branch=main');
+    expect(capturedInit?.headers).toEqual({
+      'X-Token': 'ptr-secret-token',
+    });
+  });
+
+  it('uploads PTR module sets to the fixed PTR API base without putting token in the URL', async () => {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrl = requestInput.toString();
+      capturedInit = requestInit;
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: 1 }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const ptrApiModule = await loadPtrApiModule();
+
+    await ptrApiModule.uploadPtrRemoteModuleSet(ptrConfig, {
+      main: 'local-main',
+    });
+
+    expect(capturedUrl).toBe('https://screeps.com/ptr/api/user/code');
+    expect(capturedUrl).not.toContain('ptr-secret-token');
+    expect(capturedInit?.headers).toEqual({
+      'Content-Type': 'application/json; charset=utf-8',
+      'X-Token': 'ptr-secret-token',
+    });
+    expect(capturedInit?.method).toBe('POST');
+    expect(capturedInit?.body).toBe(
+      JSON.stringify({ branch: 'main', modules: { main: 'local-main' } }),
     );
   });
 });

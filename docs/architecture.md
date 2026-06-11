@@ -32,17 +32,19 @@ CPU 和 bucket 行为是架构的一部分。Pathfinding、room scan、market sc
 
 ## 测试层
 
-| 层级                | 入口                             | 用途                                                         |
-| ------------------- | -------------------------------- | ------------------------------------------------------------ |
-| Unit                | `test/unit/`                     | 通过公开 TypeScript 接口验证纯行为                           |
-| Integration         | `test/integration/`              | 在边界 stub Screeps 全局对象，验证源码级模块协作             |
-| System              | `test/system/`                   | 验证脚本、包管理器等项目级契约                               |
-| Bundle smoke        | `pnpm test:bundle` / `test/e2e/` | 构建并加载 `dist/main.js`，不启动真实 Screeps engine         |
-| Local server e2e    | `pnpm test:screeps-server`       | 启动官方 `screeps@4.3.0` standalone server，运行 smoke suite |
-| Official PTR smoke  | 独立 PTR 命令或手动流程          | 验证官方 PTR 环境，不进入默认本地门禁                        |
-| Live smoke/readback | `pnpm verify:live:screeps`       | 通过 live API readback 校验部署产物，不等同于本地测试        |
+| 层级                | 入口                                                                                | 用途                                                          |
+| ------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Unit                | `test/unit/`                                                                        | 通过公开 TypeScript 接口验证纯行为                            |
+| Integration         | `test/integration/`                                                                 | 在边界 stub Screeps 全局对象，验证源码级模块协作              |
+| System              | `test/system/`                                                                      | 验证脚本、包管理器等项目级契约                                |
+| Bundle smoke        | `pnpm test:bundle` / `test/e2e/`                                                    | 构建并加载 `dist/main.js`，不启动真实 Screeps engine          |
+| Local server e2e    | `pnpm test:screeps-server`                                                          | 启动官方 `screeps@4.3.0` standalone server，运行 smoke suite  |
+| Official PTR smoke  | `pnpm verify:ptr:screeps` / `pnpm deploy:ptr:screeps` / `pnpm rollback:ptr:screeps` | 验证官方 PTR API readback 和 PTR 回滚路径，不进入默认本地门禁 |
+| Live smoke/readback | `pnpm verify:live:screeps`                                                          | 通过 live API readback 校验部署产物，不等同于本地测试         |
 
 默认 `pnpm check` 包含 bundle smoke，不包含 local server e2e、官方 PTR 或 live 验证。
+
+PTR 命令使用独立的 `screeps.ptr.json` 和固定 API base `https://screeps.com/ptr/api/`。PTR API readback 只证明远端 `main` module 与本地 `dist/main.js` 同步；PTR 自然 tick 证据必须单独观察或记录为 blocked。
 
 Local server e2e 增长时应通过 runner 内部的 suite/case/fixture registry 扩展。`package.json` 只暴露少量稳定套件入口；不要为每个策略行为新增脚本，也不要用同一命令的 mode/flag 切换到 PTR、live、部署或回滚边界。
 

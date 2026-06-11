@@ -9,23 +9,26 @@
 
 ## 命令
 
-| 命令                       | 用途                                                   |
-| -------------------------- | ------------------------------------------------------ |
-| `pnpm install`             | 安装依赖并生成 `pnpm-lock.yaml`                        |
-| `pnpm build`               | 构建 `dist/main.js`                                    |
-| `pnpm typecheck`           | 对源码、测试和配置文件做类型检查                       |
-| `pnpm lint`                | 运行 ESLint flat config                                |
-| `pnpm format`              | 检查 Prettier 格式                                     |
-| `pnpm deploy:screeps`      | 本地完整验证、重新构建并部署到 Screeps live branch     |
-| `pnpm verify:live:screeps` | 构建并通过 Screeps API readback 校验 live branch       |
-| `pnpm rollback:screeps`    | 用本地 rollback snapshot 恢复上一份 Screeps 远端模块集 |
-| `pnpm scout:screeps`       | 只读读取 Screeps API 并按启发式排序起始房间候选        |
-| `pnpm test:unit`           | 运行单元测试                                           |
-| `pnpm test:integration`    | 运行集成测试                                           |
-| `pnpm test:system`         | 构建并运行系统测试                                     |
-| `pnpm test:bundle`         | 构建并运行编译后 bundle smoke                          |
-| `pnpm test:screeps-server` | 启动本地官方 standalone server 并运行 smoke e2e suite  |
-| `pnpm check`               | 运行完整本地验证流水线                                 |
+| 命令                        | 用途                                                   |
+| --------------------------- | ------------------------------------------------------ |
+| `pnpm install`              | 安装依赖并生成 `pnpm-lock.yaml`                        |
+| `pnpm build`                | 构建 `dist/main.js`                                    |
+| `pnpm typecheck`            | 对源码、测试和配置文件做类型检查                       |
+| `pnpm lint`                 | 运行 ESLint flat config                                |
+| `pnpm format`               | 检查 Prettier 格式                                     |
+| `pnpm deploy:screeps`       | 本地完整验证、重新构建并部署到 Screeps live branch     |
+| `pnpm deploy:ptr:screeps`   | 本地完整验证、重新构建并部署到 Screeps PTR branch      |
+| `pnpm verify:live:screeps`  | 构建并通过 Screeps API readback 校验 live branch       |
+| `pnpm verify:ptr:screeps`   | 构建并通过 Screeps PTR API readback 校验 PTR branch    |
+| `pnpm rollback:screeps`     | 用本地 rollback snapshot 恢复上一份 Screeps 远端模块集 |
+| `pnpm rollback:ptr:screeps` | 用本地 PTR snapshot 恢复上一份 PTR 远端模块集          |
+| `pnpm scout:screeps`        | 只读读取 Screeps API 并按启发式排序起始房间候选        |
+| `pnpm test:unit`            | 运行单元测试                                           |
+| `pnpm test:integration`     | 运行集成测试                                           |
+| `pnpm test:system`          | 构建并运行系统测试                                     |
+| `pnpm test:bundle`          | 构建并运行编译后 bundle smoke                          |
+| `pnpm test:screeps-server`  | 启动本地官方 standalone server 并运行 smoke e2e suite  |
+| `pnpm check`                | 运行完整本地验证流水线                                 |
 
 ## CI 和 Hooks
 
@@ -33,7 +36,7 @@ CI 和本地 hooks 尚未配置。当前完成门槛是本地 `pnpm check`。
 
 `pnpm check` 不读取 Screeps token，不连接官方 PTR 或 live 主服，也不启动本地官方 Screeps server。它包含 `test:bundle`，用于证明 `dist/main.js` 能被加载并执行，但这不是真实 Screeps engine 验证。
 
-未来添加 CI 时，应运行 `corepack enable`、`pnpm install --frozen-lockfile` 和 `pnpm check`，默认不使用 live Screeps 凭据。
+未来添加 CI 时，应运行 `corepack enable`、`pnpm install --frozen-lockfile` 和 `pnpm check`，默认不使用 live 或 PTR Screeps 凭据。
 
 ## 本地官方 Server PoC
 
@@ -53,6 +56,8 @@ CI 和本地 hooks 尚未配置。当前完成门槛是本地 `pnpm check`。
 
 不要提交 live Screeps 凭据。本地部署配置保存在 `screeps.json`，该文件被 Git 忽略。`screeps.example.json` 只用于记录配置结构。
 
+PTR 凭据独立保存在 `screeps.ptr.json`，该文件被 Git 忽略。`screeps.ptr.example.json` 只记录 PTR 配置结构，字段为 `branch` 和 `token`。PTR 配置不包含 `protocol`、`server` 或 API base；PTR API base 固定为 `https://screeps.com/ptr/api/`。
+
 外部 API 访问需要在 Screeps 账号设置中生成 auth token：
 
 ```text
@@ -68,6 +73,18 @@ https://screeps.com/a/#!/account/auth-tokens
 `verify:live:screeps` 只校验 Screeps API readback 中的 `main` module 与本地 `dist/main.js` 一致，并报告远端 module 列表。它不证明自然生产 tick 已执行。
 
 `rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并再次 readback 校验。没有 snapshot 或 snapshot branch 与 `screeps.json` 不一致时，脚本会停止。
+
+## Screeps PTR Smoke
+
+官方 PTR 是独立在线环境，世界数据、脚本、Memory 和设置与 live 主服分离。PTR 每周一 `00:00 UTC` 从主服复制数据并擦除旧 PTR 数据，包括玩家脚本；PTR CPU subscription 默认停用，需要在 PTR order page 激活到下一次 reset。PTR 中建筑建造和 controller 升级成本与 live 不同，PTR 证据不能替代 live 生产验证。
+
+`deploy:ptr:screeps` 会先运行本地完整验证，再重新构建 `dist/main.js`。脚本读取 `screeps.ptr.json`，使用 `X-Token` 请求头访问固定 endpoint `https://screeps.com/ptr/api/user/code`，先把当前 PTR 远端 module set 保存到 `.screeps/ptr/latest.json`，再上传本地 `main` module，并通过 PTR API readback 校验。
+
+`verify:ptr:screeps` 只校验 PTR API readback 中的 `main` module 与本地 `dist/main.js` 一致，并报告远端 module 列表。它不证明 PTR 自然 tick 已执行，输出会把 `naturalTickHeartbeat` 标为 `not-verified-by-this-script`。
+
+`rollback:ptr:screeps` 从 `.screeps/ptr/latest.json` 恢复同一 PTR branch 的上一份远端 module set，并再次 readback 校验。没有 snapshot 或 snapshot branch 与 `screeps.ptr.json` 不一致时，脚本会停止。
+
+PTR reset、缺少 PTR token、未激活 PTR CPU subscription 或未观察到自然 tick 时，应在 `docs/game-state.md` 记录为 `blocked`，不能把 API readback 当成自然 tick 验证。
 
 ## Screeps 房间筛选
 

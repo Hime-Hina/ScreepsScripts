@@ -22,6 +22,9 @@ pnpm check
 pnpm build
 pnpm test:bundle
 pnpm test:screeps-server
+pnpm verify:ptr:screeps
+pnpm deploy:ptr:screeps
+pnpm rollback:ptr:screeps
 ```
 
 ## 文档

@@ -9,12 +9,14 @@
   "scripts": {
     "build": "rollup --config rollup.config.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm format && pnpm test:coverage && pnpm test:system && pnpm test:bundle",
+    "deploy:ptr:screeps": "pnpm check && pnpm build && node scripts/screeps/deploy-ptr.mjs",
     "deploy:screeps": "pnpm check && pnpm build && node scripts/screeps/deploy.mjs",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "rollback:screeps": "node scripts/screeps/rollback.mjs",
+    "rollback:ptr:screeps": "node scripts/screeps/rollback-ptr.mjs",
     "scout:screeps": "node scripts/screeps/scout-rooms.mjs",
     "test": "vitest run test/unit test/integration",
     "test:bundle": "pnpm build && vitest run test/e2e",
@@ -25,7 +27,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage test/unit test/integration",
     "typecheck": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.vitest.json --noEmit && tsc --project tsconfig.node.json --noEmit",
-    "verify:live:screeps": "pnpm build && node scripts/screeps/verify-live.mjs"
+    "verify:live:screeps": "pnpm build && node scripts/screeps/verify-live.mjs",
+    "verify:ptr:screeps": "pnpm build && node scripts/screeps/verify-ptr.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

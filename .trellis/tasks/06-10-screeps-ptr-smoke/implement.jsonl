@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/operations/deployment.md","reason":"PTR deploy/readback changes Screeps code deployment behavior and module ownership."}
+{"file":".trellis/spec/operations/credentials.md","reason":"PTR commands load auth tokens and must avoid secret leakage."}
+{"file":".trellis/spec/testing/test-layers.md","reason":"Official PTR smoke is an explicit online layer outside default check."}
+{"file":".trellis/spec/tooling/package-manager.md","reason":"Package scripts must stay explicit and avoid mode/flag environment switching."}
+{"file":"references/screeps-docs/source/ptr.md","reason":"Official PTR reset, CPU subscription, and PTR behavior constraints."}
+{"file":"references/screeps-docs/source/auth-tokens.md","reason":"Official token usage methods and rate-limit behavior."}

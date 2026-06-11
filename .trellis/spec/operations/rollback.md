@@ -14,6 +14,7 @@ Future rollback tooling should use an explicit command name:
 
 ```text
 rollback:screeps
+rollback:ptr:screeps
 ```
 
 The rollback snapshot must contain:
@@ -40,6 +41,15 @@ During rollback:
 - Record rollback result in `docs/game-state.md`.
 
 Rollback snapshots must be ignored by Git. If a snapshot directory is introduced, add it to `.gitignore` in the same task.
+
+PTR rollback uses the same remote-module-set contract with a separate operation boundary:
+
+- Config source: `screeps.ptr.json`.
+- Snapshot path: `.screeps/ptr/latest.json`.
+- Restore endpoint: `https://screeps.com/ptr/api/user/code`.
+- Rollback command: `pnpm rollback:ptr:screeps`.
+
+PTR rollback must not read `screeps.json`, rebuild current source, or derive any live API host.
 
 ### 4. Validation & Error Matrix
 

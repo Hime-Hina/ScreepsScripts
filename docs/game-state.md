@@ -118,6 +118,15 @@ require('main').loop();
 - 2026-06-10 部署当前本地代码后，`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`（`observed`，API readback + derived hash）。
 - 2026-06-10 部署当前本地代码后，console websocket 观察到自然 tick heartbeat：`[tick 80758326] cpu=0.20`，shard `shard3`，error `null`（`observed`，websocket）。
 
+## PTR 代码验证
+
+- PTR 配置文件：`screeps.ptr.json`，被 Git 忽略；示例文件为 `screeps.ptr.example.json`（`derived`，本地脚本契约）。
+- PTR API base：`https://screeps.com/ptr/api/`；代码读写 endpoint 为 `https://screeps.com/ptr/api/user/code`，使用 `X-Token` header（`derived`，本地脚本契约 + 官方文档）。
+- PTR deploy snapshot path：`.screeps/ptr/latest.json`，被 Git 忽略（`derived`，本地脚本契约）。
+- PTR API readback：blocked，2026-06-11 未执行 `pnpm verify:ptr:screeps` 或 `pnpm deploy:ptr:screeps`；原因是本轮没有可安全使用并明确授权的 PTR token / `screeps.ptr.json`（`blocked`）。
+- PTR natural tick heartbeat：blocked，2026-06-11 未观察；原因是 PTR readback 未执行，PTR CPU subscription 是否已激活也未确认（`blocked`）。
+- PTR rollback：blocked，2026-06-11 未执行；原因是没有本轮 PTR deploy snapshot，且未进行在线 PTR 写入（`blocked`）。
+
 ## API 访问
 
 - Chrome 自动化无法直接复用浏览器 cookie 访问 `/api/*`。

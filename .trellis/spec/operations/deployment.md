@@ -27,8 +27,11 @@ Future deployment commands must use explicit names such as:
 
 ```text
 deploy:screeps
+deploy:ptr:screeps
 verify:live:screeps
+verify:ptr:screeps
 rollback:screeps
+rollback:ptr:screeps
 ```
 
 Do not hide live operations behind generic names such as `sync`, `push`, or `release`.
@@ -56,6 +59,16 @@ Rollback contract:
 - Record the previous deployed module or branch before replacement.
 - A rollback operation must be able to restore that previous code without rebuilding current source.
 - If rollback cannot be automated yet, document the exact manual restore path before deployment.
+
+PTR deployment contract:
+
+- PTR operations use `screeps.ptr.json`, not `screeps.json` or the live `main` profile.
+- PTR API base is fixed in code as `https://screeps.com/ptr/api/`.
+- PTR code read/write requests target `https://screeps.com/ptr/api/user/code`.
+- PTR deploy snapshots the prior PTR module set under `.screeps/ptr/`, uploads only local `dist/main.js` as `main`, then readback verifies.
+- PTR verify compares PTR remote `main` with local `dist/main.js` and reports natural tick as not verified by that script.
+- PTR rollback restores `.screeps/ptr/latest.json`, stops on missing snapshot or branch mismatch, and readback verifies the restored module set.
+- PTR API readback is not natural tick evidence. PTR reset, missing credentials, or inactive PTR CPU subscription must be recorded as blocked when they prevent online validation.
 
 ### 4. Validation & Error Matrix
 

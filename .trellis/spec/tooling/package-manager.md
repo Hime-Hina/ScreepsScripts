@@ -46,8 +46,11 @@ Do not add scripts that require live Screeps credentials unless the command name
 Production-affecting scripts must use explicit names such as:
 
 - `deploy:screeps`
+- `deploy:ptr:screeps`
 - `verify:live:screeps`
+- `verify:ptr:screeps`
 - `rollback:screeps`
+- `rollback:ptr:screeps`
 
 These scripts must not be called by `pnpm check`.
 
