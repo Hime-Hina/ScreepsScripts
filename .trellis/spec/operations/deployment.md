@@ -72,7 +72,7 @@ Rollback contract:
 ### 5. Good/Base/Bad Cases
 
 - Good: `pnpm check` passes, `dist/main.js` is uploaded to confirmed branch, API readback hash matches, live observation is recorded.
-- Base: local e2e passes but no live credentials are available; record blocked live verification.
+- Base: bundle smoke and local server e2e pass but no live credentials are available; record blocked live verification.
 - Bad: code is uploaded through the UI without recording branch, hash, previous state, or rollback path.
 
 ### 6. Tests Required
@@ -81,8 +81,9 @@ Deployment tooling must include:
 
 - Unit tests for config parsing and branch/module selection.
 - System tests for required scripts and ignored credentials.
-- Local e2e tests that execute `dist/main.js`.
-- Live e2e only when credentials, branch, rollback, and expected observable effect are documented.
+- Bundle smoke tests that execute `dist/main.js`.
+- Local server e2e when deployment-affecting behavior must be observed inside the real standalone Screeps engine.
+- Live smoke only when credentials, branch, rollback, and expected observable effect are documented.
 
 ### 7. Wrong vs Correct
 

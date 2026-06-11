@@ -8,6 +8,7 @@ Current references:
 
 - `rollup.config.mjs`
 - `package.json` script `build`
+- `package.json` script `test:bundle`
 - `test/e2e/compiled-loop.test.ts`
 
 Do not deploy source TypeScript directly to Screeps.

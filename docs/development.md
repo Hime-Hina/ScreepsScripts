@@ -23,14 +23,27 @@
 | `pnpm test:unit`           | 运行单元测试                                           |
 | `pnpm test:integration`    | 运行集成测试                                           |
 | `pnpm test:system`         | 构建并运行系统测试                                     |
-| `pnpm test:e2e`            | 构建并运行本地 bundle e2e 测试                         |
+| `pnpm test:bundle`         | 构建并运行编译后 bundle smoke                          |
+| `pnpm test:screeps-server` | 启动本地官方 standalone server 并运行 smoke e2e suite  |
 | `pnpm check`               | 运行完整本地验证流水线                                 |
 
 ## CI 和 Hooks
 
 CI 和本地 hooks 尚未配置。当前完成门槛是本地 `pnpm check`。
 
+`pnpm check` 不读取 Screeps token，不连接官方 PTR 或 live 主服，也不启动本地官方 Screeps server。它包含 `test:bundle`，用于证明 `dist/main.js` 能被加载并执行，但这不是真实 Screeps engine 验证。
+
 未来添加 CI 时，应运行 `corepack enable`、`pnpm install --frozen-lockfile` 和 `pnpm check`，默认不使用 live Screeps 凭据。
+
+## 本地官方 Server PoC
+
+`pnpm test:screeps-server` 是显式运行的服务端端到端测试。它会先执行 `pnpm build`，再在 `.screeps/server/package/` 安装或复用官方 `screeps@4.3.0`，为每次运行创建 `.screeps/server/runs/<id>/`，加载 `single-owned-spawn` fixture，并运行 smoke suite。
+
+`.screeps/server/` 是生成状态并被 Git 忽略。首次运行需要通过 `node-gyp` 编译官方 server native 依赖，耗时明显高于 warm cache；该命令不属于默认 `pnpm check`。
+
+当前 smoke suite 由 runner registry 编排，包含 `basic-runtime-heartbeat` 和 `memory-schema-write` 两个 case，用于观察 `AliceBot / W1N9 / Spawn1` 的自然 tick heartbeat 和 `Memory.screepsScripts.schemaVersion = 1`。以后本地 server e2e 扩展时，`package.json` 只保留少量稳定套件入口，例如 smoke/full；具体行为 case 和 fixture 继续由 runner 内部 registry 管理。case selection 只允许用于同一个本地官方 server e2e 边界内的调试，不能通过 flag/mode 切换到 PTR、live、deploy、rollback 或任何读取凭据、修改官方服务的操作。
+
+`scripts/screeps-server/run-suite.mjs` 是稳定入口。`cases/` 保存 suite/case registry 和 case assertions，`fixtures/` 保存 `single-owned-spawn` world seeding，`framework/` 保存官方 package 缓存、harness 生命周期、进程控制、命令执行、端口保留、server output 和 status waiting，`observability/` 保存 run-scoped status mod 生成。
 
 ## TDD 规则
 

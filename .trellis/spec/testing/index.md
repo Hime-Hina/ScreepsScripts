@@ -15,7 +15,7 @@ These rules apply to `test/`, test helpers, and task planning.
 | --- | --- |
 | [TDD Workflow](./tdd-workflow.md) | Any behavior implementation or bug fix |
 | [Behavior Slices](./behavior-slices.md) | Defining the next red-green-refactor unit |
-| [Test Layers](./test-layers.md) | Choosing unit, integration, system, local e2e, or live e2e coverage |
+| [Test Layers](./test-layers.md) | Choosing unit, integration, system, bundle smoke, local server e2e, PTR smoke, or live smoke coverage |
 | [Coverage](./coverage.md) | Adding tests, changing thresholds, or reviewing gaps |
 | [Completion Definition](./completion-definition.md) | Finishing a Trellis task or reviewing readiness |
 
@@ -27,6 +27,6 @@ Use the narrowest relevant command first, then the full gate:
 pnpm test:unit
 pnpm test:integration
 pnpm test:system
-pnpm test:e2e
+pnpm test:bundle
 pnpm check
 ```

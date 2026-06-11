@@ -44,9 +44,10 @@ describe('project scripts', () => {
       'lint',
       'rollback:screeps',
       'scout:screeps',
+      'test:bundle',
       'test:coverage',
-      'test:e2e',
       'test:integration',
+      'test:screeps-server',
       'test:system',
       'test:unit',
       'typecheck',
@@ -78,8 +79,20 @@ describe('project scripts', () => {
     );
     expect(packageManifest.scripts['rollback:screeps']).toBe('node scripts/screeps/rollback.mjs');
     expect(packageManifest.scripts['scout:screeps']).toBe('node scripts/screeps/scout-rooms.mjs');
+    expect(packageManifest.scripts['test:bundle']).toBe('pnpm build && vitest run test/e2e');
+    expect(packageManifest.scripts['test:screeps-server']).toBe(
+      'node scripts/screeps-server/run-suite.mjs smoke',
+    );
+    expect(
+      Object.keys(packageManifest.scripts).filter((scriptName) =>
+        scriptName.startsWith('test:screeps-server:'),
+      ),
+    ).toEqual([]);
+    expect(packageManifest.scripts['check']).toContain('pnpm test:bundle');
     expect(packageManifest.scripts['check']).not.toContain('deploy:screeps');
     expect(packageManifest.scripts['check']).not.toContain('rollback:screeps');
     expect(packageManifest.scripts['check']).not.toContain('scout:screeps');
+    expect(packageManifest.scripts['check']).not.toContain('test:screeps-server');
+    expect(packageManifest.scripts['check']).not.toContain('verify:live:screeps');
   });
 });

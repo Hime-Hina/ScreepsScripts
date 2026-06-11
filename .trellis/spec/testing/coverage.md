@@ -23,6 +23,7 @@ Coverage must come from behavior assertions:
 - Unit tests for pure decisions.
 - Integration tests for boundary collaboration.
 - System tests for project contracts.
-- E2E tests for compiled bundle execution.
+- Bundle smoke tests for compiled artifact execution.
+- Local official server e2e for behavior that requires the real Screeps engine.
 
 Do not add assertions that merely execute lines without checking observable behavior.

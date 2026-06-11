@@ -20,6 +20,8 @@
 pnpm install
 pnpm check
 pnpm build
+pnpm test:bundle
+pnpm test:screeps-server
 ```
 
 ## 文档

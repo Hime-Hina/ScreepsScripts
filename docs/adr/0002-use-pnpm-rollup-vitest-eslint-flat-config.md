@@ -12,7 +12,7 @@
 
 - 使用 `pnpm` 作为包管理器。
 - 使用 Rollup 将 `src/main.ts` 编译为 CommonJS `dist/main.js`。
-- 使用 Vitest 做单元、集成、系统和本地 e2e 测试。
+- 使用 Vitest 做单元、集成、系统和编译后 bundle smoke 测试。
 - 在 `eslint.config.mjs` 中使用 ESLint flat config。
 - 使用 Prettier 作为独立格式化工具，不通过 ESLint 运行 Prettier。
 
@@ -20,4 +20,4 @@
 
 - 不允许 `package-lock.json` 和 `yarn.lock`。
 - Screeps 部署凭据保留在仓库外。
-- 在尝试任何 live Screeps 部署前，本地 e2e 测试先验证编译后 bundle。
+- 在尝试任何 live Screeps 部署前，bundle smoke 先验证编译后 bundle；真实 Screeps engine 验证由独立的本地 server e2e 命令承担。
