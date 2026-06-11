@@ -123,9 +123,10 @@ require('main').loop();
 - PTR 配置文件：`screeps.ptr.json`，被 Git 忽略；示例文件为 `screeps.ptr.example.json`（`derived`，本地脚本契约）。
 - PTR API base：`https://screeps.com/ptr/api/`；代码读写 endpoint 为 `https://screeps.com/ptr/api/user/code`，使用 `X-Token` header（`derived`，本地脚本契约 + 官方文档）。
 - PTR deploy snapshot path：`.screeps/ptr/latest.json`，被 Git 忽略（`derived`，本地脚本契约）。
-- PTR API readback：blocked，2026-06-11 未执行 `pnpm verify:ptr:screeps` 或 `pnpm deploy:ptr:screeps`；原因是本轮没有可安全使用并明确授权的 PTR token / `screeps.ptr.json`（`blocked`）。
-- PTR natural tick heartbeat：blocked，2026-06-11 未观察；原因是 PTR readback 未执行，PTR CPU subscription 是否已激活也未确认（`blocked`）。
-- PTR rollback：blocked，2026-06-11 未执行；原因是没有本轮 PTR deploy snapshot，且未进行在线 PTR 写入（`blocked`）。
+- PTR API deploy/readback：2026-06-12 `pnpm deploy:ptr:screeps` 成功部署 branch `main`，remote modules `main`，main hash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`；覆盖前 snapshot 写入 `.screeps/ptr/latest.json`，previous modules `main, main.js.map`，previous hash `62921be9ec157c751d8bdc3a3b7402187ad54af678a42208fcee1221ad0e2945`（`observed`，PTR API write + readback）。
+- PTR API readback：2026-06-12 `pnpm verify:ptr:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，mainHash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`（`observed`，PTR API readback）。
+- PTR natural tick heartbeat：blocked，2026-06-12 未观察到 PTR console websocket 自然 tick；`deploy:ptr:screeps` 和 `verify:ptr:screeps` 均报告 `naturalTickHeartbeat=not-verified-by-this-script`（`blocked`）。
+- PTR rollback：2026-06-12 未执行；当前 PTR branch 保留本次部署结果，回滚 snapshot 已存在于 `.screeps/ptr/latest.json`（`observed`，本地 snapshot）。
 
 ## API 访问
 
