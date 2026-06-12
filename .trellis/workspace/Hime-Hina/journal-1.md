@@ -295,3 +295,36 @@ Implemented, verified, deployed, and documented P2 critical repair fallback for 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: P3 defense fallback
+
+**Date**: 2026-06-13
+**Task**: P3 defense fallback
+**Branch**: `master`
+
+### Summary
+
+Implemented and deployed P3 defense fallback: hostile threat classification, safe mode decisions at runtime boundary, construction pause under room threat, tests, docs, runtime spec, and live readback.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9e59990` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
