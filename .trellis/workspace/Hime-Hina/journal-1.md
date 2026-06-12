@@ -128,3 +128,36 @@ Opened Screeps PTR in Chrome and verified that natural tick heartbeat remains bl
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: Screeps production CI survival loop
+
+**Date**: 2026-06-12
+**Task**: Screeps production CI survival loop
+**Branch**: `master`
+
+### Summary
+
+Improved bootstrap production logic, added default CI workflow, expanded tests and documentation, and recorded live deploy policy blockage.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8ff4b77` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
