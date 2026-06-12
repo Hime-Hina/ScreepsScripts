@@ -12,6 +12,7 @@ Future game modules must be named after Screeps domain concepts and own complete
 | Screeps global capture | `src/runtime/` |
 | Tick orchestration | `src/kernel/` |
 | Persistent memory boundary | `src/memory/` |
+| Room economy safety and bootstrap demand | `src/colony/` |
 | Construction planning decision | `src/construction/` |
 | Initial spawning decision | `src/spawning/` |
 | Worker action decision | `src/creeps/` |
@@ -181,4 +182,74 @@ Game.rooms.W51N21.createConstructionSite(34, 22, STRUCTURE_EXTENSION);
 ```typescript
 const constructionDecisions = planRoomConstruction(runtime.readConstructionWorld());
 runtime.executeConstructionDecisions(constructionDecisions);
+```
+
+## Scenario: P1 Bootstrap Economy Backpressure Contracts
+
+### 1. Scope / Trigger
+
+- Trigger: RCL2 bootstrap economy needs construction backpressure, survival-safe worker expansion, and opportunistic worker energy.
+- This contract applies when changing `src/colony/bootstrap-economy.ts`, bootstrap spawning demand, or worker construction eligibility.
+
+### 2. Signatures
+
+- Colony demand: `selectBootstrapWorkerDemand(input: BootstrapWorkerDemandInput): BootstrapWorkerDemand`.
+- Colony construction eligibility: `selectRoomConstructionEligibility(input: RoomConstructionEligibilityInput): RoomConstructionEligibility`.
+- Spawning planner: `planBootstrapWorkerSpawn(world: SpawningWorldSnapshot): SpawnDecision | null`.
+- Worker planner: `planBootstrapWorkerActions(world: WorkerWorldSnapshot): readonly WorkerActionDecision[]`.
+- `src/colony/` owns room-level economy safety contracts that are shared by spawning and worker action planning.
+- `src/spawning/` consumes `BootstrapWorkerDemand` and owns the final spawn decision.
+- `src/creeps/` consumes `RoomConstructionEligibility` and owns the final worker action decision.
+- `src/runtime/` captures Screeps official constants and runtime objects; strategy modules must not read Screeps globals.
+
+### 3. Contracts
+
+- Bootstrap survival floor is `3` generic workers.
+- RCL2 construction expansion target is `5` generic workers.
+- Construction is allowed only when controller downgrade state is safe, spawn/extension energy is stable, and survival worker population is stable.
+- RCL2 construction worker demand is allowed only when controller downgrade state is safe, spawn/extension energy is stable, a spawn is available, and construction backlog exists.
+- Controller downgrade thresholds are project policy and are classified by the colony economy contract; do not duplicate the numeric thresholds in spawning or worker modules.
+- Per-tick worker target reservations remain planner-local and must not persist to `Memory`.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required Behavior |
+| --- | --- |
+| Worker count below `3` | Spawning may request a survival worker when a spawn can build one |
+| Worker count `3` to `4`, RCL2, safe controller, stable energy, available spawn, and backlog | Spawning may request workers up to target `5` |
+| Controller not safe, energy unstable, spawn already spawning, or no backlog | Demand remains at survival floor `3` |
+| Construction deferred for survival | Full-energy workers refill or upgrade instead of building |
+| Dropped/tombstone/ruin/store energy exists in the worker room | Empty workers prefer pickup/withdraw before source harvest |
+| Limited pickup/withdraw/refill/build target is already reserved this tick | Later workers choose another valid target or fallback action |
+
+### 5. Good/Base/Bad Cases
+
+- Good: runtime captures `BODYPART_COST`, `CONTROLLER_STRUCTURES`, dropped resources, tombstones, ruins, and owned stores, then passes narrow snapshots into pure planners.
+- Good: `src/colony/` classifies controller safety once and both spawning and worker decisions consume that contract.
+- Base: a safe RCL2 room with full spawn/extension energy and extension backlog grows from 3 to 5 generic workers.
+- Bad: worker or spawning modules duplicate controller downgrade threshold numbers or read Screeps globals directly.
+- Bad: build pause is represented by a boolean/options/mode flag instead of `RoomConstructionEligibility`.
+
+### 6. Tests Required
+
+- Unit tests for `selectBootstrapWorkerDemand` must cover survival floor, RCL2 construction target, unsafe controller, unstable energy, unavailable spawn, and no backlog.
+- Unit tests for `planBootstrapWorkerSpawn` must prove body cost, construction cost, and RCL structure limits come from captured official constants.
+- Unit tests for `planBootstrapWorkerActions` must prove construction deferred workers fall back to refill/upgrade and target reservations prevent same-tick over-assignment.
+- Integration tests must prove runtime captures dropped/tombstone/ruin/store energy and executes `pickup` / `withdraw` through the runtime boundary.
+- Bundle smoke must define every Screeps constant read by compiled runtime code.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+const BOOTSTRAP_WORKER_COUNT = 5;
+const canBuild = controllerSafe && energyStable;
+```
+
+#### Correct
+
+```typescript
+const workerDemand = selectBootstrapWorkerDemand(economyInput);
+const constructionEligibility = selectRoomConstructionEligibility(economyInput);
 ```
