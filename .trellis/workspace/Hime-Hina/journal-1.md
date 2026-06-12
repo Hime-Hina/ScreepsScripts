@@ -194,3 +194,36 @@ Implemented RCL2 extension construction planning, worker refill/build priority, 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: P0 controller downgrade guard
+
+**Date**: 2026-06-12
+**Task**: P0 controller downgrade guard
+**Branch**: `master`
+
+### Summary
+
+Implemented and deployed the P0 controller downgrade guard, recorded live room readback, and archived the task.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b990156` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
