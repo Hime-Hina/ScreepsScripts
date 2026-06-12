@@ -14,8 +14,12 @@
 
 - 当前 active room 是 `shard1 / W51N21`，RCL2，`Spawn1` at `35,23`。
 - 当前代码已覆盖 worker spawn、source harvest、spawn/extension refill、extension construction site、build site、upgrade fallback。
-- 当前代码没有 `controller.ticksToDowngrade` 保级抢占；P0 controller downgrade guard 是本路线图第一优先级。
-- 当前代码没有 dropped energy/tombstone/ruin 回收、repair、hostile detection、safe mode、tower、CPU bucket 降级、runtime alert、multi-room rebuild。
+- P0 controller downgrade guard 已 live：runtime 捕获 `controller.ticksToDowngrade`，worker 会在 recovering/warning/critical 状态抢占 build 进行 upgrade。
+- 当前 bootstrap worker 数量仍由 `BOOTSTRAP_WORKER_COUNT = 3` 硬上限控制；P1 应把它升级为 survival minimum + RCL2 construction expansion demand。
+- 当前 P1 相关经济/建造/孵化规则仍有本地数字表或硬编码风险；P1 应从 Screeps official constants snapshot 派生结构上限、建造成本和 body 成本。
+- P2/P3 必须在父任务周期内完成剩余 official constants 接入：P2 覆盖 structure hits/repair 阈值，P3 覆盖 hostile body power 和 tower power/range/falloff，P4 live check 不得重新引入这些硬编码表。
+- Live `Memory.creeps` 会随死亡 creep 名称增长；P1 应增加 top-level `Memory.creeps` 清理，不混入项目 `Memory.screepsScripts` schema。
+- 当前代码没有动态 worker demand、dropped energy/tombstone/ruin 回收、repair、hostile detection、safe mode、tower、CPU bucket 降级、runtime alert、multi-room rebuild。
 - 成熟方案参考：
   - Screeps 官方文档：controller 未被 `upgradeController` 影响会递减 downgrade timer；RCL2 timer 为 5000 tick 级别到高 RCL 更长，必须周期性 upgrade。
   - Overmind：workers 会在 downgrade imminent 时更早 upgrade/重新 spawn；低 RCL priority 会调整；有 critical bucket 暂停策略、terminal emergency/rebuild/evacuate 状态。
@@ -31,17 +35,17 @@
    - 主要写入：`src/creeps/`, `src/runtime/`, integration/e2e/docs。
 
 1. `06-12-p1-economic-fallback-construction-backpressure`
-   - 目标：建设预算、能量回收、target reservation、经济兜底。
+   - 目标：official constants capture、`Memory.creeps` 清理、RCL2 worker demand、建设预算、能量回收、target reservation、经济兜底。
    - 前置：P0 controller downgrade guard live。
    - 主要写入：`src/creeps/`, `src/runtime/`, `src/kernel/`, unit/integration/docs。
 
 2. `06-12-p2-structure-maintenance-repair-fallback`
-   - 目标：critical repair、road/container maintenance 前置规则、repair worker action。
+   - 目标：official structure hits constants、critical repair、road/container maintenance 前置规则、repair worker action。
    - 前置：P1 construction budget，避免 repair 与 build 抢能量。
    - 主要写入：worker repair target snapshot/action、runtime repair execution、tests/docs。
 
 3. `06-12-p3-defense-fallback-safe-mode`
-   - 目标：hostile detection、safe mode trigger、tower policy 骨架。
+   - 目标：official combat/tower constants、hostile detection、safe mode trigger、tower policy 骨架。
    - 前置：P1 resource budget；RCL3 tower 细节可在 tower 解锁后完成。
    - 主要写入：`src/defense/`, runtime defense snapshot/execution、integration tests。
 
@@ -62,12 +66,14 @@
 - 不允许为了 P1-P5 一次性引入完整 Overmind/Kasami/TooAngel 风格框架。
 - 所有部署影响任务必须先本地 `pnpm check`、必要时 `pnpm test:screeps-server`，再 live deploy/readback。
 - P0 必须先于 P1-P5 启动实现；P1-P5 设计中的 P0 前置条件由本任务树中的 P0 子任务满足。
+- 父任务完成前，所有 P1-P4 涉及的 Screeps game-rule 数值必须从 official constants 或 runtime object fields 派生；不得保留本地重复数值表。项目策略阈值例外，但必须在对应 task/design 中标明为 policy。
 
 ## Acceptance Criteria
 
 - [ ] 6 个子任务均有 `prd.md`、`design.md`、`implement.md`。
 - [ ] 每个子任务都有明确前置条件、写入范围、验收标准和 out-of-scope。
 - [ ] 每个子任务能被独立代理读取后不偏离主线目标。
+- [ ] P1-P4 覆盖 official constants 接入边界：P1 economy/build/spawn，P2 structure hits/repair，P3 combat/tower，P4 live check/reporting。
 - [ ] 父任务记录 P0-P5 顺序与可并行/不可并行边界。
 - [ ] `task.py validate` 对父任务和 5 个子任务均通过。
 

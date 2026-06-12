@@ -20,6 +20,7 @@
    - runtime 捕获 owned room 结构的 `id/type/hits/hitsMax/roomName/pos`。
    - repair target 只包含当前任务明确支持的结构。
    - 初版优先 spawn、extension、container、road；rampart/wall 只允许作为 newborn/critical low hits 后续切片。
+   - repair 阈值、结构 hits 相关规则应从 Screeps official constants 或 runtime `hitsMax` 派生，不在 P2 策略中维护第二份 structure hits 数字表。
 
 2. Worker repair action
    - worker 有能量、没有 urgent refill/P0 upgrade、且 repair target critical 时执行 repair。
@@ -35,6 +36,7 @@
 - [ ] Unit tests 覆盖 critical spawn/extension repair before build。
 - [ ] Unit tests 覆盖 non-critical damaged road 不抢占 build/upgrade。
 - [ ] Unit tests 覆盖 unsupported wall/rampart 不进入 P2 repair target。
+- [ ] Unit tests 覆盖 repair critical threshold 使用 captured official structure constants 或 runtime `hitsMax`，不硬编码 spawn/extension/road hits。
 - [ ] Integration tests 证明 runtime 捕获 structure hits 并执行 `creep.repair`。
 - [ ] Existing refill/build/upgrade/P1 行为保持通过。
 - [ ] `pnpm check` 通过。

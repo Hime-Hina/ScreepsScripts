@@ -227,3 +227,37 @@ Implemented and deployed the P0 controller downgrade guard, recorded live room r
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: P1 economic fallback
+
+**Date**: 2026-06-12
+**Task**: P1 economic fallback
+**Branch**: `master`
+
+### Summary
+
+Implemented P1 bootstrap economy backpressure: stale Memory.creeps cleanup, official constants capture, RCL2 worker demand, construction eligibility, opportunistic energy, and target reservation. Local checks and server smoke passed; live deploy not run.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4f3ab9b` | (see git log) |
+| `de312b4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -33,6 +33,7 @@
 4. Live check workflow
    - 提供只读 live status check 的命令或脚本入口，输出 room survival summary。
    - 不部署、不修改远端代码、不写 token。
+   - live check 输出中的 structure/tower/defense 指标应使用 P2/P3 已接入的 official constants contract，不重新硬编码结构 hits、tower power 或 body power 数值。
 
 ## Acceptance Criteria
 
@@ -41,6 +42,7 @@
 - [ ] Integration tests 覆盖 non-critical action failure is reported and tick continues。
 - [ ] Integration tests 覆盖 critical action failure is visible。
 - [ ] Live check 输出 room、controller downgrade、worker count、spawn energy、construction progress、hostile count。
+- [ ] Live check 覆盖 P1-P3 official constants 接入后的关键数值来源说明，避免重新引入本地硬编码表。
 - [ ] `pnpm check` 通过。
 
 ## Out of Scope
