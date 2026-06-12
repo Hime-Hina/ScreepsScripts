@@ -10,10 +10,10 @@
 - Spawn 已记录为 `Spawn1` at `35,23`。
 - Screeps branch `main` 已用于本轮生产逻辑迭代部署；API readback 已确认远端 `main` module 与本地 `dist/main.js` 一致。
 - heartbeat 的自然生产 tick 执行已通过 console websocket 验证。
-- 当前源码运行时行为是 tick heartbeat、Memory 边界和 RCL2 自持经济循环：runtime boundary 执行 `spawnCreep`、extension construction site 创建、worker 采集 source、补能 spawn/extension、build construction site 和 controller upgrade action。
+- 当前源码运行时行为是 tick heartbeat、Memory 边界和 RCL2 自持经济循环：runtime boundary 执行 `spawnCreep`、extension construction site 创建、worker 采集 source、补能 spawn/extension、critical spawn/extension/container/road repair、build construction site 和 controller upgrade action。
 - 当前源码在 300 energy 可用时优先孵化 `[WORK, CARRY, CARRY, MOVE, MOVE]` early worker；只有 200 energy 可用时保留 `[WORK, CARRY, MOVE]` emergency worker。
 - 当前源码会按 worker 名称在同房间多 source 间确定性分配采集目标，避免所有 worker 固定选择第一个 source。
-- 当前源码会在 RCL2 owned room 为缺失 extension 规划 construction site；暂不做 road、container、repair、rampart、tower 或完整 base planner。
+- 当前源码会在 RCL2 owned room 为缺失 extension 规划 construction site，并维护已有 spawn/extension/container/road 的 critical repair fallback；暂不做 road/container planner、wall/rampart fortification、tower 或完整 base planner。
 
 ## 领域语言
 

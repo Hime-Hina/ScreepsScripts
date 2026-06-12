@@ -2,17 +2,17 @@
 
 ## Checklist
 
-- [ ] Confirm P0 and P1 are live.
-- [ ] Add repair target snapshot type in worker decision layer.
-- [ ] Add failing unit test: damaged spawn/extension repair before build.
-- [ ] Add `repairStructure` decision.
-- [ ] Add failing unit test: non-critical road does not steal energy.
-- [ ] Add failing unit test: wall/rampart excluded.
-- [ ] Capture repairable structures in runtime worker world.
-- [ ] Execute `creep.repair` through runtime boundary.
-- [ ] Add integration test for repair execution and moveTo on `ERR_NOT_IN_RANGE`.
-- [ ] Update docs to mark repair fallback active.
-- [ ] Run validation commands.
+- [x] Confirm P0 and P1 are live.
+- [x] Add repair target snapshot type in worker decision layer.
+- [x] Add failing unit test: damaged spawn/extension repair before build.
+- [x] Add `repairStructure` decision.
+- [x] Add failing unit test: non-critical road does not steal energy.
+- [x] Add failing unit test: wall/rampart excluded.
+- [x] Capture repairable structures in runtime worker world.
+- [x] Execute `creep.repair` through runtime boundary.
+- [x] Add integration test for repair execution and moveTo on `ERR_NOT_IN_RANGE`.
+- [x] Update docs to mark repair fallback active.
+- [x] Run validation commands.
 
 ## Validation Commands
 

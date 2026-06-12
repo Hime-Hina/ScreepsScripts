@@ -52,11 +52,11 @@
 
 RCL2 extension planner 的纯行为测试位于 `test/unit/construction/`，公开入口是 `src/construction/construction-planner.ts` 的 `planRoomConstruction`。该层只接收 snapshot，不读取 Screeps globals。
 
-Worker RCL2 能量流测试位于 `test/unit/creeps/worker-decision.test.ts`，覆盖 harvest、refill spawn/extension、build construction site 和 upgrade controller 的优先级。
+Worker RCL2 能量流测试位于 `test/unit/creeps/worker-decision.test.ts`，覆盖 harvest、refill spawn/extension、P0 controller downgrade guard、critical spawn/extension/container/road repair、build construction site 和 upgrade controller 的优先级。
 
-Runtime 集成测试位于 `test/integration/main-loop.test.ts`，负责证明 `Room.createConstructionSite`、`Creep.transfer` 和 `Creep.build` 只通过 runtime boundary 执行。编译后 smoke 由 `test/e2e/compiled-loop.test.ts` 覆盖新增 Screeps 常量。
+Runtime 集成测试位于 `test/integration/main-loop.test.ts`，负责证明 `Room.createConstructionSite`、`Creep.transfer`、`Creep.repair` 和 `Creep.build` 只通过 runtime boundary 执行。编译后 smoke 由 `test/e2e/compiled-loop.test.ts` 覆盖运行时读取的 Screeps 常量。
 
-当前 RCL2 范围只包含 extension/refill/build。Road、container、repair、rampart、tower、distance transform、floodfill、min-cut 和完整 base layout 必须作为后续独立切片进入。
+当前 RCL2 范围包含 extension/refill/build、P0 controller downgrade guard、P1 construction backpressure，以及已有 spawn/extension/container/road 的 P2 critical repair fallback。Road/container planner、wall/rampart fortification、tower、distance transform、floodfill、min-cut 和完整 base layout 必须作为后续独立切片进入。
 
 ## TDD 规则
 
