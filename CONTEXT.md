@@ -6,11 +6,11 @@
 
 ## 当前游戏状态
 
-- Active production room 已记录为 `shard3 / W15S27`。
-- Spawn 已记录为 `Spawn1` at `44,30`。
+- Active production room 已记录为 `shard1 / W51N21`。
+- Spawn 已记录为 `Spawn1` at `35,23`。
 - Screeps branch `main` 已用于代码部署 readback；远端 `main` 与本地 `dist/main.js` 一致。
 - heartbeat 的自然生产 tick 执行已通过 console websocket 验证。
-- 当前第一个已提交运行时行为是 tick heartbeat、Memory 边界和第一个最小 spawn decision；尚未执行 `spawnCreep` action。
+- 当前已提交运行时行为是 tick heartbeat、Memory 边界和自持 bootstrap：runtime boundary 执行 `spawnCreep`、worker 采集 source、回补 spawn 和 controller upgrade action。
 
 ## 领域语言
 

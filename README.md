@@ -8,10 +8,10 @@
 - 已初始化 Trellis，并采用 TDD 工作流。
 - 包管理器为 `pnpm`。
 - `src/main.ts` 导出 Screeps `loop`。
-- 策略代码已有第一个最小 spawn decision 切片；尚未执行 `spawnCreep` action。
-- 可见 shard 已记录为 `shard3`。
+- 运行时已执行自持 bootstrap：`spawnCreep`、worker 采集 source、回补 spawn 和 controller upgrade action 均由 runtime boundary 执行。
+- Active shard 已记录为 `shard1`。
 - Live Screeps 部署 branch 已记录为 `main`；远端 `main` 已读回，并与本地 `dist/main.js` 一致。
-- Active production room 为 `shard3 / W15S27`，spawn 为 `Spawn1` at `44,30`。
+- Active production room 为 `shard1 / W51N21`，spawn 为 `Spawn1` at `35,23`。
 - 自然生产 tick heartbeat 已通过 console websocket 观察。
 
 ## 命令
