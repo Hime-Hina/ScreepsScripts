@@ -3,14 +3,35 @@ import { describe, expect, it } from 'vitest';
 import { planBootstrapWorkerSpawn } from '../../../src/spawning/spawn-decision';
 
 describe('bootstrap worker spawn decision', () => {
-  it('selects one idle spawn when the bootstrap population is below target', () => {
+  it('uses the balanced 300-energy early worker body', () => {
+    expect(
+      planBootstrapWorkerSpawn({
+        gameTime: 41,
+        workerCreepCount: 1,
+        spawns: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            isSpawning: false,
+            name: 'Spawn1',
+          },
+        ],
+      }),
+    ).toEqual({
+      body: ['work', 'carry', 'carry', 'move', 'move'],
+      creepName: 'Spawn1-worker-41',
+      spawnName: 'Spawn1',
+    });
+  });
+
+  it('keeps the emergency worker body available when only 200 energy is ready', () => {
     expect(
       planBootstrapWorkerSpawn({
         gameTime: 42,
         workerCreepCount: 0,
         spawns: [
           {
-            availableEnergy: 300,
+            availableEnergy: 200,
             energyCapacity: 300,
             isSpawning: false,
             name: 'Spawn1',

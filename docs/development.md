@@ -32,11 +32,11 @@
 
 ## CI 和 Hooks
 
-CI 和本地 hooks 尚未配置。当前完成门槛是本地 `pnpm check`。
+默认 GitHub Actions CI 已配置在 `.github/workflows/check.yml`。它在 `pull_request` 和 push 到 `master` 时运行，使用 Node 22，依次执行 `corepack enable`、`pnpm install --frozen-lockfile` 和 `pnpm check`。
 
-`pnpm check` 不读取 Screeps token，不连接官方 PTR 或 live 主服，也不启动本地官方 Screeps server。它包含 `test:bundle`，用于证明 `dist/main.js` 能被加载并执行，但这不是真实 Screeps engine 验证。
+默认 CI 和 `pnpm check` 不读取 Screeps token，不连接官方 PTR 或 live 主服，不运行 deploy、verify、rollback、scout，也不启动本地官方 Screeps server。`pnpm check` 包含 `test:bundle`，用于证明 `dist/main.js` 能被加载并执行，但这不是真实 Screeps engine 验证。
 
-未来添加 CI 时，应运行 `corepack enable`、`pnpm install --frozen-lockfile` 和 `pnpm check`，默认不使用 live 或 PTR Screeps 凭据。
+本地 hooks 尚未配置。当前本地完成门槛仍是 `pnpm check`。
 
 ## 本地官方 Server PoC
 

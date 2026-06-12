@@ -54,19 +54,23 @@ export interface UpgradeControllerDecision {
 
 export const planBootstrapWorkerActions = (
   workerWorld: WorkerWorldSnapshot,
-): readonly WorkerActionDecision[] =>
-  workerWorld.creeps
-    .map((workerCreep) => planBootstrapWorkerAction(workerWorld, workerCreep))
+): readonly WorkerActionDecision[] => {
+  const harvestSourceByCreepName = assignHarvestSources(workerWorld);
+
+  return workerWorld.creeps
+    .map((workerCreep) =>
+      planBootstrapWorkerAction(workerWorld, workerCreep, harvestSourceByCreepName),
+    )
     .filter((workerDecision): workerDecision is WorkerActionDecision => workerDecision !== null);
+};
 
 const planBootstrapWorkerAction = (
   workerWorld: WorkerWorldSnapshot,
   workerCreep: WorkerCreepSnapshot,
+  harvestSourceByCreepName: ReadonlyMap<string, WorkerSourceSnapshot>,
 ): WorkerActionDecision | null => {
   if (workerCreep.freeCapacity > 0) {
-    const roomSource = workerWorld.sources.find(
-      (sourceSnapshot) => sourceSnapshot.roomName === workerCreep.roomName,
-    );
+    const roomSource = harvestSourceByCreepName.get(workerCreep.name);
 
     if (roomSource === undefined) {
       return null;
@@ -110,4 +114,30 @@ const planBootstrapWorkerAction = (
     creepName: workerCreep.name,
     type: 'upgradeController',
   };
+};
+
+const assignHarvestSources = (
+  workerWorld: WorkerWorldSnapshot,
+): ReadonlyMap<string, WorkerSourceSnapshot> => {
+  const harvestSourceByCreepName = new Map<string, WorkerSourceSnapshot>();
+  const sourceRoomNames = Array.from(
+    new Set(workerWorld.sources.map((sourceSnapshot) => sourceSnapshot.roomName)),
+  ).sort();
+
+  for (const roomName of sourceRoomNames) {
+    const roomSources = workerWorld.sources
+      .filter((sourceSnapshot) => sourceSnapshot.roomName === roomName)
+      .sort((leftSource, rightSource) => leftSource.id.localeCompare(rightSource.id));
+    const roomCreeps = workerWorld.creeps
+      .filter((workerCreep) => workerCreep.roomName === roomName)
+      .sort((leftCreep, rightCreep) => leftCreep.name.localeCompare(rightCreep.name));
+
+    for (const [roomCreepIndex, roomCreep] of roomCreeps.entries()) {
+      const assignedSource = roomSources[roomCreepIndex % roomSources.length];
+
+      harvestSourceByCreepName.set(roomCreep.name, assignedSource);
+    }
+  }
+
+  return harvestSourceByCreepName;
 };

@@ -139,6 +139,8 @@ require('main').loop();
 - 2026-06-10 部署当前本地代码后，console websocket 观察到自然 tick heartbeat：`[tick 80758326] cpu=0.20`，shard `shard3`，error `null`（`observed`，websocket）。
 - 2026-06-12 部署自持 bootstrap 代码后，`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`（`observed`，API readback + derived hash）。
 - 2026-06-12 live API 读回 `shard1 / W51N21`：`Spawn1` 已放置，controller RCL `1`，两个 worker 已孵化并运行（`observed`，API）。
+- 2026-06-12 生产逻辑迭代本地验证通过：新增 300-energy early worker body `[WORK, CARRY, CARRY, MOVE, MOVE]` 选择，以及按 worker 名称在同房间多 source 间确定性分配采集目标；`pnpm check` 和 `pnpm test:screeps-server` 已通过（`derived`，本地测试 + 本地官方 standalone server）。
+- 2026-06-12 生产逻辑迭代 live deploy：blocked。用户知情后允许执行 `pnpm deploy:screeps`，但执行环境仍拒绝该真实生产部署，因为命令会使用本地 Screeps 凭据并向 Screeps live `main` branch 上传当前私有工作区构建产物；未通过其他路径绕过。当前本地 `dist/main.js` SHA-256 为 `23aeb145934ddd17f94618f211704ea0580c095f754b0a9d4bdf347beaf806a4`（`blocked`，runtime policy rejection；`derived`，本地 hash）。
 
 ## PTR 代码验证
 

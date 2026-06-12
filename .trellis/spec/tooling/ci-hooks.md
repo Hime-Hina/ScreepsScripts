@@ -2,9 +2,9 @@
 
 ## CI Contract
 
-Current status: no `.github/workflows/` or `.husky/` setup is part of the project contract yet.
+Current status: `.github/workflows/check.yml` is the default GitHub Actions CI gate. No `.husky/` setup is part of the project contract yet.
 
-When CI is added, it must run:
+Default CI must run:
 
 ```powershell
 corepack enable
@@ -12,20 +12,22 @@ pnpm install --frozen-lockfile
 pnpm check
 ```
 
-CI must not require live Screeps credentials for ordinary pull requests.
+Default CI must use Node 22, run on `pull_request`, and run on `push` to `master`.
+
+CI must not require live Screeps credentials for ordinary pull requests. It must not run deploy, verify, rollback, scout, or `test:screeps-server` commands.
 
 Live Screeps verification belongs in an explicit protected workflow or manual operation, not the default CI gate.
 
-Recommended default CI path:
+Default CI path:
 
 ```text
 .github/workflows/check.yml
 ```
 
-Recommended triggers:
+Default triggers:
 
 - `pull_request`
-- `push` to the main integration branch
+- `push` to `master`
 
 CI failures block task completion unless the failure is an external platform issue and the blocker is recorded.
 

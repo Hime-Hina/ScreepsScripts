@@ -69,7 +69,9 @@ describe('compiled Screeps bundle', () => {
     commonjsExports.loop();
 
     expect(consoleLines).toEqual(['[tick 99] cpu=2.50']);
-    expect(spawnRequests).toEqual([[['work', 'carry', 'move'], 'Spawn1-worker-99']]);
+    expect(spawnRequests).toEqual([
+      [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-99'],
+    ]);
     expect(screepsMemory).toEqual({
       screepsScripts: {
         schemaVersion: 1,

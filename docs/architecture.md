@@ -27,9 +27,9 @@ flowchart LR
 
 `src/memory/` 负责原始 `Memory` 的校验、schema version、迁移入口和写回。当前 schema 只有项目 root 与 `schemaVersion`，在 creep、room、spawn 状态进入前先建立单一持久化边界。
 
-`src/spawning/` 拥有 spawn 决策。当前 bootstrap worker decision 由 runtime boundary 执行 `spawnCreep`。
+`src/spawning/` 拥有 spawn 决策。当前 bootstrap worker decision 在 300 energy 可用时优先选择 `[WORK, CARRY, CARRY, MOVE, MOVE]`，在只有 200 energy 可用时保留 `[WORK, CARRY, MOVE]` emergency worker，并由 runtime boundary 执行 `spawnCreep`。
 
-`src/creeps/` 拥有 bootstrap worker action 决策。当前 runtime boundary 执行 harvest、transfer 和 upgradeController，并在 out of range 时执行 moveTo。
+`src/creeps/` 拥有 bootstrap worker action 决策。当前 worker 按 creep name 和 source id 在同房间 source 之间做确定性分配；runtime boundary 执行 harvest、transfer 和 upgradeController，并在 out of range 时执行 moveTo。
 
 其他未来领域模块应围绕 Screeps 概念划分，例如 colony、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由运行时拥有的操作统一裁决和执行。
 

@@ -17,6 +17,8 @@ const readPackageManifest = (): PackageManifest => {
   return packageManifest;
 };
 
+const readDefaultCheckWorkflow = (): string => readFileSync('.github/workflows/check.yml', 'utf8');
+
 const isPackageManifest = (packageManifest: unknown): packageManifest is PackageManifest => {
   if (typeof packageManifest !== 'object' || packageManifest === null) {
     return false;
@@ -110,5 +112,36 @@ describe('project scripts', () => {
     expect(packageManifest.scripts['check']).not.toContain('test:screeps-server');
     expect(packageManifest.scripts['check']).not.toContain('verify:live:screeps');
     expect(packageManifest.scripts['check']).not.toContain('verify:ptr:screeps');
+  });
+
+  it('defines the default GitHub Actions check gate without Screeps operations', () => {
+    const workflowText = readDefaultCheckWorkflow();
+    const forbiddenProjectCommands = [
+      'deploy:screeps',
+      'deploy:ptr:screeps',
+      'verify:live:screeps',
+      'verify:ptr:screeps',
+      'rollback:screeps',
+      'rollback:ptr:screeps',
+      'scout:screeps',
+      'test:screeps-server',
+    ];
+
+    expect(workflowText).toMatch(/^on:\r?\n(?:.|\r?\n)*^\s*pull_request:\s*$/m);
+    expect(workflowText).toMatch(
+      /^on:\r?\n(?:.|\r?\n)*^\s*push:\r?\n\s*branches:\r?\n\s*-\s*master\s*$/m,
+    );
+    expect(workflowText).toContain('uses: actions/setup-node@');
+    expect(workflowText).toMatch(/node-version:\s*22\b/);
+    expect(workflowText).toContain('run: corepack enable');
+    expect(workflowText).toContain('run: pnpm install --frozen-lockfile');
+    expect(workflowText).toContain('run: pnpm check');
+    expect(workflowText).not.toMatch(/\bworkflow_dispatch\b/);
+    expect(workflowText).not.toMatch(/\bsecrets\./i);
+    expect(workflowText).not.toMatch(/\bSCREEPS\b/i);
+
+    for (const forbiddenProjectCommand of forbiddenProjectCommands) {
+      expect(workflowText).not.toContain(forbiddenProjectCommand);
+    }
   });
 });

@@ -52,7 +52,9 @@ describe('Screeps main loop', () => {
     mainModule.loop();
 
     expect(consoleLines).toEqual(['[tick 7] cpu=0.50']);
-    expect(spawnRequests).toEqual([[['work', 'carry', 'move'], 'Spawn1-worker-7']]);
+    expect(spawnRequests).toEqual([
+      [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-7'],
+    ]);
     expect(screepsMemory).toEqual({
       screepsScripts: {
         schemaVersion: 1,
@@ -133,6 +135,107 @@ describe('Screeps main loop', () => {
     expect(harvestTargets).toEqual([sourceTarget]);
     expect(moveTargets).toEqual([sourceTarget]);
     expect(consoleLines).toEqual(['[tick 8] cpu=0.70']);
+  });
+
+  it('executes distributed harvest decisions through the runtime boundary', async () => {
+    const harvestedSources: unknown[] = [];
+    const firstSource = {
+      id: 'source-a',
+    };
+    const secondSource = {
+      id: 'source-b',
+    };
+    const firstSpawn = {
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 0,
+      },
+    };
+    const firstWorkerCreep = {
+      harvest: (target: unknown) => {
+        harvestedSources.push(target);
+        return 0;
+      },
+      moveTo: () => undefined,
+      name: 'WorkerA',
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 50,
+        getUsedCapacity: () => 0,
+      },
+      transfer: () => 0,
+      upgradeController: () => 0,
+    };
+    const secondWorkerCreep = {
+      harvest: (target: unknown) => {
+        harvestedSources.push(target);
+        return 0;
+      },
+      moveTo: () => undefined,
+      name: 'WorkerB',
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 50,
+        getUsedCapacity: () => 0,
+      },
+      transfer: () => 0,
+      upgradeController: () => 0,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        WorkerA: firstWorkerCreep,
+        WorkerB: secondWorkerCreep,
+      },
+      cpu: {
+        getUsed: () => 0.75,
+      },
+      getObjectById: (objectId: string) => {
+        if (objectId === 'source-a') {
+          return firstSource;
+        }
+
+        if (objectId === 'source-b') {
+          return secondSource;
+        }
+
+        return null;
+      },
+      rooms: {
+        W1N1: {
+          controller: undefined,
+          find: () => [firstSource, secondSource],
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 11,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('FIND_SOURCES', 105);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(harvestedSources).toEqual([firstSource, secondSource]);
   });
 
   it('moves a worker toward the spawn before controller upgrading', async () => {

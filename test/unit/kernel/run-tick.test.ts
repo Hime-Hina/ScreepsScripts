@@ -44,7 +44,7 @@ describe('runTick', () => {
         schemaVersion: 1,
       },
       spawnDecision: {
-        body: ['work', 'carry', 'move'],
+        body: ['work', 'carry', 'carry', 'move', 'move'],
         creepName: 'Spawn1-worker-42',
         spawnName: 'Spawn1',
       },
@@ -57,7 +57,7 @@ describe('runTick', () => {
     expect(consoleLines).toEqual(['[tick 42] cpu=1.25']);
     expect(executedSpawnDecisions).toEqual([
       {
-        body: ['work', 'carry', 'move'],
+        body: ['work', 'carry', 'carry', 'move', 'move'],
         creepName: 'Spawn1-worker-42',
         spawnName: 'Spawn1',
       },
