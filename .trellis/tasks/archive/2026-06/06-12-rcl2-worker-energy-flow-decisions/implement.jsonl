@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "worker decision 只能表达纯业务 action，不读取 Screeps globals。"}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "先写 worker decision 失败测试，再实现。"}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "约束 public interface 与 mock boundary。"}
+{"file": "src/creeps/worker-decision.ts", "reason": "本子任务唯一源码写入范围。"}
+{"file": "test/unit/creeps/worker-decision.test.ts", "reason": "本子任务主要测试写入范围。"}
+{"file": ".trellis/tasks/06-12-rcl2-economic-infrastructure-loop/design.md", "reason": "父任务定义 refill/build contract。"}

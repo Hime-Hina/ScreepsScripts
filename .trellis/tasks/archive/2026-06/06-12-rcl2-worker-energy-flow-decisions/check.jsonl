@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "检查子任务验收是否满足。"}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "确认没有访问 Screeps globals。"}
+{"file": "test/unit/creeps/worker-decision.test.ts", "reason": "检查 priority 行为覆盖。"}
