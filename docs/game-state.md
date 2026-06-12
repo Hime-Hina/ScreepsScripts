@@ -2,6 +2,26 @@
 
 ## 当前状态
 
+2026-06-12 通过 Screeps API 更新。
+
+- 账号：`Dragon_King`（`observed`，API / 既有 UI 记录）
+- 世界：Persistent World（`observed`，既有 UI 记录）
+- Account CPU shard 配置：`shard1 = 20`（`observed`，`/api/auth/me`）
+- `shards/info` 运行态 `cpuLimit` 仍显示旧值 `shard3 = 20`、`shard1 = 0`；实际执行以账号 `cpuShard` 配置和新房间 live 行为为准（`observed`，API）。
+- Active production room：`shard1 / W51N21`（`observed`，API）。
+- Spawn：`Spawn1`，位置 `35,23`，energy `73`，当前未 spawning（`observed`，API）。
+- Controller：位置 `26,7`，RCL `1`，safe mode until tick `71622765`，safe mode available `0`（`observed`，API）。
+- Sources：
+  - 位置 `28,5`，worker 采集期间 energy 从 `1500` 降到 `1450`（`observed`，API）。
+  - 位置 `19,43`，energy `1500`（`observed`，API）。
+- Creeps：
+  - `Spawn1-worker-71602766`，已完成孵化，最后读回位置 `29,4`，carry energy `10`（`observed`，API）。
+  - `Spawn1-worker-71602863`，已完成孵化，最后读回位置 `31,8`，carry energy `0`（`observed`，API）。
+- 自持循环证据：第一只 worker 已采集 source、回补 spawn，并触发第二只 worker 孵化；第二只 worker 已脱离 spawning（`observed`，API）。
+- Former production room `shard3 / W15S27` 当前无 spawn、无 creeps、controller owner `null`，`place-spawn` 返回 `room not available`（`observed`，API）。
+
+## 历史状态：2026-06-10 shard3 / W15S27
+
 2026-06-09 通过 Chrome 记录；2026-06-10 通过 Screeps API 和 console websocket 更新。
 
 - 账号：`Dragon_King`（`observed`，UI）
@@ -95,9 +115,9 @@ pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 -
   - Result：`ok = 1`（`observed`，API readback）
   - Modules：`main`（`observed`，API readback）。
 - 远端 `main` 内容与当前本地 `dist/main.js` 一致（`derived`，API readback + 本地 hash）。
-- SHA-256：`9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`（`derived`）。
+- SHA-256：`87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`（`derived`）。
 - Rollback path：`pnpm rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并用 API readback 校验（`derived`，本地脚本契约；尚未执行 live rollback）。
-- Previous remote hash：`3278411dd213bc3d40143c9f169569f036a29acb2708984d93fde9358c68f237`（`derived`，deploy snapshot hash）。
+- Previous remote hash：`9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`（`derived`，deploy snapshot hash）。
 - Live runtime verification：自然 tick heartbeat 已通过 console websocket 观察到（`observed`，websocket）。
 - 已保存行为：
 
@@ -117,6 +137,8 @@ require('main').loop();
 - 2026-06-10 放置 spawn 后，console websocket 观察到旧部署自然 tick heartbeat：`[tick 80758278] cpu=0.04`（`observed`，websocket）。
 - 2026-06-10 部署当前本地代码后，`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`（`observed`，API readback + derived hash）。
 - 2026-06-10 部署当前本地代码后，console websocket 观察到自然 tick heartbeat：`[tick 80758326] cpu=0.20`，shard `shard3`，error `null`（`observed`，websocket）。
+- 2026-06-12 部署自持 bootstrap 代码后，`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`（`observed`，API readback + derived hash）。
+- 2026-06-12 live API 读回 `shard1 / W51N21`：`Spawn1` 已放置，controller RCL `1`，两个 worker 已孵化并运行（`observed`，API）。
 
 ## PTR 代码验证
 
@@ -152,4 +174,4 @@ https://screeps.com/a/#!/account/auth-tokens
 
 ## 下一步生产动作
 
-初始起始房间、spawn、controller、sources、mineral、exit、hostile 和自然 tick heartbeat 已确认。后续游戏策略可以读取这些事实作为 `docs/game-state.md` 记录的生产状态；新增策略仍应通过 Memory 边界和小行为切片进入。
+当前重启房间、spawn、controller、source 采集、spawn 回补、第二只 worker 孵化和远端代码 hash 已确认。后续游戏策略可以读取这些事实作为 `docs/game-state.md` 记录的生产状态；新增策略仍应通过 Memory 边界和小行为切片进入。

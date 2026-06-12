@@ -1,6 +1,7 @@
+import { planBootstrapWorkerActions, type WorkerActionDecision } from '../creeps/worker-decision';
 import type { ScreepsMemoryState } from '../memory/screeps-memory';
 import type { ScreepsTickIO, ScreepsTickRuntime } from '../runtime/screeps-runtime';
-import { planInitialWorkerSpawn, type SpawnDecision } from '../spawning/spawn-decision';
+import { planBootstrapWorkerSpawn, type SpawnDecision } from '../spawning/spawn-decision';
 
 export interface TickTelemetry {
   readonly cpuAtTickStart: number;
@@ -11,6 +12,7 @@ export interface TickExecution {
   readonly memoryState: ScreepsMemoryState;
   readonly spawnDecision: SpawnDecision | null;
   readonly telemetry: TickTelemetry;
+  readonly workerDecisions: readonly WorkerActionDecision[];
 }
 
 export const runScreepsTick = (runtime: ScreepsTickRuntime): TickExecution => {
@@ -24,7 +26,14 @@ export const runScreepsTick = (runtime: ScreepsTickRuntime): TickExecution => {
 
 export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState): TickExecution => {
   const cpuAtTickStart = runtime.readCpuUsed();
-  const spawnDecision = planInitialWorkerSpawn(runtime.readSpawningWorld());
+  const spawnDecision = planBootstrapWorkerSpawn(runtime.readSpawningWorld());
+  const workerDecisions = planBootstrapWorkerActions(runtime.readWorkerWorld());
+
+  if (spawnDecision !== null) {
+    runtime.executeSpawnDecision(spawnDecision);
+  }
+
+  runtime.executeWorkerActions(workerDecisions);
 
   runtime.writeConsoleLine(`[tick ${runtime.gameTime}] cpu=${cpuAtTickStart.toFixed(2)}`);
 
@@ -35,5 +44,6 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
       cpuAtTickStart,
       gameTime: runtime.gameTime,
     },
+    workerDecisions,
   };
 };

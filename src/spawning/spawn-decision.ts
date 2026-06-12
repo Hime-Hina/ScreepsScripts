@@ -2,13 +2,15 @@ export type SpawnBodyPart = 'work' | 'carry' | 'move';
 
 export interface SpawnSnapshot {
   readonly availableEnergy: number;
+  readonly energyCapacity: number;
   readonly isSpawning: boolean;
   readonly name: string;
 }
 
 export interface SpawningWorldSnapshot {
-  readonly creepCount: number;
+  readonly gameTime: number;
   readonly spawns: readonly SpawnSnapshot[];
+  readonly workerCreepCount: number;
 }
 
 export interface SpawnDecision {
@@ -19,12 +21,12 @@ export interface SpawnDecision {
 
 const INITIAL_WORKER_BODY = ['work', 'carry', 'move'] as const satisfies readonly SpawnBodyPart[];
 const INITIAL_WORKER_COST = 200;
-const INITIAL_WORKER_NAME = 'Worker1';
+const BOOTSTRAP_WORKER_COUNT = 3;
 
-export const planInitialWorkerSpawn = (
+export const planBootstrapWorkerSpawn = (
   spawningWorld: SpawningWorldSnapshot,
 ): SpawnDecision | null => {
-  if (spawningWorld.creepCount > 0) {
+  if (spawningWorld.workerCreepCount >= BOOTSTRAP_WORKER_COUNT) {
     return null;
   }
 
@@ -39,7 +41,7 @@ export const planInitialWorkerSpawn = (
 
   return {
     body: INITIAL_WORKER_BODY,
-    creepName: INITIAL_WORKER_NAME,
+    creepName: `${readySpawn.name}-worker-${spawningWorld.gameTime}`,
     spawnName: readySpawn.name,
   };
 };

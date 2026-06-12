@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { planInitialWorkerSpawn } from '../../../src/spawning/spawn-decision';
+import { planBootstrapWorkerSpawn } from '../../../src/spawning/spawn-decision';
 
-describe('initial worker spawn decision', () => {
-  it('selects one idle spawn when no creeps exist', () => {
+describe('bootstrap worker spawn decision', () => {
+  it('selects one idle spawn when the bootstrap population is below target', () => {
     expect(
-      planInitialWorkerSpawn({
-        creepCount: 0,
+      planBootstrapWorkerSpawn({
+        gameTime: 42,
+        workerCreepCount: 0,
         spawns: [
           {
             availableEnergy: 300,
+            energyCapacity: 300,
             isSpawning: false,
             name: 'Spawn1',
           },
@@ -17,18 +19,36 @@ describe('initial worker spawn decision', () => {
       }),
     ).toEqual({
       body: ['work', 'carry', 'move'],
-      creepName: 'Worker1',
+      creepName: 'Spawn1-worker-42',
       spawnName: 'Spawn1',
     });
   });
 
-  it('does not spawn the initial worker when a creep already exists', () => {
+  it('does not spawn another worker when the bootstrap population is complete', () => {
     expect(
-      planInitialWorkerSpawn({
-        creepCount: 1,
+      planBootstrapWorkerSpawn({
+        gameTime: 43,
+        workerCreepCount: 3,
         spawns: [
           {
             availableEnergy: 300,
+            energyCapacity: 300,
+            isSpawning: false,
+            name: 'Spawn1',
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+  it('waits until a spawn has enough energy for a worker body', () => {
+    expect(
+      planBootstrapWorkerSpawn({
+        gameTime: 44,
+        workerCreepCount: 0,
+        spawns: [
+          {
+            availableEnergy: 199,
+            energyCapacity: 300,
             isSpawning: false,
             name: 'Spawn1',
           },

@@ -14,10 +14,16 @@ describe('compiled Screeps bundle', () => {
     const commonjsExports: { loop?: unknown } = {};
     const consoleLines: string[] = [];
     const screepsMemory: Record<string, unknown> = {};
+    const spawnRequests: unknown[] = [];
     const firstSpawn = {
       name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+      },
+      spawnCreep: (...spawnArguments: unknown[]) => spawnRequests.push(spawnArguments),
       spawning: null,
       store: {
+        getCapacity: () => 300,
         getUsedCapacity: () => 300,
       },
     };
@@ -27,11 +33,20 @@ describe('compiled Screeps bundle', () => {
         cpu: {
           getUsed: () => 2.5,
         },
+        getObjectById: () => null,
+        rooms: {
+          W1N1: {
+            controller: undefined,
+            find: () => [],
+          },
+        },
         spawns: {
           Spawn1: firstSpawn,
         },
         time: 99,
       },
+      FIND_MY_CREEPS: 101,
+      FIND_SOURCES: 105,
       Memory: screepsMemory,
       RESOURCE_ENERGY: 'energy',
       console: {
@@ -54,6 +69,7 @@ describe('compiled Screeps bundle', () => {
     commonjsExports.loop();
 
     expect(consoleLines).toEqual(['[tick 99] cpu=2.50']);
+    expect(spawnRequests).toEqual([[['work', 'carry', 'move'], 'Spawn1-worker-99']]);
     expect(screepsMemory).toEqual({
       screepsScripts: {
         schemaVersion: 1,
