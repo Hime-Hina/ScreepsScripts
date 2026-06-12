@@ -328,3 +328,36 @@ Implemented and deployed P3 defense fallback: hostile threat classification, saf
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: P3 PTR defense drill
+
+**Date**: 2026-06-13
+**Task**: P3 PTR defense drill
+**Branch**: `codex/p3-ptr-defense-drill`
+
+### Summary
+
+Implemented PTR room founding tooling, documented PTR CPU shard blocked state, and added local official server defense safe-mode drill fallback.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9244ba2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
