@@ -21,6 +21,8 @@ export interface TickExecution {
 }
 
 export const runScreepsTick = (runtime: ScreepsTickRuntime): TickExecution => {
+  runtime.cleanStaleCreepMemory();
+
   const memoryState = runtime.readMemoryState();
   const tickExecution = runTick(runtime, memoryState);
 

@@ -6,13 +6,29 @@ import { describe, expect, it } from 'vitest';
 type ScreepsLoop = () => void;
 
 const TEST_FIND_CONSTRUCTION_SITES = 107;
+const TEST_FIND_DROPPED_RESOURCES = 106;
 const TEST_FIND_MY_CONSTRUCTION_SITES = 108;
 const TEST_FIND_MY_STRUCTURES = 109;
 const TEST_FIND_MINERALS = 110;
+const TEST_FIND_RUINS = 123;
 const TEST_FIND_SOURCES = 105;
 const TEST_FIND_STRUCTURES = 111;
+const TEST_FIND_TOMBSTONES = 118;
 const TEST_STRUCTURE_EXTENSION = 'extension';
 const TEST_STRUCTURE_SPAWN = 'spawn';
+const TEST_BODY_PART_COST = {
+  carry: 50,
+  move: 50,
+  work: 100,
+};
+const TEST_CONSTRUCTION_COST = {
+  extension: 3000,
+};
+const TEST_CONTROLLER_STRUCTURES = {
+  extension: {
+    2: 5,
+  },
+};
 
 const isScreepsLoop = (candidateLoop: unknown): candidateLoop is ScreepsLoop =>
   typeof candidateLoop === 'function';
@@ -47,6 +63,7 @@ describe('compiled Screeps bundle', () => {
           W1N1: {
             controller: undefined,
             find: () => [],
+            name: 'W1N1',
           },
         },
         spawns: {
@@ -54,13 +71,19 @@ describe('compiled Screeps bundle', () => {
         },
         time: 99,
       },
+      BODYPART_COST: TEST_BODY_PART_COST,
+      CONSTRUCTION_COST: TEST_CONSTRUCTION_COST,
+      CONTROLLER_STRUCTURES: TEST_CONTROLLER_STRUCTURES,
       FIND_CONSTRUCTION_SITES: TEST_FIND_CONSTRUCTION_SITES,
+      FIND_DROPPED_RESOURCES: TEST_FIND_DROPPED_RESOURCES,
       FIND_MY_CONSTRUCTION_SITES: TEST_FIND_MY_CONSTRUCTION_SITES,
       FIND_MY_STRUCTURES: TEST_FIND_MY_STRUCTURES,
       FIND_MINERALS: TEST_FIND_MINERALS,
       FIND_MY_CREEPS: 101,
+      FIND_RUINS: TEST_FIND_RUINS,
       FIND_SOURCES: TEST_FIND_SOURCES,
       FIND_STRUCTURES: TEST_FIND_STRUCTURES,
+      FIND_TOMBSTONES: TEST_FIND_TOMBSTONES,
       Memory: screepsMemory,
       RESOURCE_ENERGY: 'energy',
       STRUCTURE_EXTENSION: TEST_STRUCTURE_EXTENSION,

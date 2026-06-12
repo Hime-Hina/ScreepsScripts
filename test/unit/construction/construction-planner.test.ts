@@ -6,10 +6,26 @@ import {
   type ConstructionWorldSnapshot,
 } from '../../../src/construction/construction-planner';
 
+const TEST_CONTROLLER_STRUCTURE_LIMITS = {
+  extension: {
+    1: 0,
+    2: 5,
+  },
+} as const;
+
+const planConstruction = (
+  constructionWorld: Omit<ConstructionWorldSnapshot, 'controllerStructureLimits'> &
+    Partial<Pick<ConstructionWorldSnapshot, 'controllerStructureLimits'>>,
+) =>
+  planRoomConstruction({
+    controllerStructureLimits: TEST_CONTROLLER_STRUCTURE_LIMITS,
+    ...constructionWorld,
+  });
+
 describe('room construction planner', () => {
   it('plans five RCL2 extension construction sites when none exist', () => {
     expect(
-      planRoomConstruction({
+      planConstruction({
         ownedRooms: [
           {
             blockedPositions: [],
@@ -67,9 +83,53 @@ describe('room construction planner', () => {
     ]);
   });
 
+  it('uses captured controller structure limits for extension site count', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 2,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [],
+            constructionSites: [],
+            controllerLevel: 2,
+            roomName: 'W1N1',
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+            ],
+            terrain: openTerrainAroundSpawn10,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 9,
+        y: 9,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 10,
+        y: 9,
+      },
+    ]);
+  });
+
   it('counts existing extension structures and extension construction sites toward the RCL2 limit', () => {
     expect(
-      planRoomConstruction({
+      planConstruction({
         ownedRooms: [
           {
             blockedPositions: [],
@@ -126,7 +186,7 @@ describe('room construction planner', () => {
 
   it('skips wall, source, controller, spawn, structure, and construction site positions', () => {
     expect(
-      planRoomConstruction({
+      planConstruction({
         ownedRooms: [
           {
             blockedPositions: [
@@ -204,7 +264,7 @@ describe('room construction planner', () => {
   });
 
   it('does not plan extensions before RCL2', () => {
-    expect(planRoomConstruction(rcl1ConstructionWorld)).toEqual([]);
+    expect(planConstruction(rcl1ConstructionWorld)).toEqual([]);
   });
 });
 
@@ -235,7 +295,7 @@ const openTerrainAroundSpawn10: readonly ConstructionTerrainSnapshot[] = [
   { terrain: 'plain', x: 12, y: 12 },
 ];
 
-const rcl1ConstructionWorld: ConstructionWorldSnapshot = {
+const rcl1ConstructionWorld: Omit<ConstructionWorldSnapshot, 'controllerStructureLimits'> = {
   ownedRooms: [
     {
       blockedPositions: [],

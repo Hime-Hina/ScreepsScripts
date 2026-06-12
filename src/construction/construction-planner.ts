@@ -28,6 +28,9 @@ export interface ConstructionOwnedRoomSnapshot {
 }
 
 export interface ConstructionWorldSnapshot {
+  readonly controllerStructureLimits: Readonly<{
+    readonly extension: Readonly<Record<number, number>>;
+  }>;
   readonly ownedRooms: readonly ConstructionOwnedRoomSnapshot[];
 }
 
@@ -41,25 +44,28 @@ export interface CreateConstructionSiteDecision {
   readonly y: number;
 }
 
-const FIRST_EXTENSION_CONTROLLER_LEVEL = 2;
-const RCL2_EXTENSION_LIMIT = 5;
 const NEAR_SPAWN_CANDIDATE_RADIUS = 2;
 
 export const planRoomConstruction = (
   constructionWorld: ConstructionWorldSnapshot,
 ): readonly ConstructionDecision[] =>
-  constructionWorld.ownedRooms.flatMap((ownedRoom) => planRcl2ExtensionSites(ownedRoom));
+  constructionWorld.ownedRooms.flatMap((ownedRoom) =>
+    planRclExtensionSites(ownedRoom, constructionWorld.controllerStructureLimits),
+  );
 
-const planRcl2ExtensionSites = (
+const planRclExtensionSites = (
   ownedRoom: ConstructionOwnedRoomSnapshot,
+  controllerStructureLimits: ConstructionWorldSnapshot['controllerStructureLimits'],
 ): readonly ConstructionDecision[] => {
-  if (ownedRoom.controllerLevel < FIRST_EXTENSION_CONTROLLER_LEVEL) {
+  const extensionLimit = controllerStructureLimits.extension[ownedRoom.controllerLevel] ?? 0;
+
+  if (extensionLimit <= 0) {
     return [];
   }
 
   const existingExtensionCount =
     countExtensionStructures(ownedRoom) + countExtensionConstructionSites(ownedRoom);
-  const missingExtensionCount = RCL2_EXTENSION_LIMIT - existingExtensionCount;
+  const missingExtensionCount = extensionLimit - existingExtensionCount;
 
   if (missingExtensionCount <= 0) {
     return [];

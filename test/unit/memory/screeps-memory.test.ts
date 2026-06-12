@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SCREEPS_MEMORY_ROOT_KEY,
   SCREEPS_MEMORY_SCHEMA_VERSION,
+  cleanStaleCreepMemory,
   createEmptyScreepsMemoryState,
   readScreepsMemoryState,
   writeScreepsMemoryState,
@@ -56,6 +57,35 @@ describe('Screeps memory boundary', () => {
     writeScreepsMemoryState(rawMemory, createEmptyScreepsMemoryState());
 
     expect(rawMemory).toEqual({
+      [SCREEPS_MEMORY_ROOT_KEY]: {
+        schemaVersion: SCREEPS_MEMORY_SCHEMA_VERSION,
+      },
+    });
+  });
+
+  it('deletes stale top-level creep memory and keeps live creep memory', () => {
+    const rawMemory = {
+      creeps: {
+        DeadWorker: {
+          role: 'worker',
+        },
+        LiveWorker: {
+          role: 'worker',
+        },
+      },
+      [SCREEPS_MEMORY_ROOT_KEY]: {
+        schemaVersion: SCREEPS_MEMORY_SCHEMA_VERSION,
+      },
+    };
+
+    cleanStaleCreepMemory(rawMemory, new Set(['LiveWorker']));
+
+    expect(rawMemory).toEqual({
+      creeps: {
+        LiveWorker: {
+          role: 'worker',
+        },
+      },
       [SCREEPS_MEMORY_ROOT_KEY]: {
         schemaVersion: SCREEPS_MEMORY_SCHEMA_VERSION,
       },

@@ -44,6 +44,26 @@ export const writeScreepsMemoryState = (
   };
 };
 
+export const cleanStaleCreepMemory = (
+  rawMemory: unknown,
+  liveCreepNames: ReadonlySet<string>,
+): void => {
+  const rawMemoryRecord = readMemoryRecord(rawMemory);
+  const rawCreepMemory = rawMemoryRecord['creeps'];
+
+  if (rawCreepMemory === undefined) {
+    return;
+  }
+
+  const creepMemoryRecord = readCreepMemoryRecord(rawCreepMemory);
+
+  for (const creepName of Object.keys(creepMemoryRecord)) {
+    if (!liveCreepNames.has(creepName)) {
+      delete creepMemoryRecord[creepName];
+    }
+  }
+};
+
 const readMemoryRecord = (rawMemory: unknown): Record<string, unknown> => {
   if (!isPlainObject(rawMemory)) {
     throw new ScreepsMemoryError('Screeps Memory must be an object.');
@@ -58,6 +78,14 @@ const readProjectMemoryRecord = (rawProjectMemory: unknown): Record<string, unkn
   }
 
   return rawProjectMemory;
+};
+
+const readCreepMemoryRecord = (rawCreepMemory: unknown): Record<string, unknown> => {
+  if (!isPlainObject(rawCreepMemory)) {
+    throw new ScreepsMemoryError('Screeps Memory.creeps must be an object.');
+  }
+
+  return rawCreepMemory;
 };
 
 const readSchemaVersion = (projectMemoryRecord: Record<string, unknown>) => {

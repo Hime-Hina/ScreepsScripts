@@ -1,3 +1,9 @@
+import {
+  classifyBootstrapControllerDowngradeState,
+  type BootstrapControllerDowngradeState,
+  type RoomConstructionEligibility,
+} from '../colony/bootstrap-economy';
+
 export interface WorkerCreepSnapshot {
   readonly energy: number;
   readonly freeCapacity: number;
@@ -29,16 +35,33 @@ export interface WorkerEnergyStructureSnapshot {
   readonly roomName: string;
 }
 
+export interface WorkerEnergyPickupSnapshot {
+  readonly amount: number;
+  readonly id: string;
+  readonly roomName: string;
+}
+
+export interface WorkerEnergyWithdrawSnapshot {
+  readonly availableEnergy: number;
+  readonly id: string;
+  readonly roomName: string;
+}
+
 export interface WorkerWorldSnapshot {
+  readonly constructionEligibilities: readonly RoomConstructionEligibility[];
   readonly constructionSites: readonly WorkerConstructionSiteSnapshot[];
   readonly controllers: readonly WorkerControllerSnapshot[];
   readonly creeps: readonly WorkerCreepSnapshot[];
+  readonly energyPickups: readonly WorkerEnergyPickupSnapshot[];
+  readonly energyWithdrawals: readonly WorkerEnergyWithdrawSnapshot[];
   readonly energyStructures: readonly WorkerEnergyStructureSnapshot[];
   readonly sources: readonly WorkerSourceSnapshot[];
 }
 
 export type WorkerActionDecision =
   | HarvestSourceDecision
+  | PickupEnergyDecision
+  | WithdrawEnergyDecision
   | RefillEnergyStructureDecision
   | BuildConstructionSiteDecision
   | UpgradeControllerDecision;
@@ -55,6 +78,18 @@ export interface RefillEnergyStructureDecision {
   readonly type: 'refillEnergyStructure';
 }
 
+export interface PickupEnergyDecision {
+  readonly creepName: string;
+  readonly resourceId: string;
+  readonly type: 'pickupEnergy';
+}
+
+export interface WithdrawEnergyDecision {
+  readonly creepName: string;
+  readonly structureId: string;
+  readonly type: 'withdrawEnergy';
+}
+
 export interface BuildConstructionSiteDecision {
   readonly constructionSiteId: string;
   readonly creepName: string;
@@ -67,31 +102,9 @@ export interface UpgradeControllerDecision {
   readonly type: 'upgradeController';
 }
 
-export type ControllerDowngradeState =
-  | {
-      readonly controllerId: string;
-      readonly roomName: string;
-      readonly type: 'controllerDowngradeSafe';
-    }
-  | {
-      readonly controllerId: string;
-      readonly roomName: string;
-      readonly type: 'controllerDowngradeRecovering';
-    }
-  | {
-      readonly controllerId: string;
-      readonly roomName: string;
-      readonly type: 'controllerDowngradeWarning';
-    }
-  | {
-      readonly controllerId: string;
-      readonly roomName: string;
-      readonly type: 'controllerDowngradeCritical';
-    };
-
-const CONTROLLER_DOWNGRADE_CRITICAL_TICKS = 5000;
-const CONTROLLER_DOWNGRADE_WARNING_TICKS = 8000;
-const CONTROLLER_DOWNGRADE_SAFE_TICKS = 9000;
+export type ControllerDowngradeState = BootstrapControllerDowngradeState & {
+  readonly controllerId: string;
+};
 
 export const planBootstrapWorkerActions = (
   workerWorld: WorkerWorldSnapshot,
@@ -99,6 +112,10 @@ export const planBootstrapWorkerActions = (
   const harvestSourceByCreepName = assignHarvestSources(workerWorld);
   const controllerDowngradeStateByRoomName = classifyControllerDowngradeStates(workerWorld);
   const downgradeWorkerByRoomName = selectDowngradeWorkers(workerWorld);
+  const reservedPickupEnergyById = new Map<string, number>();
+  const reservedWithdrawEnergyById = new Map<string, number>();
+  const reservedRefillEnergyById = new Map<string, number>();
+  const reservedConstructionSiteIds = new Set<string>();
 
   return sortWorkerCreeps(workerWorld.creeps)
     .map((workerCreep) =>
@@ -108,6 +125,10 @@ export const planBootstrapWorkerActions = (
         harvestSourceByCreepName,
         controllerDowngradeStateByRoomName,
         downgradeWorkerByRoomName,
+        reservedPickupEnergyById,
+        reservedWithdrawEnergyById,
+        reservedRefillEnergyById,
+        reservedConstructionSiteIds,
       ),
     )
     .filter((workerDecision): workerDecision is WorkerActionDecision => workerDecision !== null);
@@ -119,8 +140,50 @@ const planBootstrapWorkerAction = (
   harvestSourceByCreepName: ReadonlyMap<string, WorkerSourceSnapshot>,
   controllerDowngradeStateByRoomName: ReadonlyMap<string, ControllerDowngradeState>,
   downgradeWorkerByRoomName: ReadonlyMap<string, string>,
+  reservedPickupEnergyById: Map<string, number>,
+  reservedWithdrawEnergyById: Map<string, number>,
+  reservedRefillEnergyById: Map<string, number>,
+  reservedConstructionSiteIds: Set<string>,
 ): WorkerActionDecision | null => {
   if (workerCreep.freeCapacity > 0) {
+    const energyPickup = selectEnergyPickup(
+      workerWorld,
+      workerCreep.roomName,
+      workerCreep.freeCapacity,
+      reservedPickupEnergyById,
+    );
+
+    if (energyPickup !== undefined) {
+      reserveTargetEnergy(energyPickup.id, workerCreep.freeCapacity, reservedPickupEnergyById);
+
+      return {
+        creepName: workerCreep.name,
+        resourceId: energyPickup.id,
+        type: 'pickupEnergy',
+      };
+    }
+
+    const energyWithdrawal = selectEnergyWithdrawal(
+      workerWorld,
+      workerCreep.roomName,
+      workerCreep.freeCapacity,
+      reservedWithdrawEnergyById,
+    );
+
+    if (energyWithdrawal !== undefined) {
+      reserveTargetEnergy(
+        energyWithdrawal.id,
+        workerCreep.freeCapacity,
+        reservedWithdrawEnergyById,
+      );
+
+      return {
+        creepName: workerCreep.name,
+        structureId: energyWithdrawal.id,
+        type: 'withdrawEnergy',
+      };
+    }
+
     const roomSource = harvestSourceByCreepName.get(workerCreep.name);
 
     if (roomSource === undefined) {
@@ -138,9 +201,15 @@ const planBootstrapWorkerAction = (
     return null;
   }
 
-  const depletedEnergyStructure = selectDepletedEnergyStructure(workerWorld, workerCreep.roomName);
+  const depletedEnergyStructure = selectDepletedEnergyStructure(
+    workerWorld,
+    workerCreep.roomName,
+    reservedRefillEnergyById,
+  );
 
   if (depletedEnergyStructure !== undefined) {
+    reserveTargetEnergy(depletedEnergyStructure.id, workerCreep.energy, reservedRefillEnergyById);
+
     return {
       creepName: workerCreep.name,
       structureId: depletedEnergyStructure.id,
@@ -165,9 +234,15 @@ const planBootstrapWorkerAction = (
     };
   }
 
-  const constructionSite = selectConstructionSite(workerWorld, workerCreep.roomName);
+  const constructionEligibility = selectConstructionEligibility(workerWorld, workerCreep.roomName);
+  const constructionSite =
+    constructionEligibility?.type === 'constructionAllowed'
+      ? selectConstructionSite(workerWorld, workerCreep.roomName, reservedConstructionSiteIds)
+      : undefined;
 
   if (constructionSite !== undefined) {
+    reservedConstructionSiteIds.add(constructionSite.id);
+
     return {
       constructionSiteId: constructionSite.id,
       creepName: workerCreep.name,
@@ -211,26 +286,87 @@ const shouldUpgradeControllerBeforeBuild = (
 const selectDepletedEnergyStructure = (
   workerWorld: WorkerWorldSnapshot,
   roomName: string,
+  reservedRefillEnergyById: ReadonlyMap<string, number>,
 ): WorkerEnergyStructureSnapshot | undefined =>
   workerWorld.energyStructures
     .filter(
       (energyStructureSnapshot) =>
         energyStructureSnapshot.roomName === roomName &&
-        energyStructureSnapshot.availableEnergy < energyStructureSnapshot.energyCapacity,
+        energyStructureSnapshot.energyCapacity -
+          energyStructureSnapshot.availableEnergy -
+          (reservedRefillEnergyById.get(energyStructureSnapshot.id) ?? 0) >
+          0,
     )
     .sort((leftEnergyStructure, rightEnergyStructure) =>
       leftEnergyStructure.id.localeCompare(rightEnergyStructure.id),
     )[0];
 
+const selectEnergyPickup = (
+  workerWorld: WorkerWorldSnapshot,
+  roomName: string,
+  creepFreeCapacity: number,
+  reservedPickupEnergyById: ReadonlyMap<string, number>,
+): WorkerEnergyPickupSnapshot | undefined =>
+  workerWorld.energyPickups
+    .filter(
+      (energyPickup) =>
+        energyPickup.roomName === roomName &&
+        energyPickup.amount - (reservedPickupEnergyById.get(energyPickup.id) ?? 0) > 0 &&
+        creepFreeCapacity > 0,
+    )
+    .sort((leftPickup, rightPickup) => leftPickup.id.localeCompare(rightPickup.id))[0];
+
+const selectEnergyWithdrawal = (
+  workerWorld: WorkerWorldSnapshot,
+  roomName: string,
+  creepFreeCapacity: number,
+  reservedWithdrawEnergyById: ReadonlyMap<string, number>,
+): WorkerEnergyWithdrawSnapshot | undefined =>
+  workerWorld.energyWithdrawals
+    .filter(
+      (energyWithdrawal) =>
+        energyWithdrawal.roomName === roomName &&
+        energyWithdrawal.availableEnergy -
+          (reservedWithdrawEnergyById.get(energyWithdrawal.id) ?? 0) >
+          0 &&
+        creepFreeCapacity > 0,
+    )
+    .sort((leftWithdrawal, rightWithdrawal) =>
+      leftWithdrawal.id.localeCompare(rightWithdrawal.id),
+    )[0];
+
+const reserveTargetEnergy = (
+  targetId: string,
+  workerFreeCapacity: number,
+  reservedEnergyById: Map<string, number>,
+): void => {
+  const currentReservedEnergy = reservedEnergyById.get(targetId) ?? 0;
+
+  reservedEnergyById.set(targetId, currentReservedEnergy + workerFreeCapacity);
+};
+
 const selectConstructionSite = (
   workerWorld: WorkerWorldSnapshot,
   roomName: string,
+  reservedConstructionSiteIds: ReadonlySet<string>,
 ): WorkerConstructionSiteSnapshot | undefined =>
   workerWorld.constructionSites
-    .filter((constructionSiteSnapshot) => constructionSiteSnapshot.roomName === roomName)
+    .filter(
+      (constructionSiteSnapshot) =>
+        constructionSiteSnapshot.roomName === roomName &&
+        !reservedConstructionSiteIds.has(constructionSiteSnapshot.id),
+    )
     .sort((leftConstructionSite, rightConstructionSite) =>
       leftConstructionSite.id.localeCompare(rightConstructionSite.id),
     )[0];
+
+const selectConstructionEligibility = (
+  workerWorld: WorkerWorldSnapshot,
+  roomName: string,
+): RoomConstructionEligibility | undefined =>
+  workerWorld.constructionEligibilities.find(
+    (constructionEligibility) => constructionEligibility.roomName === roomName,
+  );
 
 const classifyControllerDowngradeStates = (
   workerWorld: WorkerWorldSnapshot,
@@ -249,37 +385,10 @@ const classifyControllerDowngradeStates = (
 
 const classifyControllerDowngradeState = (
   controllerSnapshot: WorkerControllerSnapshot,
-): ControllerDowngradeState => {
-  if (controllerSnapshot.ticksToDowngrade < CONTROLLER_DOWNGRADE_CRITICAL_TICKS) {
-    return {
-      controllerId: controllerSnapshot.id,
-      roomName: controllerSnapshot.roomName,
-      type: 'controllerDowngradeCritical',
-    };
-  }
-
-  if (controllerSnapshot.ticksToDowngrade < CONTROLLER_DOWNGRADE_WARNING_TICKS) {
-    return {
-      controllerId: controllerSnapshot.id,
-      roomName: controllerSnapshot.roomName,
-      type: 'controllerDowngradeWarning',
-    };
-  }
-
-  if (controllerSnapshot.ticksToDowngrade < CONTROLLER_DOWNGRADE_SAFE_TICKS) {
-    return {
-      controllerId: controllerSnapshot.id,
-      roomName: controllerSnapshot.roomName,
-      type: 'controllerDowngradeRecovering',
-    };
-  }
-
-  return {
-    controllerId: controllerSnapshot.id,
-    roomName: controllerSnapshot.roomName,
-    type: 'controllerDowngradeSafe',
-  };
-};
+): ControllerDowngradeState => ({
+  ...classifyBootstrapControllerDowngradeState(controllerSnapshot),
+  controllerId: controllerSnapshot.id,
+});
 
 const selectDowngradeWorkers = (workerWorld: WorkerWorldSnapshot): ReadonlyMap<string, string> => {
   const downgradeWorkerByRoomName = new Map<string, string>();

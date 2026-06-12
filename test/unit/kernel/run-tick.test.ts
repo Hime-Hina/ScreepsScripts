@@ -21,25 +21,66 @@ describe('runTick', () => {
       gameTime: 42,
       readCpuUsed: () => 1.25,
       readConstructionWorld: () => ({
+        controllerStructureLimits: {
+          extension: {
+            2: 5,
+          },
+        },
         ownedRooms: [],
       }),
       readSpawningWorld: () => ({
+        bodyPartCosts: {
+          carry: 50,
+          move: 50,
+          work: 100,
+        },
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
         gameTime: 42,
+        rooms: [
+          {
+            constructionSites: [],
+            controllerLevel: 2,
+            energyStructures: [
+              {
+                availableEnergy: 300,
+                energyCapacity: 300,
+              },
+            ],
+            roomName: 'W1N1',
+            structures: [
+              {
+                structureType: 'spawn',
+              },
+            ],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 0,
+          },
+        ],
         spawns: [
           {
             availableEnergy: 300,
             energyCapacity: 300,
             isSpawning: false,
             name: 'Spawn1',
+            roomName: 'W1N1',
           },
         ],
-        workerCreepCount: 0,
       }),
       readWorkerWorld: () => ({
+        constructionEligibilities: [],
         constructionSites: [],
         controllers: [],
         creeps: [],
+        energyPickups: [],
         energyStructures: [],
+        energyWithdrawals: [],
         sources: [],
       }),
       writeConsoleLine: (message) => consoleLines.push(message),
@@ -90,6 +131,11 @@ describe('runTick', () => {
         runtimeEvents.push('readConstructionWorld');
 
         return {
+          controllerStructureLimits: {
+            extension: {
+              2: 5,
+            },
+          },
           ownedRooms: [
             {
               blockedPositions: [],
@@ -119,22 +165,61 @@ describe('runTick', () => {
         runtimeEvents.push('readSpawningWorld');
 
         return {
+          bodyPartCosts: {
+            carry: 50,
+            move: 50,
+            work: 100,
+          },
+          constructionCosts: {
+            extension: 3000,
+          },
+          controllerStructureLimits: {
+            extension: {
+              2: 0,
+            },
+          },
           gameTime: 43,
+          rooms: [
+            {
+              constructionSites: [],
+              controllerLevel: 2,
+              energyStructures: [
+                {
+                  availableEnergy: 300,
+                  energyCapacity: 300,
+                },
+              ],
+              roomName: 'W1N1',
+              structures: [
+                {
+                  structureType: 'spawn',
+                },
+              ],
+              ticksToDowngrade: 9000,
+              workerCreepCount: 0,
+            },
+          ],
           spawns: [
             {
               availableEnergy: 300,
               energyCapacity: 300,
               isSpawning: false,
               name: 'Spawn1',
+              roomName: 'W1N1',
             },
           ],
-          workerCreepCount: 0,
         };
       },
       readWorkerWorld: () => {
         runtimeEvents.push('readWorkerWorld');
 
         return {
+          constructionEligibilities: [
+            {
+              roomName: 'W1N1',
+              type: 'constructionAllowed',
+            },
+          ],
           constructionSites: [
             {
               id: 'site-1',
@@ -157,6 +242,7 @@ describe('runTick', () => {
               roomName: 'W1N1',
             },
           ],
+          energyPickups: [],
           energyStructures: [
             {
               availableEnergy: 300,
@@ -165,6 +251,7 @@ describe('runTick', () => {
               roomName: 'W1N1',
             },
           ],
+          energyWithdrawals: [],
           sources: [
             {
               id: 'source-1',
