@@ -1,0 +1,33 @@
+{
+  "id": "survival-fallback-roadmap-p0-p5",
+  "name": "survival-fallback-roadmap-p0-p5",
+  "title": "Survival fallback roadmap P0-P5",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Hime-Hina",
+  "assignee": "Hime-Hina",
+  "createdAt": "2026-06-12",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-12-p0-controller-downgrade-guard",
+    "06-12-p1-economic-fallback-construction-backpressure",
+    "06-12-p2-structure-maintenance-repair-fallback",
+    "06-12-p3-defense-fallback-safe-mode",
+    "06-12-p4-runtime-resilience-monitoring-fallback",
+    "06-12-p5-recovery-rebuild-fallback"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

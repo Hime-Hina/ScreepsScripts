@@ -134,8 +134,10 @@ The exact names will depend on the implemented behavior; the rule is that the ow
 - The RCL2 extension target is total existing extension structures plus extension construction sites = `5`.
 - Candidate site order must be deterministic. The current rule is Chebyshev range `1` around spawn, then range `2`; each range sorts by `y`, then `x`.
 - Planner must reject room edge, wall/unknown terrain, spawn tile, blocked positions, existing structures, and existing construction sites.
-- `src/creeps/` receives snapshots only: creeps, sources, controllers, energy structures, and construction sites.
-- Worker priority is harvest when free capacity exists; otherwise refill underfilled spawn/extension; otherwise build construction site; otherwise upgrade controller.
+- `src/creeps/` receives snapshots only: creeps, sources, owned controllers with `level` and `ticksToDowngrade`, energy structures, and construction sites.
+- Worker priority is harvest when free capacity exists; otherwise refill underfilled spawn/extension; otherwise apply controller downgrade guard before build.
+- Controller downgrade guard classifies owned controller `ticksToDowngrade`: `< 5000` critical, `< 8000` warning, `< 9000` recovering, `>= 9000` safe.
+- In critical state, all full-energy workers in the room upgrade controller before build. In warning or recovering state, the first full-energy worker by creep name upgrades before build. In safe state, build construction site remains before upgrade controller.
 - Runtime resolves Screeps objects and executes `Room.createConstructionSite`, `Creep.transfer`, `Creep.build`, `Creep.harvest`, and `Creep.upgradeController`.
 
 ### 4. Validation & Error Matrix
@@ -147,7 +149,9 @@ The exact names will depend on the implemented behavior; the rule is that the ow
 | Candidate is edge, wall, occupied, blocked, or already has a site | Planner skips the candidate |
 | Worker has free carry capacity | Worker harvest decision wins over refill/build/upgrade |
 | Worker has energy and an underfilled spawn/extension exists | Worker emits `refillEnergyStructure` |
-| Worker has energy, no refill target, and a construction site exists | Worker emits `buildConstructionSite` |
+| Worker has energy, no refill target, a safe controller, and a construction site exists | Worker emits `buildConstructionSite` |
+| Controller is recovering or warning with no refill target | First full-energy worker by creep name emits `upgradeController`; later full-energy workers may build |
+| Controller is critical with no refill target | Every full-energy worker emits `upgradeController` |
 | Runtime cannot resolve a target object | Runtime does not invent fallback strategy; tests must expose missing capture or stale object assumptions |
 
 ### 5. Good/Base/Bad Cases
@@ -160,8 +164,8 @@ The exact names will depend on the implemented behavior; the rule is that the ow
 ### 6. Tests Required
 
 - Unit tests for `planRoomConstruction` must cover missing extensions, existing extension/site count, invalid candidate skipping, and RCL1 no-op.
-- Unit tests for `planBootstrapWorkerActions` must cover refill priority, build before upgrade, upgrade fallback, and empty-worker harvest assignment.
-- Integration tests must stub Screeps globals only at the runtime boundary and assert `Room.createConstructionSite`, `Creep.transfer`, and `Creep.build`.
+- Unit tests for `planBootstrapWorkerActions` must cover refill priority, safe build before upgrade, recovering/warning/critical downgrade guard, upgrade fallback, and empty-worker harvest assignment.
+- Integration tests must stub Screeps globals only at the runtime boundary and assert `Room.createConstructionSite`, `Creep.transfer`, `Creep.build`, and runtime capture of owned controller `ticksToDowngrade`.
 - Bundle smoke must define any Screeps constants newly read by compiled runtime code.
 
 ### 7. Wrong vs Correct

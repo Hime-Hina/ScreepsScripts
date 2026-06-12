@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "Check degraded mode preserves critical work and skips bounded non-critical work."}
+{"file": ".trellis/spec/runtime/diagnostics.md", "reason": "Check diagnostics are bounded, useful, and non-secret."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Check local/live monitor tests are assigned to correct layers."}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "Check live check does not expose Screeps token."}

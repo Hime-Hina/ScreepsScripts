@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Defense has a reserved owner and must not be mixed into generic room scans."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Hostile capture and safe mode/tower execution must stay in runtime."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Threat detection and safe mode need small observable slices."}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "Hostile/tower scanning must remain bounded."}
+{"file": "docs/game-state.md", "reason": "Current live room has no hostiles; P3 live verification must record observed/blocked facts."}

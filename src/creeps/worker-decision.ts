@@ -12,7 +12,9 @@ export interface WorkerSourceSnapshot {
 
 export interface WorkerControllerSnapshot {
   readonly id: string;
+  readonly level: number;
   readonly roomName: string;
+  readonly ticksToDowngrade: number;
 }
 
 export interface WorkerConstructionSiteSnapshot {
@@ -65,14 +67,48 @@ export interface UpgradeControllerDecision {
   readonly type: 'upgradeController';
 }
 
+export type ControllerDowngradeState =
+  | {
+      readonly controllerId: string;
+      readonly roomName: string;
+      readonly type: 'controllerDowngradeSafe';
+    }
+  | {
+      readonly controllerId: string;
+      readonly roomName: string;
+      readonly type: 'controllerDowngradeRecovering';
+    }
+  | {
+      readonly controllerId: string;
+      readonly roomName: string;
+      readonly type: 'controllerDowngradeWarning';
+    }
+  | {
+      readonly controllerId: string;
+      readonly roomName: string;
+      readonly type: 'controllerDowngradeCritical';
+    };
+
+const CONTROLLER_DOWNGRADE_CRITICAL_TICKS = 5000;
+const CONTROLLER_DOWNGRADE_WARNING_TICKS = 8000;
+const CONTROLLER_DOWNGRADE_SAFE_TICKS = 9000;
+
 export const planBootstrapWorkerActions = (
   workerWorld: WorkerWorldSnapshot,
 ): readonly WorkerActionDecision[] => {
   const harvestSourceByCreepName = assignHarvestSources(workerWorld);
+  const controllerDowngradeStateByRoomName = classifyControllerDowngradeStates(workerWorld);
+  const downgradeWorkerByRoomName = selectDowngradeWorkers(workerWorld);
 
-  return workerWorld.creeps
+  return sortWorkerCreeps(workerWorld.creeps)
     .map((workerCreep) =>
-      planBootstrapWorkerAction(workerWorld, workerCreep, harvestSourceByCreepName),
+      planBootstrapWorkerAction(
+        workerWorld,
+        workerCreep,
+        harvestSourceByCreepName,
+        controllerDowngradeStateByRoomName,
+        downgradeWorkerByRoomName,
+      ),
     )
     .filter((workerDecision): workerDecision is WorkerActionDecision => workerDecision !== null);
 };
@@ -81,6 +117,8 @@ const planBootstrapWorkerAction = (
   workerWorld: WorkerWorldSnapshot,
   workerCreep: WorkerCreepSnapshot,
   harvestSourceByCreepName: ReadonlyMap<string, WorkerSourceSnapshot>,
+  controllerDowngradeStateByRoomName: ReadonlyMap<string, ControllerDowngradeState>,
+  downgradeWorkerByRoomName: ReadonlyMap<string, string>,
 ): WorkerActionDecision | null => {
   if (workerCreep.freeCapacity > 0) {
     const roomSource = harvestSourceByCreepName.get(workerCreep.name);
@@ -110,6 +148,23 @@ const planBootstrapWorkerAction = (
     };
   }
 
+  const controllerDowngradeState = controllerDowngradeStateByRoomName.get(workerCreep.roomName);
+
+  if (
+    controllerDowngradeState !== undefined &&
+    shouldUpgradeControllerBeforeBuild(
+      workerCreep,
+      controllerDowngradeState,
+      downgradeWorkerByRoomName,
+    )
+  ) {
+    return {
+      controllerId: controllerDowngradeState.controllerId,
+      creepName: workerCreep.name,
+      type: 'upgradeController',
+    };
+  }
+
   const constructionSite = selectConstructionSite(workerWorld, workerCreep.roomName);
 
   if (constructionSite !== undefined) {
@@ -135,6 +190,24 @@ const planBootstrapWorkerAction = (
   };
 };
 
+const shouldUpgradeControllerBeforeBuild = (
+  workerCreep: WorkerCreepSnapshot,
+  controllerDowngradeState: ControllerDowngradeState,
+  downgradeWorkerByRoomName: ReadonlyMap<string, string>,
+): boolean => {
+  switch (controllerDowngradeState.type) {
+    case 'controllerDowngradeCritical':
+      return isFullEnergyWorker(workerCreep);
+
+    case 'controllerDowngradeRecovering':
+    case 'controllerDowngradeWarning':
+      return downgradeWorkerByRoomName.get(workerCreep.roomName) === workerCreep.name;
+
+    case 'controllerDowngradeSafe':
+      return false;
+  }
+};
+
 const selectDepletedEnergyStructure = (
   workerWorld: WorkerWorldSnapshot,
   roomName: string,
@@ -158,6 +231,92 @@ const selectConstructionSite = (
     .sort((leftConstructionSite, rightConstructionSite) =>
       leftConstructionSite.id.localeCompare(rightConstructionSite.id),
     )[0];
+
+const classifyControllerDowngradeStates = (
+  workerWorld: WorkerWorldSnapshot,
+): ReadonlyMap<string, ControllerDowngradeState> => {
+  const controllerDowngradeStateByRoomName = new Map<string, ControllerDowngradeState>();
+
+  for (const controllerSnapshot of workerWorld.controllers) {
+    controllerDowngradeStateByRoomName.set(
+      controllerSnapshot.roomName,
+      classifyControllerDowngradeState(controllerSnapshot),
+    );
+  }
+
+  return controllerDowngradeStateByRoomName;
+};
+
+const classifyControllerDowngradeState = (
+  controllerSnapshot: WorkerControllerSnapshot,
+): ControllerDowngradeState => {
+  if (controllerSnapshot.ticksToDowngrade < CONTROLLER_DOWNGRADE_CRITICAL_TICKS) {
+    return {
+      controllerId: controllerSnapshot.id,
+      roomName: controllerSnapshot.roomName,
+      type: 'controllerDowngradeCritical',
+    };
+  }
+
+  if (controllerSnapshot.ticksToDowngrade < CONTROLLER_DOWNGRADE_WARNING_TICKS) {
+    return {
+      controllerId: controllerSnapshot.id,
+      roomName: controllerSnapshot.roomName,
+      type: 'controllerDowngradeWarning',
+    };
+  }
+
+  if (controllerSnapshot.ticksToDowngrade < CONTROLLER_DOWNGRADE_SAFE_TICKS) {
+    return {
+      controllerId: controllerSnapshot.id,
+      roomName: controllerSnapshot.roomName,
+      type: 'controllerDowngradeRecovering',
+    };
+  }
+
+  return {
+    controllerId: controllerSnapshot.id,
+    roomName: controllerSnapshot.roomName,
+    type: 'controllerDowngradeSafe',
+  };
+};
+
+const selectDowngradeWorkers = (workerWorld: WorkerWorldSnapshot): ReadonlyMap<string, string> => {
+  const downgradeWorkerByRoomName = new Map<string, string>();
+  const workerRoomNames = Array.from(
+    new Set(workerWorld.creeps.map((workerCreep) => workerCreep.roomName)),
+  ).sort();
+
+  for (const roomName of workerRoomNames) {
+    const roomDowngradeWorker = sortWorkerCreeps(
+      workerWorld.creeps.filter(
+        (workerCreep) => workerCreep.roomName === roomName && isFullEnergyWorker(workerCreep),
+      ),
+    )[0];
+
+    if (roomDowngradeWorker !== undefined) {
+      downgradeWorkerByRoomName.set(roomName, roomDowngradeWorker.name);
+    }
+  }
+
+  return downgradeWorkerByRoomName;
+};
+
+const isFullEnergyWorker = (workerCreep: WorkerCreepSnapshot): boolean =>
+  workerCreep.energy > 0 && workerCreep.freeCapacity === 0;
+
+const sortWorkerCreeps = (
+  workerCreeps: readonly WorkerCreepSnapshot[],
+): readonly WorkerCreepSnapshot[] =>
+  [...workerCreeps].sort((leftCreep, rightCreep) => {
+    const roomNameComparison = leftCreep.roomName.localeCompare(rightCreep.roomName);
+
+    if (roomNameComparison !== 0) {
+      return roomNameComparison;
+    }
+
+    return leftCreep.name.localeCompare(rightCreep.name);
+  });
 
 const assignHarvestSources = (
   workerWorld: WorkerWorldSnapshot,

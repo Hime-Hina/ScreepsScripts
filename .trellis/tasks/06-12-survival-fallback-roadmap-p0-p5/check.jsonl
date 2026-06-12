@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "Verify planning completion requires docs/specs/live facts to be current."}
+{"file": ".trellis/spec/documentation/synchronization.md", "reason": "Check whether child task docs and project docs stay synchronized."}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Check child task write ownership against domain boundary rules."}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "Check P4 and any scanning-heavy child task includes budget behavior."}

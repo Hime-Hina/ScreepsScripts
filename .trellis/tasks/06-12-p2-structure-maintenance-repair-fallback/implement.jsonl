@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Repair must be placed in the right owner and not become a generic manager."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Structure hits capture and repair execution must stay in runtime."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Repair thresholds must be introduced in small red-green-refactor slices."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Defines unit/integration coverage for repair action."}
+{"file": "docs/development.md", "reason": "Current RCL2 docs explicitly exclude repair until a separate slice."}

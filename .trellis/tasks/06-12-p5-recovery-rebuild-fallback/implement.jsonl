@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Recovery state must have a clear owner and not become a generic manager."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Room/spawn/controller capture remains runtime-owned."}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "Recovery facts must distinguish observed, derived, blocked."}
+{"file": ".trellis/spec/documentation/game-state.md", "reason": "Current single-room limitations and blockers must be documented."}
+{"file": "docs/game-state.md", "reason": "Current active room and former room facts inform recovery boundaries."}

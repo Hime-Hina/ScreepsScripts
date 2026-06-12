@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "P0 changes worker decision priority and must preserve domain ownership."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Controller ticksToDowngrade capture must stay in runtime boundary."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "P0 should be implemented as small red-green-refactor priority slices."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Defines unit/integration/bundle ownership for downgrade guard."}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "Live deploy/readback must record downgrade facts correctly."}
+{"file": "docs/game-state.md", "reason": "Current live controller downgrade and construction facts inform P0 thresholds."}

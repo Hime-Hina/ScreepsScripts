@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Worker/construction decisions must stay in domain boundaries and avoid mode/flag behavior."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Pickup/withdraw snapshot capture and execution must stay in runtime boundary."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "P1 must be implemented as small observable behavior slices."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Unit/integration/bundle ownership for worker/runtime changes."}
+{"file": "docs/architecture.md", "reason": "Current construction/refill/build runtime flow that P1 modifies."}
+{"file": "docs/game-state.md", "reason": "Current live RCL2 construction and controller facts."}

@@ -13,6 +13,8 @@ Live Screeps facts must be classified by evidence level:
 
 API readback proves code synchronization only. It does not prove natural Screeps runtime execution.
 
+For controller downgrade verification, live `room-objects` API readback exposes controller `downgradeTime` as an absolute game tick. Runtime code reads Screeps `StructureController.ticksToDowngrade` inside the game sandbox. Do not record API `downgradeTime` as `ticksToDowngrade`; either compute the remaining ticks from a trusted shard game time readback or record the absolute `downgradeTime` trend directly.
+
 ## Required Record
 
 Every live verification entry must include:

@@ -144,7 +144,9 @@ describe('runTick', () => {
           controllers: [
             {
               id: 'controller-1',
+              level: 2,
               roomName: 'W1N1',
+              ticksToDowngrade: 9000,
             },
           ],
           creeps: [

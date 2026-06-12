@@ -103,14 +103,16 @@ const captureWorkerWorld = (): WorkerWorldSnapshot => ({
   controllers: Object.values(Game.rooms).flatMap((room) => {
     const roomController = room.controller;
 
-    if (roomController === undefined) {
+    if (roomController?.my !== true) {
       return [];
     }
 
     return [
       {
         id: roomController.id,
+        level: roomController.level,
         roomName: room.name,
+        ticksToDowngrade: roomController.ticksToDowngrade,
       },
     ];
   }),

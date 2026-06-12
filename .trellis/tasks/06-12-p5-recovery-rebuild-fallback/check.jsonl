@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Check recovery contracts are domain-specific and not generic utility code."}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "Check blocked recovery reasons are recorded correctly."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Check P5 does not become full multi-room AI in one slice."}

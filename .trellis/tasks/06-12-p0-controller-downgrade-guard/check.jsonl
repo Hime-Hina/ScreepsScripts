@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Check P0 does not introduce mode flags or wrong owner."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Check Screeps globals stay inside runtime."}
+{"file": ".trellis/spec/testing/coverage.md", "reason": "Check warning/critical/refill priority tests exist."}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "Check live verification records ticksToDowngrade or blocker."}

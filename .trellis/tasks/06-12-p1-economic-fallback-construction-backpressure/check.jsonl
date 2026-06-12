@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Check P1 owner and decision contracts are explicit."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Check no Screeps globals leak into pure decision modules."}
+{"file": ".trellis/spec/testing/coverage.md", "reason": "Check new behavior has unit and integration coverage."}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "Check deploy/readback requirements if P1 is deployed."}

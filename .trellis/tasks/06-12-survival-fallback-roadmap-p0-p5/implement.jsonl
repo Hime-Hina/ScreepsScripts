@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Defines current and future domain owners plus RCL2 worker/construction contracts that P0-P5 must not violate."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Defines Screeps global access ownership and runtime boundary requirements."}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "Required for P4 CPU/bucket degraded operation and any broad room scanning."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Defines acceptable behavior slice shape for all child tasks."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Defines unit/integration/bundle/local server/live verification ownership."}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "Defines deployment-affecting completion rules and live fact labels."}
+{"file": "docs/game-state.md", "reason": "Records current production facts and blocked CPU facts used by P0-P5."}
+{"file": "docs/architecture.md", "reason": "Records current runtime/kernel/domain flow that P0-P5 extend."}

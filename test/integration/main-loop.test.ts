@@ -332,12 +332,21 @@ describe('Screeps main loop', () => {
     const moveTargets: unknown[] = [];
     const controllerTarget = {
       id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        x: 20,
+        y: 20,
+      },
+      ticksToDowngrade: 9000,
     };
     const firstSpawn = {
       id: 'spawn-1',
       name: 'Spawn1',
       pos: {
         roomName: 'W1N1',
+        x: 10,
+        y: 10,
       },
       spawnCreep: () => 0,
       spawning: {},
@@ -346,6 +355,9 @@ describe('Screeps main loop', () => {
         getCapacity: () => 300,
         getUsedCapacity: () => 300,
       },
+    };
+    const roomTerrain = {
+      get: () => 0,
     };
     const workerCreep = {
       harvest: () => 0,
@@ -376,7 +388,12 @@ describe('Screeps main loop', () => {
       rooms: {
         W1N1: {
           controller: controllerTarget,
-          find: (findType: number) => (findType === TEST_FIND_MY_STRUCTURES ? [firstSpawn] : []),
+          createConstructionSite: () => 0,
+          find: (findType: number) =>
+            findType === TEST_FIND_STRUCTURES || findType === TEST_FIND_MY_STRUCTURES
+              ? [firstSpawn]
+              : [],
+          getTerrain: () => roomTerrain,
           name: 'W1N1',
         },
       },
@@ -642,5 +659,129 @@ describe('Screeps main loop', () => {
     mainModule.loop();
 
     expect(buildTargets).toEqual([constructionSiteTarget]);
+  });
+
+  it('captures the controller downgrade timer and upgrades before building when warning', async () => {
+    const buildTargets: unknown[] = [];
+    const constructionSiteRequests: unknown[] = [];
+    const upgradeTargets: unknown[] = [];
+    const constructionSiteTarget = {
+      id: 'site-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 9,
+        y: 9,
+      },
+      structureType: TEST_STRUCTURE_EXTENSION,
+    };
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        x: 20,
+        y: 20,
+      },
+      ticksToDowngrade: 7999,
+    };
+    const firstSpawn = {
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const roomTerrain = {
+      get: () => 0,
+    };
+    const workerCreep = {
+      build: (target: unknown) => {
+        buildTargets.push(target);
+        return 0;
+      },
+      harvest: () => 0,
+      moveTo: () => undefined,
+      name: 'Worker1',
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 0,
+        getUsedCapacity: () => 50,
+      },
+      transfer: () => 0,
+      upgradeController: (target: unknown) => {
+        upgradeTargets.push(target);
+        return 0;
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: workerCreep,
+      },
+      cpu: {
+        getUsed: () => 0.67,
+      },
+      getObjectById: (objectId: string) => {
+        if (objectId === 'controller-1') {
+          return controllerTarget;
+        }
+
+        if (objectId === 'site-1') {
+          return constructionSiteTarget;
+        }
+
+        return null;
+      },
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          createConstructionSite: (...request: unknown[]) => constructionSiteRequests.push(request),
+          find: (findType: number) => {
+            if (findType === TEST_FIND_STRUCTURES || findType === TEST_FIND_MY_STRUCTURES) {
+              return [firstSpawn];
+            }
+
+            if (
+              findType === TEST_FIND_CONSTRUCTION_SITES ||
+              findType === TEST_FIND_MY_CONSTRUCTION_SITES
+            ) {
+              return [constructionSiteTarget];
+            }
+
+            return [];
+          },
+          getTerrain: () => roomTerrain,
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 15,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(upgradeTargets).toEqual([controllerTarget]);
+    expect(buildTargets).toEqual([]);
   });
 });
