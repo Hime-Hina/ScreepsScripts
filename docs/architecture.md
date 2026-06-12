@@ -8,12 +8,17 @@ flowchart LR
   Main --> Boundary["运行时边界"]
   Boundary --> Memory["Memory 边界"]
   Boundary --> SpawnSnapshot["Spawn/Creep 快照"]
+  Boundary --> ConstructionSnapshot["Construction 快照"]
   Memory --> Kernel["runTick"]
   SpawnSnapshot --> Kernel
+  ConstructionSnapshot --> Kernel
+  Kernel --> Construction["src/construction"]
   Kernel --> Spawning["src/spawning"]
   Kernel --> Creeps["src/creeps"]
+  Construction --> ConstructionDecision["ConstructionDecision"]
   Spawning --> SpawnDecision["SpawnDecision"]
   Creeps --> WorkerDecision["WorkerActionDecision"]
+  ConstructionDecision --> Actions["运行时动作执行"]
   SpawnDecision --> Actions["运行时动作执行"]
   WorkerDecision --> Actions
   Kernel --> Telemetry["TickTelemetry"]
@@ -23,13 +28,15 @@ flowchart LR
 
 `src/runtime/` 拥有对 Screeps 全局对象的直接访问权。策略模块应从该边界接收明确输入，而不是自行读取全局对象。
 
-`src/kernel/` 拥有 tick 级编排。当前实现记录 tick telemetry，把 runtime 快照交给 spawning 和 creeps 边界产出可测试的决策，并通过 runtime boundary 执行 bootstrap action。
+`src/kernel/` 拥有 tick 级编排。当前实现记录 tick telemetry，把 runtime 快照交给 construction、spawning 和 creeps 边界产出可测试的决策，并通过 runtime boundary 执行 construction、spawn 和 worker action。
 
 `src/memory/` 负责原始 `Memory` 的校验、schema version、迁移入口和写回。当前 schema 只有项目 root 与 `schemaVersion`，在 creep、room、spawn 状态进入前先建立单一持久化边界。
 
 `src/spawning/` 拥有 spawn 决策。当前 bootstrap worker decision 在 300 energy 可用时优先选择 `[WORK, CARRY, CARRY, MOVE, MOVE]`，在只有 200 energy 可用时保留 `[WORK, CARRY, MOVE]` emergency worker，并由 runtime boundary 执行 `spawnCreep`。
 
-`src/creeps/` 拥有 bootstrap worker action 决策。当前 worker 按 creep name 和 source id 在同房间 source 之间做确定性分配；runtime boundary 执行 harvest、transfer 和 upgradeController，并在 out of range 时执行 moveTo。
+`src/construction/` 拥有纯 construction planner。当前 planner 为 RCL2 owned room 规划缺失的 5 个 extension construction site，跳过 spawn、source、controller、已有结构、已有 construction site、edge 和 wall tile，并由 runtime boundary 执行 `Room.createConstructionSite`。
+
+`src/creeps/` 拥有 bootstrap worker action 决策。当前 worker 按 creep name 和 source id 在同房间 source 之间做确定性分配；满能量后优先补能 spawn/extension，再 build construction site，最后 upgrade controller。runtime boundary 执行 harvest、transfer、build 和 upgradeController，并在 out of range 时执行 moveTo。
 
 其他未来领域模块应围绕 Screeps 概念划分，例如 colony、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由运行时拥有的操作统一裁决和执行。
 

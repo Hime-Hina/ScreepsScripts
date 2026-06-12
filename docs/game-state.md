@@ -9,16 +9,20 @@
 - Account CPU shard 配置：`shard1 = 20`（`observed`，`/api/auth/me`）
 - `shards/info` 运行态 `cpuLimit` 仍显示旧值 `shard3 = 20`、`shard1 = 0`；实际执行以账号 `cpuShard` 配置和新房间 live 行为为准（`observed`，API）。
 - Active production room：`shard1 / W51N21`（`observed`，API）。
-- Spawn：`Spawn1`，位置 `35,23`，energy `3`，当前正在孵化 `Spawn1-worker-71610403`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`（`observed`，API）。
-- Controller：位置 `26,7`，RCL `2`，progress `8572`，safe mode until tick `71622765`，safe mode available `1`（`observed`，API）。
-- Sources：
-  - 位置 `28,5`，energy `2900/3000`（`observed`，API）。
-  - 位置 `19,43`，energy `2960/3000`（`observed`，API）。
+- Spawn：`Spawn1`，位置 `35,23`，energy `300`，当前未 spawning（`observed`，API）。
+- Controller：位置 `26,7`，RCL `2`，progress `9287`，safe mode until tick `71622765`，safe mode available `1`（`observed`，API）。
+- Sources：两个 source 可读（`observed`，API）。
 - Creeps：
-  - `Spawn1-worker-71608998`，body `[WORK, CARRY, MOVE]`，最后读回位置 `22,42`，carry energy `40`（`observed`，API）。
-  - `Spawn1-worker-71610306`，body `[WORK, CARRY, MOVE]`，最后读回位置 `35,24`，carry energy `46`（`observed`，API）。
-  - `Spawn1-worker-71610403`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，仍在 spawning（`observed`，API）。
-- 自持循环证据：controller 已升级到 RCL `2`，两个存活 worker 正在采集或运输，旧 worker 死亡后新代码已用 300-energy body 触发补员（`observed`，API + derived source behavior）。
+  - `Spawn1-worker-71610306`，body `[WORK, CARRY, MOVE]`，最后读回位置 `37,14`，carry energy `50`（`observed`，API）。
+  - `Spawn1-worker-71610403`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `33,23`，carry energy `95`（`observed`，API）。
+  - `Spawn1-worker-71610531`，body `[WORK, CARRY, MOVE]`，最后读回位置 `36,12`，carry energy `50`（`observed`，API）。
+- Extension construction sites：
+  - `34,22`，progress `0/3000`（`observed`，API）。
+  - `35,22`，progress `0/3000`（`observed`，API）。
+  - `36,22`，progress `0/3000`（`observed`，API）。
+  - `34,23`，progress `0/3000`（`observed`，API）。
+  - `36,23`，progress `5/3000`（`observed`，API）。
+- 自持循环证据：controller 已升级到 RCL `2`，RCL2 planner 已创建 5 个 extension construction site，worker 已开始 build，spawn/extension 补能和后续升级路径由 runtime boundary 执行（`observed`，API + derived source behavior）。
 - Former production room `shard3 / W15S27` 当前无 spawn、无 creeps、controller owner `null`，`place-spawn` 返回 `room not available`（`observed`，API）。
 
 ## 历史状态：2026-06-10 shard3 / W15S27
@@ -116,10 +120,10 @@ pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 -
   - Result：`ok = 1`（`observed`，API readback）
   - Modules：`main`（`observed`，API readback）。
 - 远端 `main` 内容与当前本地 `dist/main.js` 一致（`derived`，API readback + 本地 hash）。
-- Module set SHA-256：`a1fa2e8221dbadc9741bb2e76e7bdfaa6054a1c73db4e23bc407c51f17dc158f`（`derived`）。
-- 本地 `dist/main.js` 文件 SHA-256：`23aeb145934ddd17f94618f211704ea0580c095f754b0a9d4bdf347beaf806a4`（`derived`）。
+- Module set SHA-256：`da64ae0bcfb5654642568b941e0aa6a578933fb0220ea417646979495865ae83`（`derived`）。
+- 本地 `dist/main.js` 文件 SHA-256：`f7a964cd20caa2e49c8c08629cc5263f57c7aab4befebdfff7a3ccb1c7523006`（`derived`）。
 - Rollback path：`pnpm rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并用 API readback 校验（`derived`，本地脚本契约；尚未执行 live rollback）。
-- Previous remote hash：`87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`（`derived`，deploy snapshot hash）。
+- Previous remote hash：`a1fa2e8221dbadc9741bb2e76e7bdfaa6054a1c73db4e23bc407c51f17dc158f`（`derived`，deploy snapshot hash）。
 - Live runtime verification：自然 tick heartbeat 已通过 console websocket 观察到（`observed`，websocket）。
 - 已保存行为：
 
@@ -145,6 +149,9 @@ require('main').loop();
 - 2026-06-12 生产逻辑迭代 live deploy：`pnpm deploy:screeps` 通过，branch `main`，remote modules `main`，module set hash `a1fa2e8221dbadc9741bb2e76e7bdfaa6054a1c73db4e23bc407c51f17dc158f`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`（`observed`，API write + readback + local snapshot）。
 - 2026-06-12 生产逻辑迭代 live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `a1fa2e8221dbadc9741bb2e76e7bdfaa6054a1c73db4e23bc407c51f17dc158f`；该脚本不验证自然 tick heartbeat（`observed`，API readback）。
 - 2026-06-12 生产逻辑迭代 live room readback：`shard1 / W51N21` 状态 `normal`，`Spawn1` 正在孵化 `Spawn1-worker-71610403`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`；controller RCL `2`，2 个 `[WORK, CARRY, MOVE]` worker 存活，2 个 source 可读，hostile creeps/spawns/towers 均为 `0`（`observed`，API）。
+- 2026-06-12 RCL2 economic infrastructure live deploy：`pnpm deploy:screeps` 通过，branch `main`，remote modules `main`，module set hash `da64ae0bcfb5654642568b941e0aa6a578933fb0220ea417646979495865ae83`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `a1fa2e8221dbadc9741bb2e76e7bdfaa6054a1c73db4e23bc407c51f17dc158f`（`observed`，API write + readback + local snapshot）。
+- 2026-06-12 RCL2 economic infrastructure live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `da64ae0bcfb5654642568b941e0aa6a578933fb0220ea417646979495865ae83`；本地 `dist/main.js` 文件 SHA-256 为 `f7a964cd20caa2e49c8c08629cc5263f57c7aab4befebdfff7a3ccb1c7523006`；该脚本不验证自然 tick heartbeat（`observed`，API readback + derived hash）。
+- 2026-06-12 RCL2 economic infrastructure room readback：`shard1 / W51N21` 状态 `normal`，`Spawn1` energy `300` 且未 spawning，controller RCL `2` progress `9287`，3 个 worker 存活，5 个 extension construction site 已创建，其中 `36,23` progress `5/3000`，证明 planner 已 live 创建 site 且 worker 已开始 build（`observed`，API）。
 
 ## PTR 代码验证
 
@@ -184,4 +191,4 @@ https://screeps.com/a/#!/account/auth-tokens
 
 ## 下一步生产动作
 
-当前重启房间、spawn、controller、source 采集、spawn 回补、第二只 worker 孵化和远端代码 hash 已确认。后续游戏策略可以读取这些事实作为 `docs/game-state.md` 记录的生产状态；新增策略仍应通过 Memory 边界和小行为切片进入。
+当前重启房间、spawn、controller、source 采集、spawn/extension 补能、extension construction site 创建、worker build 和远端代码 hash 已确认。后续 road、container、repair、tower 或更完整 base planning 应继续通过 Memory 边界和小行为切片进入。

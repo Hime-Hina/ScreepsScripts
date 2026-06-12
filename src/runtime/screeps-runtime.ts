@@ -3,15 +3,23 @@ import {
   writeScreepsMemoryState,
   type ScreepsMemoryState,
 } from '../memory/screeps-memory';
+import type {
+  ConstructionDecision,
+  ConstructionTerrain,
+  ConstructionTerrainSnapshot,
+  ConstructionWorldSnapshot,
+} from '../construction/construction-planner';
 import type { WorkerActionDecision, WorkerWorldSnapshot } from '../creeps/worker-decision';
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
 import type { SpawnDecision } from '../spawning/spawn-decision';
 
 export interface ScreepsTickIO {
+  executeConstructionDecisions(constructionDecisions: readonly ConstructionDecision[]): void;
   executeSpawnDecision(spawnDecision: SpawnDecision): void;
   executeWorkerActions(workerDecisions: readonly WorkerActionDecision[]): void;
   readonly gameTime: number;
   readCpuUsed(): number;
+  readConstructionWorld(): ConstructionWorldSnapshot;
   readSpawningWorld(): SpawningWorldSnapshot;
   readWorkerWorld(): WorkerWorldSnapshot;
   writeConsoleLine(message: string): void;
@@ -23,10 +31,12 @@ export interface ScreepsTickRuntime extends ScreepsTickIO {
 }
 
 export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
+  executeConstructionDecisions,
   executeSpawnDecision,
   executeWorkerActions,
   gameTime: Game.time,
   readCpuUsed: () => Game.cpu.getUsed(),
+  readConstructionWorld: captureConstructionWorld,
   readMemoryState: () => readScreepsMemoryState(Memory),
   readSpawningWorld: captureSpawningWorld,
   readWorkerWorld: captureWorkerWorld,
@@ -45,7 +55,51 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
   workerCreepCount: Object.keys(Game.creeps).length,
 });
 
+const captureConstructionWorld = (): ConstructionWorldSnapshot => ({
+  ownedRooms: Object.values(Game.rooms).flatMap((room) => {
+    if (room.controller?.my !== true) {
+      return [];
+    }
+
+    const roomSpawn = Object.values(Game.spawns)
+      .filter((spawn) => spawn.pos.roomName === room.name)
+      .sort((leftSpawn, rightSpawn) => leftSpawn.name.localeCompare(rightSpawn.name))[0];
+
+    if (roomSpawn === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        blockedPositions: [
+          ...room.find(FIND_SOURCES).map(toPositionSnapshot),
+          ...(room.controller === undefined ? [] : [toPositionSnapshot(room.controller)]),
+          ...room.find(FIND_MINERALS).map(toPositionSnapshot),
+        ],
+        constructionSites: room.find(FIND_CONSTRUCTION_SITES).map((constructionSite) => ({
+          structureType: constructionSite.structureType,
+          ...toPositionSnapshot(constructionSite),
+        })),
+        controllerLevel: room.controller.level,
+        roomName: room.name,
+        spawnPosition: toPositionSnapshot(roomSpawn),
+        structures: room.find(FIND_STRUCTURES).map((structure) => ({
+          structureType: structure.structureType,
+          ...toPositionSnapshot(structure),
+        })),
+        terrain: captureTerrainAroundPosition(room, roomSpawn.pos, 2),
+      },
+    ];
+  }),
+});
+
 const captureWorkerWorld = (): WorkerWorldSnapshot => ({
+  constructionSites: Object.values(Game.rooms).flatMap((room) =>
+    room.find(FIND_MY_CONSTRUCTION_SITES).map((constructionSite) => ({
+      id: constructionSite.id,
+      roomName: constructionSite.pos.roomName,
+    })),
+  ),
   controllers: Object.values(Game.rooms).flatMap((room) => {
     const roomController = room.controller;
 
@@ -66,19 +120,53 @@ const captureWorkerWorld = (): WorkerWorldSnapshot => ({
     name: creep.name,
     roomName: creep.room.name,
   })),
+  energyStructures: Object.values(Game.rooms).flatMap((room) =>
+    room
+      .find(FIND_MY_STRUCTURES)
+      .filter(isWorkerEnergyStructure)
+      .map((energyStructure) => ({
+        availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
+        energyCapacity: readEnergyCapacity(energyStructure.store),
+        id: energyStructure.id,
+        roomName: energyStructure.pos.roomName,
+      })),
+  ),
   sources: Object.values(Game.rooms).flatMap((room) =>
     room.find(FIND_SOURCES).map((source) => ({
       id: source.id,
       roomName: room.name,
     })),
   ),
-  spawns: Object.values(Game.spawns).map((spawn) => ({
-    availableEnergy: spawn.store.getUsedCapacity(RESOURCE_ENERGY),
-    energyCapacity: readEnergyCapacity(spawn.store),
-    name: spawn.name,
-    roomName: spawn.pos.roomName,
-  })),
 });
+
+const executeConstructionDecisions = (
+  constructionDecisions: readonly ConstructionDecision[],
+): void => {
+  for (const constructionDecision of constructionDecisions) {
+    executeConstructionDecision(constructionDecision);
+  }
+};
+
+const executeConstructionDecision = (constructionDecision: ConstructionDecision): void => {
+  switch (constructionDecision.type) {
+    case 'createConstructionSite': {
+      const room = Game.rooms[constructionDecision.roomName];
+
+      if (room === undefined) {
+        throw new Error(
+          `Room "${constructionDecision.roomName}" does not exist for construction decision.`,
+        );
+      }
+
+      room.createConstructionSite(
+        constructionDecision.x,
+        constructionDecision.y,
+        constructionDecision.structureType,
+      );
+      return;
+    }
+  }
+};
 
 const executeSpawnDecision = (spawnDecision: SpawnDecision): void => {
   const spawn = Game.spawns[spawnDecision.spawnName];
@@ -108,11 +196,19 @@ const executeWorkerAction = (workerDecision: WorkerActionDecision): void => {
       return;
     }
 
-    case 'refillSpawn': {
-      const spawn = readOwnedSpawn(workerDecision.spawnName);
-      const actionReturnCode = creep.transfer(spawn, RESOURCE_ENERGY);
+    case 'refillEnergyStructure': {
+      const energyStructure = readEnergyStructure(workerDecision.structureId);
+      const actionReturnCode = creep.transfer(energyStructure, RESOURCE_ENERGY);
 
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, spawn);
+      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, energyStructure);
+      return;
+    }
+
+    case 'buildConstructionSite': {
+      const constructionSite = readConstructionSite(workerDecision.constructionSiteId);
+      const actionReturnCode = creep.build(constructionSite);
+
+      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, constructionSite);
       return;
     }
 
@@ -136,14 +232,26 @@ const readOwnedCreep = (creepName: string): Creep => {
   return creep;
 };
 
-const readOwnedSpawn = (spawnName: string): StructureSpawn => {
-  const spawn = Game.spawns[spawnName];
+const readEnergyStructure = (structureId: string): StructureExtension | StructureSpawn => {
+  const energyStructure = Game.getObjectById(
+    structureId as Id<StructureExtension | StructureSpawn>,
+  );
 
-  if (spawn === undefined) {
-    throw new Error(`Spawn "${spawnName}" does not exist for worker action.`);
+  if (energyStructure === null) {
+    throw new Error(`Energy structure "${structureId}" does not exist for worker action.`);
   }
 
-  return spawn;
+  return energyStructure;
+};
+
+const readConstructionSite = (constructionSiteId: string): ConstructionSite => {
+  const constructionSite = Game.getObjectById(constructionSiteId as Id<ConstructionSite>);
+
+  if (constructionSite === null) {
+    throw new Error(`Construction site "${constructionSiteId}" does not exist for worker action.`);
+  }
+
+  return constructionSite;
 };
 
 const readSource = (sourceId: string): Source => {
@@ -184,4 +292,53 @@ const readEnergyCapacity = (store: StoreDefinition): number => {
   }
 
   return energyCapacity;
+};
+
+const isWorkerEnergyStructure = (
+  structure: AnyOwnedStructure,
+): structure is StructureExtension | StructureSpawn =>
+  structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN;
+
+const toPositionSnapshot = (
+  roomObject: RoomObject,
+): { readonly x: number; readonly y: number } => ({
+  x: roomObject.pos.x,
+  y: roomObject.pos.y,
+});
+
+const captureTerrainAroundPosition = (
+  room: Room,
+  centerPosition: RoomPosition,
+  radius: number,
+): readonly ConstructionTerrainSnapshot[] => {
+  const roomTerrain = room.getTerrain();
+  const terrainSnapshots: ConstructionTerrainSnapshot[] = [];
+
+  for (let y = centerPosition.y - radius; y <= centerPosition.y + radius; y += 1) {
+    for (let x = centerPosition.x - radius; x <= centerPosition.x + radius; x += 1) {
+      if (x <= 0 || x >= 49 || y <= 0 || y >= 49) {
+        continue;
+      }
+
+      terrainSnapshots.push({
+        terrain: decodeTerrain(roomTerrain.get(x, y)),
+        x,
+        y,
+      });
+    }
+  }
+
+  return terrainSnapshots;
+};
+
+const decodeTerrain = (terrainMask: number): ConstructionTerrain => {
+  if (terrainMask === 1) {
+    return 'wall';
+  }
+
+  if (terrainMask === 2) {
+    return 'swamp';
+  }
+
+  return 'plain';
 };

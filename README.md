@@ -8,8 +8,9 @@
 - 已初始化 Trellis，并采用 TDD 工作流。
 - 包管理器为 `pnpm`。
 - `src/main.ts` 导出 Screeps `loop`。
-- 源码运行时已执行自持 bootstrap：`spawnCreep`、worker 采集 source、回补 spawn 和 controller upgrade action 均由 runtime boundary 执行。
+- 源码运行时已执行自持 RCL2 经济循环：`spawnCreep`、extension construction site 创建、worker 采集 source、回补 spawn/extension、建造 construction site 和 controller upgrade action 均由 runtime boundary 执行。
 - 源码会在 300 energy 可用时优先孵化 `[WORK, CARRY, CARRY, MOVE, MOVE]` early worker，并按 worker 名称在同房间多 source 间稳定分配采集目标。
+- 源码会在 RCL2 owned room 自动规划 5 个 extension construction site；worker 满能量后优先补满 spawn/extension，再 build construction site，最后 upgrade controller。
 - 默认 GitHub Actions CI 已配置，运行 `corepack enable`、`pnpm install --frozen-lockfile` 和 `pnpm check`，不读取 Screeps 凭据。
 - Active shard 已记录为 `shard1`。
 - Live Screeps 部署 branch 已记录为 `main`；本轮生产逻辑迭代已部署并通过 API readback。

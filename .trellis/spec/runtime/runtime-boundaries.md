@@ -20,7 +20,7 @@ Direct access to Screeps globals belongs in `src/runtime/`.
 
 Current reference:
 
-- `src/runtime/screeps-runtime.ts` reads `Game.time`, `Game.cpu.getUsed()`, `Game.creeps`, `Game.spawns`, `Memory`, `RESOURCE_ENERGY`, and `console.log`.
+- `src/runtime/screeps-runtime.ts` reads `Game.time`, `Game.cpu.getUsed()`, `Game.creeps`, `Game.spawns`, owned rooms, room structures, construction sites, terrain, `Memory`, `RESOURCE_ENERGY`, Screeps find/structure constants, and `console.log`.
 - `src/kernel/run-tick.ts` receives `ScreepsTickRuntime` and does not read globals.
 
 When adding a Screeps global, expose only the smallest operation needed by the runtime interface. Avoid passing raw global objects inward when a narrower method or value preserves the invariant.

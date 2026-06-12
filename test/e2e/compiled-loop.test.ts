@@ -5,6 +5,15 @@ import { describe, expect, it } from 'vitest';
 
 type ScreepsLoop = () => void;
 
+const TEST_FIND_CONSTRUCTION_SITES = 107;
+const TEST_FIND_MY_CONSTRUCTION_SITES = 108;
+const TEST_FIND_MY_STRUCTURES = 109;
+const TEST_FIND_MINERALS = 110;
+const TEST_FIND_SOURCES = 105;
+const TEST_FIND_STRUCTURES = 111;
+const TEST_STRUCTURE_EXTENSION = 'extension';
+const TEST_STRUCTURE_SPAWN = 'spawn';
+
 const isScreepsLoop = (candidateLoop: unknown): candidateLoop is ScreepsLoop =>
   typeof candidateLoop === 'function';
 
@@ -45,10 +54,17 @@ describe('compiled Screeps bundle', () => {
         },
         time: 99,
       },
+      FIND_CONSTRUCTION_SITES: TEST_FIND_CONSTRUCTION_SITES,
+      FIND_MY_CONSTRUCTION_SITES: TEST_FIND_MY_CONSTRUCTION_SITES,
+      FIND_MY_STRUCTURES: TEST_FIND_MY_STRUCTURES,
+      FIND_MINERALS: TEST_FIND_MINERALS,
       FIND_MY_CREEPS: 101,
-      FIND_SOURCES: 105,
+      FIND_SOURCES: TEST_FIND_SOURCES,
+      FIND_STRUCTURES: TEST_FIND_STRUCTURES,
       Memory: screepsMemory,
       RESOURCE_ENERGY: 'energy',
+      STRUCTURE_EXTENSION: TEST_STRUCTURE_EXTENSION,
+      STRUCTURE_SPAWN: TEST_STRUCTURE_SPAWN,
       console: {
         log: (message: string) => consoleLines.push(message),
       },

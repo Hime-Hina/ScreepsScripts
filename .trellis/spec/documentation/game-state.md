@@ -9,9 +9,9 @@ Current known facts include:
 
 - Account: `Dragon_King`
 - World: Persistent World
-- Visible shard: `shard3`
-- Active production room: `shard3 / W15S27`
-- Spawn: `Spawn1` at `44,30`
+- Visible shard: `shard1`
+- Active production room: `shard1 / W51N21`
+- Spawn: `Spawn1` at `35,23`
 - Deployed branch: `main`
 - Current remaining blockers: CPU bucket and CPU tick limit are not yet observed.
 

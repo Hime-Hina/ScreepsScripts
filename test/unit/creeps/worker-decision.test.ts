@@ -6,6 +6,7 @@ describe('bootstrap worker action decision', () => {
   it('harvests from a source in the worker room until full', () => {
     expect(
       planBootstrapWorkerActions({
+        constructionSites: [],
         controllers: [
           {
             id: 'controller-1',
@@ -20,17 +21,10 @@ describe('bootstrap worker action decision', () => {
             roomName: 'W1N1',
           },
         ],
+        energyStructures: [],
         sources: [
           {
             id: 'source-1',
-            roomName: 'W1N1',
-          },
-        ],
-        spawns: [
-          {
-            availableEnergy: 300,
-            energyCapacity: 300,
-            name: 'Spawn1',
             roomName: 'W1N1',
           },
         ],
@@ -47,6 +41,7 @@ describe('bootstrap worker action decision', () => {
   it('distributes harvesting workers across room sources', () => {
     expect(
       planBootstrapWorkerActions({
+        constructionSites: [],
         controllers: [
           {
             id: 'controller-1',
@@ -67,6 +62,7 @@ describe('bootstrap worker action decision', () => {
             roomName: 'W1N1',
           },
         ],
+        energyStructures: [],
         sources: [
           {
             id: 'source-a',
@@ -74,14 +70,6 @@ describe('bootstrap worker action decision', () => {
           },
           {
             id: 'source-b',
-            roomName: 'W1N1',
-          },
-        ],
-        spawns: [
-          {
-            availableEnergy: 300,
-            energyCapacity: 300,
-            name: 'Spawn1',
             roomName: 'W1N1',
           },
         ],
@@ -100,9 +88,15 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
-  it('keeps worker source assignment stable while another worker delivers energy', () => {
+  it('keeps an empty worker on its assigned source while another worker refills energy', () => {
     expect(
       planBootstrapWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
         controllers: [
           {
             id: 'controller-1',
@@ -123,6 +117,14 @@ describe('bootstrap worker action decision', () => {
             roomName: 'W1N1',
           },
         ],
+        energyStructures: [
+          {
+            availableEnergy: 250,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
         sources: [
           {
             id: 'source-a',
@@ -133,20 +135,12 @@ describe('bootstrap worker action decision', () => {
             roomName: 'W1N1',
           },
         ],
-        spawns: [
-          {
-            availableEnergy: 300,
-            energyCapacity: 300,
-            name: 'Spawn1',
-            roomName: 'W1N1',
-          },
-        ],
       }),
     ).toEqual([
       {
-        controllerId: 'controller-1',
         creepName: 'WorkerA',
-        type: 'upgradeController',
+        structureId: 'spawn-1',
+        type: 'refillEnergyStructure',
       },
       {
         creepName: 'WorkerB',
@@ -156,9 +150,15 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
-  it('refills the room spawn before upgrading the controller', () => {
+  it('refills the lowest-id depleted energy structure before building or upgrading', () => {
     expect(
       planBootstrapWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
         controllers: [
           {
             id: 'controller-1',
@@ -173,17 +173,29 @@ describe('bootstrap worker action decision', () => {
             roomName: 'W1N1',
           },
         ],
-        sources: [
-          {
-            id: 'source-1',
-            roomName: 'W1N1',
-          },
-        ],
-        spawns: [
+        energyStructures: [
           {
             availableEnergy: 250,
             energyCapacity: 300,
-            name: 'Spawn1',
+            id: 'spawn-z',
+            roomName: 'W1N1',
+          },
+          {
+            availableEnergy: 0,
+            energyCapacity: 50,
+            id: 'extension-a',
+            roomName: 'W1N1',
+          },
+          {
+            availableEnergy: 50,
+            energyCapacity: 50,
+            id: 'extension-full',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
             roomName: 'W1N1',
           },
         ],
@@ -191,15 +203,25 @@ describe('bootstrap worker action decision', () => {
     ).toEqual([
       {
         creepName: 'Worker1',
-        spawnName: 'Spawn1',
-        type: 'refillSpawn',
+        structureId: 'extension-a',
+        type: 'refillEnergyStructure',
       },
     ]);
   });
 
-  it('upgrades the controller when spawn energy is stable', () => {
+  it('builds the lowest-id construction site before upgrading when energy structures are full', () => {
     expect(
       planBootstrapWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-z',
+            roomName: 'W1N1',
+          },
+          {
+            id: 'construction-site-a',
+            roomName: 'W1N1',
+          },
+        ],
         controllers: [
           {
             id: 'controller-1',
@@ -214,17 +236,59 @@ describe('bootstrap worker action decision', () => {
             roomName: 'W1N1',
           },
         ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
         sources: [
           {
             id: 'source-1',
             roomName: 'W1N1',
           },
         ],
-        spawns: [
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'construction-site-a',
+        creepName: 'Worker1',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('upgrades the controller when energy is stable and no construction site exists', () => {
+    expect(
+      planBootstrapWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            roomName: 'W1N1',
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
           {
             availableEnergy: 300,
             energyCapacity: 300,
-            name: 'Spawn1',
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
             roomName: 'W1N1',
           },
         ],

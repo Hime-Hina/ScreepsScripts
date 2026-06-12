@@ -5,13 +5,6 @@ export interface WorkerCreepSnapshot {
   readonly roomName: string;
 }
 
-export interface WorkerSpawnSnapshot {
-  readonly availableEnergy: number;
-  readonly energyCapacity: number;
-  readonly name: string;
-  readonly roomName: string;
-}
-
 export interface WorkerSourceSnapshot {
   readonly id: string;
   readonly roomName: string;
@@ -22,16 +15,30 @@ export interface WorkerControllerSnapshot {
   readonly roomName: string;
 }
 
+export interface WorkerConstructionSiteSnapshot {
+  readonly id: string;
+  readonly roomName: string;
+}
+
+export interface WorkerEnergyStructureSnapshot {
+  readonly availableEnergy: number;
+  readonly energyCapacity: number;
+  readonly id: string;
+  readonly roomName: string;
+}
+
 export interface WorkerWorldSnapshot {
+  readonly constructionSites: readonly WorkerConstructionSiteSnapshot[];
   readonly controllers: readonly WorkerControllerSnapshot[];
   readonly creeps: readonly WorkerCreepSnapshot[];
+  readonly energyStructures: readonly WorkerEnergyStructureSnapshot[];
   readonly sources: readonly WorkerSourceSnapshot[];
-  readonly spawns: readonly WorkerSpawnSnapshot[];
 }
 
 export type WorkerActionDecision =
   | HarvestSourceDecision
-  | RefillSpawnDecision
+  | RefillEnergyStructureDecision
+  | BuildConstructionSiteDecision
   | UpgradeControllerDecision;
 
 export interface HarvestSourceDecision {
@@ -40,10 +47,16 @@ export interface HarvestSourceDecision {
   readonly type: 'harvestSource';
 }
 
-export interface RefillSpawnDecision {
+export interface RefillEnergyStructureDecision {
   readonly creepName: string;
-  readonly spawnName: string;
-  readonly type: 'refillSpawn';
+  readonly structureId: string;
+  readonly type: 'refillEnergyStructure';
+}
+
+export interface BuildConstructionSiteDecision {
+  readonly constructionSiteId: string;
+  readonly creepName: string;
+  readonly type: 'buildConstructionSite';
 }
 
 export interface UpgradeControllerDecision {
@@ -87,17 +100,23 @@ const planBootstrapWorkerAction = (
     return null;
   }
 
-  const depletedSpawn = workerWorld.spawns.find(
-    (spawnSnapshot) =>
-      spawnSnapshot.roomName === workerCreep.roomName &&
-      spawnSnapshot.availableEnergy < spawnSnapshot.energyCapacity,
-  );
+  const depletedEnergyStructure = selectDepletedEnergyStructure(workerWorld, workerCreep.roomName);
 
-  if (depletedSpawn !== undefined) {
+  if (depletedEnergyStructure !== undefined) {
     return {
       creepName: workerCreep.name,
-      spawnName: depletedSpawn.name,
-      type: 'refillSpawn',
+      structureId: depletedEnergyStructure.id,
+      type: 'refillEnergyStructure',
+    };
+  }
+
+  const constructionSite = selectConstructionSite(workerWorld, workerCreep.roomName);
+
+  if (constructionSite !== undefined) {
+    return {
+      constructionSiteId: constructionSite.id,
+      creepName: workerCreep.name,
+      type: 'buildConstructionSite',
     };
   }
 
@@ -115,6 +134,30 @@ const planBootstrapWorkerAction = (
     type: 'upgradeController',
   };
 };
+
+const selectDepletedEnergyStructure = (
+  workerWorld: WorkerWorldSnapshot,
+  roomName: string,
+): WorkerEnergyStructureSnapshot | undefined =>
+  workerWorld.energyStructures
+    .filter(
+      (energyStructureSnapshot) =>
+        energyStructureSnapshot.roomName === roomName &&
+        energyStructureSnapshot.availableEnergy < energyStructureSnapshot.energyCapacity,
+    )
+    .sort((leftEnergyStructure, rightEnergyStructure) =>
+      leftEnergyStructure.id.localeCompare(rightEnergyStructure.id),
+    )[0];
+
+const selectConstructionSite = (
+  workerWorld: WorkerWorldSnapshot,
+  roomName: string,
+): WorkerConstructionSiteSnapshot | undefined =>
+  workerWorld.constructionSites
+    .filter((constructionSiteSnapshot) => constructionSiteSnapshot.roomName === roomName)
+    .sort((leftConstructionSite, rightConstructionSite) =>
+      leftConstructionSite.id.localeCompare(rightConstructionSite.id),
+    )[0];
 
 const assignHarvestSources = (
   workerWorld: WorkerWorldSnapshot,
