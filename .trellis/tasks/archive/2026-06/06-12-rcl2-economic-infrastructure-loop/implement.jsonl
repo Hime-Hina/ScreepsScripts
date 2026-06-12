@@ -1,0 +1,18 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务跨 construction planning、runtime action、worker decision、tests 和 live docs，需要先确认层间边界。"}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "约束 Screeps globals、Room.createConstructionSite、Creep.build、Creep.transfer 只能由 runtime boundary 执行。"}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "约束新增 construction/worker 行为归属，避免回到旧 role-folder 或大 manager 架构。"}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "约束 RCL2 planner 首版不能引入未预算的全图 pathfinding、distance transform 或 min-cut。"}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "要求每个行为切片先写失败测试再实现。"}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "定义 extension planner、refill energy structure、builder action 的可观察行为切片。"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "决定 unit、integration、bundle smoke、本地 server e2e 的覆盖边界。"}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "约束 live deploy、rollback snapshot、verify readback 的执行顺序。"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "约束 docs/game-state.md 中 API readback、natural tick、room object readback 的证据分类。"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "确保部署和调研不提交或打印 Screeps token。"}
+{"file": ".trellis/spec/documentation/synchronization.md", "reason": "源码行为、架构、开发命令和 game-state 变更后需要同步文档。"}
+{"file": ".trellis/spec/research/official-screeps-docs.md", "reason": "使用 Room.createConstructionSite、ConstructionSite、Creep.build、extension limits 前核对官方文档。"}
+{"file": ".trellis/spec/research/player-code-research.md", "reason": "成熟 bot 参考只吸收模式和任务分解，不复制 Overmind/TooAngel/Kasami/Hivemind 架构或源码。"}
+{"file": ".trellis/tasks/06-12-rcl2-economic-infrastructure-loop/research.md", "reason": "记录本任务外部成熟 bot 调研结论和计划调整依据。"}
+{"file": "src/creeps/worker-decision.ts", "reason": "当前 harvest/refillSpawn/upgradeController 决策入口，需要扩展为 refill energy structure 和 build construction site。"}
+{"file": "src/runtime/screeps-runtime.ts", "reason": "当前 Screeps action 执行边界，需要新增 construction site capture、createConstructionSite 和 build 执行。"}
+{"file": "src/kernel/run-tick.ts", "reason": "tick 编排需要接入 construction planner，同时保持入口薄。"}
+{"file": "docs/game-state.md", "reason": "live deploy 或 blocked reason 需要记录当前 RCL2 设施建设和线上读回。"}

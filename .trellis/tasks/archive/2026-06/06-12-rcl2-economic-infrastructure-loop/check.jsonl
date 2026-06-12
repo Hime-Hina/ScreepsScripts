@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "最终检查是否满足 PRD 验收、测试、文档、部署或 blocked reason。"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "检查新增 unit/integration/system/e2e 覆盖没有混淆边界。"}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "检查策略模块没有直接访问 Screeps globals。"}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "检查 planner 没有引入未预算 pathfinding、全图扫描或复杂算法。"}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "检查 live deploy/readback/rollback 流程是否保持手动边界。"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "检查 game-state 是否区分 API readback、room object readback、natural tick。"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "检查未提交 screeps.json、token、cookies 或外泄 secret。"}
+{"file": ".trellis/spec/documentation/synchronization.md", "reason": "检查 README、CONTEXT、architecture、development、game-state 与实现一致。"}
+{"file": ".trellis/tasks/06-12-rcl2-economic-infrastructure-loop/prd.md", "reason": "检查实现是否满足本任务验收标准和明确 out of scope。"}

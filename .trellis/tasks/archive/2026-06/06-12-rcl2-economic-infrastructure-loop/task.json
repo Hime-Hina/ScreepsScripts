@@ -1,0 +1,30 @@
+{
+  "id": "rcl2-economic-infrastructure-loop",
+  "name": "rcl2-economic-infrastructure-loop",
+  "title": "RCL2 economic infrastructure loop",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Hime-Hina",
+  "assignee": "Hime-Hina",
+  "createdAt": "2026-06-12",
+  "completedAt": "2026-06-12",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-12-rcl2-worker-energy-flow-decisions",
+    "06-12-rcl2-extension-planner-decisions",
+    "06-12-rcl2-runtime-integration-live-verification"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
