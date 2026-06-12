@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "最终验收完整闭环。"}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "检查 action execution 边界。"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "检查未泄露 Screeps token。"}
+{"file": ".trellis/spec/documentation/synchronization.md", "reason": "检查文档同步。"}
+{"file": ".trellis/tasks/06-12-rcl2-economic-infrastructure-loop/prd.md", "reason": "检查父任务验收和 out of scope。"}

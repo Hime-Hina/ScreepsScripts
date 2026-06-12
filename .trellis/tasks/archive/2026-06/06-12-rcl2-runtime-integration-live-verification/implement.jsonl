@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本子任务负责跨 construction、creeps、runtime、kernel、docs 集成。"}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "确认 Screeps globals 和 action execution 只在 runtime boundary。"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "integration/e2e/system 验证范围。"}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "live deploy/readback/rollback 顺序。"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "区分 API readback、room object readback 和 natural tick。"}
+{"file": ".trellis/spec/documentation/synchronization.md", "reason": "实现后同步文档。"}
+{"file": "src/runtime/screeps-runtime.ts", "reason": "runtime 集成主要源码写入范围。"}
+{"file": "src/kernel/run-tick.ts", "reason": "tick 编排写入范围。"}
+{"file": "test/integration/main-loop.test.ts", "reason": "主要集成测试写入范围。"}
+{"file": "test/e2e/compiled-loop.test.ts", "reason": "bundle smoke 期望可能需要更新。"}
