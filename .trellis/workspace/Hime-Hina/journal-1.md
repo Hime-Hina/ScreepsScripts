@@ -71,3 +71,36 @@ Added explicit Screeps PTR deploy, verify, and rollback commands with independen
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Restore Screeps self-sustaining bootstrap
+
+**Date**: 2026-06-12
+**Task**: Restore Screeps self-sustaining bootstrap
+**Branch**: `master`
+
+### Summary
+
+Respawned live Screeps production on shard1/W51N21, deployed worker spawn/harvest/refill/upgrade loop, verified live readback with two workers running.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cb1693e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

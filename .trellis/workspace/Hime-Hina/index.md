@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 2
-- **Last Active**: 2026-06-11
+- **Total Sessions**: 3
+- **Last Active**: 2026-06-12
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~73 | Active |
+| `journal-1.md` | ~106 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 3 | 2026-06-12 | Restore Screeps self-sustaining bootstrap | `cb1693e` | `master` |
 | 2 | 2026-06-11 | Screeps PTR smoke commands | `25d2f74` | `master` |
 | 1 | 2026-06-11 | Local Screeps server test flow | `6becb1e` | `master` |
 <!-- @@@/auto:session-history -->
