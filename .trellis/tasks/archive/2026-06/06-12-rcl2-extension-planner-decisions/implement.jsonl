@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "construction planner 应是纯 snapshot -> decision。"}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "首版禁止引入全图复杂算法。"}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "先写 planner 失败测试，再实现。"}
+{"file": ".trellis/spec/research/official-screeps-docs.md", "reason": "extension limit/cost/createConstructionSite 行为来自官方文档。"}
+{"file": ".trellis/tasks/06-12-rcl2-economic-infrastructure-loop/research.md", "reason": "成熟 bot 调研支持先做小 planner。"}
+{"file": ".trellis/tasks/06-12-rcl2-economic-infrastructure-loop/design.md", "reason": "父任务定义 construction decision contract。"}
