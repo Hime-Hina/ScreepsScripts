@@ -104,3 +104,27 @@ Respawned live Screeps production on shard1/W51N21, deployed worker spawn/harves
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: PTR console heartbeat follow-up
+
+**Date**: 2026-06-12
+**Task**: PTR console heartbeat follow-up
+**Branch**: `master`
+
+### Summary
+
+Opened Screeps PTR in Chrome and verified that natural tick heartbeat remains blocked because the PTR account has no owned room. PTR CPU is present, and PTR API is responsive; current PTR remote code also no longer matches the local `dist/main.js` hash.
+
+### Main Changes
+
+- Updated `docs/game-state.md` with PTR CPU, room, runtime, readback mismatch, and blocked heartbeat evidence.
+- Updated the archived PTR smoke task with the manual follow-up result.
+
+### Testing
+
+- `pnpm verify:ptr:screeps` failed as expected for the current state: PTR remote hash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62` does not match local hash `87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`.
+
+### Status
+
+[OK] **Completed**

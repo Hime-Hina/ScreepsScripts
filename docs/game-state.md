@@ -147,7 +147,11 @@ require('main').loop();
 - PTR deploy snapshot path：`.screeps/ptr/latest.json`，被 Git 忽略（`derived`，本地脚本契约）。
 - PTR API deploy/readback：2026-06-12 `pnpm deploy:ptr:screeps` 成功部署 branch `main`，remote modules `main`，main hash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`；覆盖前 snapshot 写入 `.screeps/ptr/latest.json`，previous modules `main, main.js.map`，previous hash `62921be9ec157c751d8bdc3a3b7402187ad54af678a42208fcee1221ad0e2945`（`observed`，PTR API write + readback）。
 - PTR API readback：2026-06-12 `pnpm verify:ptr:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，mainHash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`（`observed`，PTR API readback）。
-- PTR natural tick heartbeat：blocked，2026-06-12 未观察到 PTR console websocket 自然 tick；`deploy:ptr:screeps` 和 `verify:ptr:screeps` 均报告 `naturalTickHeartbeat=not-verified-by-this-script`（`blocked`）。
+- PTR current readback：2026-06-12 重新运行 `pnpm verify:ptr:screeps` 失败，原因是 PTR branch `main` 远端 `main` hash 仍为 `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62`，当前本地 `dist/main.js` hash 为 `87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`（`observed`，PTR API readback + derived hash）。
+- PTR CPU 状态：2026-06-12 PTR `/api/auth/me` 返回账号 CPU `80`、`cpuShard = { shard3: 80 }`；PTR `/api/game/shards/info` 返回 `shard3 cpuLimit = 20`、`shard0/shard1/shard2 cpuLimit = 0`（`observed`，PTR API）。
+- PTR room 状态：2026-06-12 PTR `user/overview?interval=8` 返回 `shard0`、`shard1`、`shard2`、`shard3` 的 `rooms = []`；Chrome 打开 `https://screeps.com/ptr/#!/console` 后被 PTR UI 重定向到 map，页面显示 `Select your room` / `Choose a room to found your colony`（`observed`，PTR API + Chrome UI）。
+- PTR runtime 状态：2026-06-12 01:36:50Z 到 01:37:07Z 对 PTR `user/overview?interval=8` 连续采样，`shard2` gametime 从 `75049172` 增至 `75049173`，PTR API 和至少一个 shard 仍响应推进；当前未见 PTR 全环境停摆证据（`observed`，PTR API）。
+- PTR natural tick heartbeat：blocked，2026-06-12 未观察到 PTR console 自然 tick；`https://screeps.com/ptr/#!/console` 无法停留在 console，30 秒观察中 DOM 和浏览器 console 均无 `[tick ...]`。当前根因是 PTR 账号无 owned room，代码没有可执行 tick；不是 PTR CPU 订阅未激活，也不是单纯观察方式遗漏（`blocked`，Chrome UI + PTR API）。
 - PTR rollback：2026-06-12 未执行；当前 PTR branch 保留本次部署结果，回滚 snapshot 已存在于 `.screeps/ptr/latest.json`（`observed`，本地 snapshot）。
 
 ## API 访问

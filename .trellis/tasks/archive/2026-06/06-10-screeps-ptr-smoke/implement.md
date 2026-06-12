@@ -78,6 +78,7 @@ pnpm rollback:ptr:screeps
 - 2026-06-11 post-review focused PTR tests passed: `.\node_modules\.bin\vitest.cmd run test/unit/screeps-deployment/config.test.ts test/integration/screeps-deployment/screeps-api.test.ts test/integration/screeps-deployment/ptr-commands.test.ts`, 3 files / 32 tests.
 - 2026-06-11 post-review `pnpm check` passed: typecheck, lint, format, coverage, system tests, and bundle smoke.
 - 2026-06-11 official PTR online commands were not run. `screeps.ptr.json` is absent in the current workspace, and no PTR token was safely available or explicitly authorized. `docs/game-state.md` records PTR readback, natural tick, and rollback as `blocked`.
+- 2026-06-12 manual PTR follow-up: Chrome opened `https://screeps.com/ptr/#!/console`, but PTR redirected to map and showed `Select your room` / `Choose a room to found your colony`. PTR API returned account CPU `80`, `cpuShard = { shard3: 80 }`, and `rooms = []` for `shard0` through `shard3`; no `[tick ...]` heartbeat appeared in the DOM or browser console during a 30-second observation. `pnpm verify:ptr:screeps` now fails because PTR remote hash `9611f3c2a384ca80813c8d79979624bbf8f424efad9e4ecac849c32ac62b6d62` does not match current local hash `87534439e365323bb9d223627cb1b21593b75384d36604cdbdd469737a152df8`. Current conclusion: natural tick is blocked by missing PTR owned room after reset, not by inactive PTR CPU subscription; no full PTR environment stall was observed.
 
 ## Risk Points
 
