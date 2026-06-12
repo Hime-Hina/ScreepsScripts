@@ -43,6 +43,16 @@ const STABLE_POPULATION_STATE = {
   type: 'survivalWorkerPopulationStable',
 } as const;
 
+const SAFE_ROOM_DEFENSE_STATE = {
+  roomName: 'W1N1',
+  type: 'roomSafe',
+} as const;
+
+const UNSAFE_ROOM_DEFENSE_STATE = {
+  roomName: 'W1N1',
+  type: 'roomUnsafe',
+} as const;
+
 describe('bootstrap economy contract', () => {
   it('classifies controller downgrade safety from project policy thresholds', () => {
     expect(
@@ -122,6 +132,7 @@ describe('bootstrap economy contract', () => {
       selectRoomConstructionEligibility({
         controllerDowngradeState: SAFE_CONTROLLER_STATE,
         energyState: STABLE_ENERGY_STATE,
+        roomDefenseState: SAFE_ROOM_DEFENSE_STATE,
         roomName: 'W1N1',
         workerPopulationState: STABLE_POPULATION_STATE,
       }),
@@ -136,6 +147,7 @@ describe('bootstrap economy contract', () => {
       selectRoomConstructionEligibility({
         controllerDowngradeState: WARNING_CONTROLLER_STATE,
         energyState: STABLE_ENERGY_STATE,
+        roomDefenseState: SAFE_ROOM_DEFENSE_STATE,
         roomName: 'W1N1',
         workerPopulationState: STABLE_POPULATION_STATE,
       }),
@@ -148,12 +160,28 @@ describe('bootstrap economy contract', () => {
       selectRoomConstructionEligibility({
         controllerDowngradeState: SAFE_CONTROLLER_STATE,
         energyState: UNSTABLE_ENERGY_STATE,
+        roomDefenseState: SAFE_ROOM_DEFENSE_STATE,
         roomName: 'W1N1',
         workerPopulationState: STABLE_POPULATION_STATE,
       }),
     ).toEqual({
       roomName: 'W1N1',
       type: 'constructionDeferredForSurvival',
+    });
+  });
+
+  it('defers construction when room defense is unsafe', () => {
+    expect(
+      selectRoomConstructionEligibility({
+        controllerDowngradeState: SAFE_CONTROLLER_STATE,
+        energyState: STABLE_ENERGY_STATE,
+        roomDefenseState: UNSAFE_ROOM_DEFENSE_STATE,
+        roomName: 'W1N1',
+        workerPopulationState: STABLE_POPULATION_STATE,
+      }),
+    ).toEqual({
+      roomName: 'W1N1',
+      type: 'constructionDeferredForDefense',
     });
   });
 

@@ -2,15 +2,15 @@
 
 ## Checklist
 
-- [ ] Confirm P0 and P1 are live.
-- [ ] Add pure hostile classification tests.
-- [ ] Add `src/defense/` pure planner for safe mode decision.
-- [ ] Capture hostile creeps and controller safe mode fields in runtime.
-- [ ] Execute `activateSafeMode` through runtime boundary.
-- [ ] Add integration tests for harmless hostile and dangerous near-core hostile.
-- [ ] Decide whether tower skeleton is in this slice based on live RCL; if not, document as follow-up.
-- [ ] Update docs/game-state with live defense facts or blocked no-hostile condition.
-- [ ] Run validation commands.
+- [x] Confirm P0 and P1 are live.
+- [x] Add pure hostile classification tests.
+- [x] Add `src/defense/` pure planner for safe mode decision.
+- [x] Capture hostile creeps and controller safe mode fields in runtime.
+- [x] Execute `activateSafeMode` through runtime boundary.
+- [x] Add integration tests for harmless hostile and dangerous near-core hostile.
+- [x] Decide whether tower skeleton is in this slice based on live RCL; if not, document as follow-up.
+- [x] Update docs/game-state with live defense facts or blocked no-hostile condition.
+- [x] Run validation commands.
 
 ## Validation Commands
 

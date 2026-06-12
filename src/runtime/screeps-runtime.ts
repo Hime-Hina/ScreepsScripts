@@ -23,18 +23,26 @@ import {
   type WorkerRepairTargetSnapshot,
   type WorkerWorldSnapshot,
 } from '../creeps/worker-decision';
+import type {
+  DefenseCoreStructureSnapshot,
+  DefenseDecision,
+  DefenseWorldSnapshot,
+  RoomDefenseState,
+} from '../defense/defense-planner';
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
 import type { SpawnDecision } from '../spawning/spawn-decision';
 
 export interface ScreepsTickIO {
   executeConstructionDecisions(constructionDecisions: readonly ConstructionDecision[]): void;
+  executeDefenseDecisions(defenseDecisions: readonly DefenseDecision[]): void;
   executeSpawnDecision(spawnDecision: SpawnDecision): void;
   executeWorkerActions(workerDecisions: readonly WorkerActionDecision[]): void;
   readonly gameTime: number;
   readCpuUsed(): number;
   readConstructionWorld(): ConstructionWorldSnapshot;
+  readDefenseWorld(): DefenseWorldSnapshot;
   readSpawningWorld(): SpawningWorldSnapshot;
-  readWorkerWorld(): WorkerWorldSnapshot;
+  readWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
   writeConsoleLine(message: string): void;
 }
 
@@ -47,11 +55,13 @@ export interface ScreepsTickRuntime extends ScreepsTickIO {
 export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
   cleanStaleCreepMemory: () => cleanStaleCreepMemory(Memory, new Set(Object.keys(Game.creeps))),
   executeConstructionDecisions,
+  executeDefenseDecisions,
   executeSpawnDecision,
   executeWorkerActions,
   gameTime: Game.time,
   readCpuUsed: () => Game.cpu.getUsed(),
   readConstructionWorld: captureConstructionWorld,
+  readDefenseWorld: captureDefenseWorld,
   readMemoryState: () => readScreepsMemoryState(Memory),
   readSpawningWorld: captureSpawningWorld,
   readWorkerWorld: captureWorkerWorld,
@@ -137,7 +147,68 @@ const captureConstructionWorld = (): ConstructionWorldSnapshot => ({
   }),
 });
 
-const captureWorkerWorld = (): WorkerWorldSnapshot => ({
+const captureDefenseWorld = (): DefenseWorldSnapshot => {
+  const visibleRooms = Object.values(Game.rooms);
+  const ownedRooms = visibleRooms.filter((room) => room.controller?.my === true);
+
+  return {
+    bodyPartConstants: {
+      attack: ATTACK,
+      heal: HEAL,
+      move: MOVE,
+      rangedAttack: RANGED_ATTACK,
+      work: WORK,
+    },
+    bodyPartPowers: {
+      attack: ATTACK_POWER,
+      dismantle: DISMANTLE_POWER,
+      heal: HEAL_POWER,
+      rangedAttack: RANGED_ATTACK_POWER,
+    },
+    controllers: ownedRooms.flatMap((room) => {
+      const roomController = room.controller;
+
+      if (roomController === undefined) {
+        return [];
+      }
+
+      return [
+        {
+          id: roomController.id,
+          roomName: room.name,
+          safeModeAvailable: roomController.safeModeAvailable,
+          ...(roomController.safeMode === undefined ? {} : { safeMode: roomController.safeMode }),
+          ...(roomController.safeModeCooldown === undefined
+            ? {}
+            : { safeModeCooldown: roomController.safeModeCooldown }),
+          upgradeBlocked: roomController.upgradeBlocked,
+        },
+      ];
+    }),
+    coreStructures: ownedRooms.flatMap((room) =>
+      room.find(FIND_MY_STRUCTURES).flatMap(toDefenseCoreStructureSnapshot),
+    ),
+    hostileCreeps: ownedRooms.flatMap((room) =>
+      room.find(FIND_HOSTILE_CREEPS).map((hostileCreep) => ({
+        bodyParts: hostileCreep.body.map((bodyPart) => ({
+          hits: bodyPart.hits,
+          type: bodyPart.type,
+        })),
+        hits: hostileCreep.hits,
+        id: hostileCreep.id,
+        owner: hostileCreep.owner.username,
+        roomName: hostileCreep.pos.roomName,
+        x: hostileCreep.pos.x,
+        y: hostileCreep.pos.y,
+      })),
+    ),
+    roomNames: visibleRooms.map((room) => room.name),
+  };
+};
+
+const captureWorkerWorld = (
+  roomDefenseStates: readonly RoomDefenseState[],
+): WorkerWorldSnapshot => ({
   constructionEligibilities: Object.values(Game.rooms).map((room) => {
     const roomEnergyStructures = captureRoomEnergyStructures(room);
     const roomWorkerCreepCount = countRoomWorkerCreeps(room.name);
@@ -151,6 +222,7 @@ const captureWorkerWorld = (): WorkerWorldSnapshot => ({
         energyStructures: roomEnergyStructures,
         roomName: room.name,
       }),
+      roomDefenseState: readRoomDefenseState(roomDefenseStates, room.name),
       roomName: room.name,
       workerPopulationState: classifyBootstrapWorkerPopulation({
         roomName: room.name,
@@ -216,6 +288,46 @@ const captureWorkerWorld = (): WorkerWorldSnapshot => ({
     })),
   ),
 });
+
+const toDefenseCoreStructureSnapshot = (
+  structure: AnyOwnedStructure,
+): readonly [DefenseCoreStructureSnapshot] | readonly [] => {
+  if (!isDefenseCoreStructure(structure)) {
+    return [];
+  }
+
+  return [
+    {
+      id: structure.id,
+      roomName: structure.pos.roomName,
+      structureType: structure.structureType,
+      x: structure.pos.x,
+      y: structure.pos.y,
+    },
+  ];
+};
+
+const isDefenseCoreStructure = (
+  structure: AnyOwnedStructure,
+): structure is StructureExtension | StructureSpawn | StructureTower =>
+  structure.structureType === STRUCTURE_EXTENSION ||
+  structure.structureType === STRUCTURE_SPAWN ||
+  structure.structureType === STRUCTURE_TOWER;
+
+const readRoomDefenseState = (
+  roomDefenseStates: readonly RoomDefenseState[],
+  roomName: string,
+): RoomDefenseState => {
+  const roomDefenseState = roomDefenseStates.find(
+    (candidateDefenseState) => candidateDefenseState.roomName === roomName,
+  );
+
+  if (roomDefenseState === undefined) {
+    throw new Error(`Room "${roomName}" does not have a defense state.`);
+  }
+
+  return roomDefenseState;
+};
 
 const captureRoomEnergyStructures = (room: Room): readonly SpawnExtensionEnergySnapshot[] =>
   room
@@ -327,6 +439,23 @@ const executeConstructionDecision = (constructionDecision: ConstructionDecision)
         constructionDecision.y,
         constructionDecision.structureType,
       );
+      return;
+    }
+  }
+};
+
+const executeDefenseDecisions = (defenseDecisions: readonly DefenseDecision[]): void => {
+  for (const defenseDecision of defenseDecisions) {
+    executeDefenseDecision(defenseDecision);
+  }
+};
+
+const executeDefenseDecision = (defenseDecision: DefenseDecision): void => {
+  switch (defenseDecision.type) {
+    case 'activateSafeMode': {
+      const controller = readSafeModeController(defenseDecision.controllerId);
+
+      controller.activateSafeMode();
       return;
     }
   }
@@ -487,6 +616,16 @@ const readController = (controllerId: string): StructureController => {
 
   if (controller === null) {
     throw new Error(`Screeps controller "${controllerId}" does not exist for worker action.`);
+  }
+
+  return controller;
+};
+
+const readSafeModeController = (controllerId: string): StructureController => {
+  const controller = Game.getObjectById(controllerId as Id<StructureController>);
+
+  if (controller === null) {
+    throw new Error(`Screeps controller "${controllerId}" does not exist for defense action.`);
   }
 
   return controller;

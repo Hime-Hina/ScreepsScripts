@@ -14,6 +14,7 @@
 - 当前源码在 300 energy 可用时优先孵化 `[WORK, CARRY, CARRY, MOVE, MOVE]` early worker；只有 200 energy 可用时保留 `[WORK, CARRY, MOVE]` emergency worker。
 - 当前源码会按 worker 名称在同房间多 source 间确定性分配采集目标，避免所有 worker 固定选择第一个 source。
 - 当前源码会在 RCL2 owned room 为缺失 extension 规划 construction site，并维护已有 spawn/extension/container/road 的 critical repair fallback；暂不做 road/container planner、wall/rampart fortification、tower 或完整 base planner。
+- 当前源码会在 runtime boundary 捕获 owned room hostile creep body/owner/hits/position、controller safe mode 字段和核心 owned structures；pure defense planner 识别攻击、远程攻击、拆除、治疗和 near-core 威胁，危险 hostile 接近核心结构时产出 `activateSafeMode` decision，runtime boundary 执行 `controller.activateSafeMode`。有攻击/拆除威胁但未接近核心结构时，room defense state 会暂停非关键 construction build。
 
 ## 领域语言
 

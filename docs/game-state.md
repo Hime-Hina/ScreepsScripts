@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-2026-06-12 通过 Screeps API 更新。
+2026-06-13 通过 Screeps API 更新。
 
 - 账号：`Dragon_King`（`observed`，API / 既有 UI 记录）
 - 世界：Persistent World（`observed`，既有 UI 记录）
@@ -10,18 +10,20 @@
 - `shards/info` 运行态 `cpuLimit` 仍显示旧值 `shard3 = 20`、`shard1 = 0`；实际执行以账号 `cpuShard` 配置和新房间 live 行为为准（`observed`，API）。
 - Active production room：`shard1 / W51N21`（`observed`，API）。
 - Spawn：`Spawn1`，位置 `35,23`，energy `300`，当前未 spawning（`observed`，API）。
-- Controller：位置 `26,7`，RCL `2`，progress `9287`，safe mode until tick `71622765`，safe mode available `1`（`observed`，API）。
+- Controller：位置 `26,7`，RCL `2`，progress `9412`，API room-object field `safeMode = 71622765`，safe mode available `1`（`observed`，API）。当前用户确认 room safe mode 已过期；API room-object 中 `safeModeCooldown = 60510881`、`upgradeBlocked = 58760194` 是 room-object 读回字段，不等同于 runtime sandbox 的 remaining-tick 字段（`observed`，API；`derived`，字段语义限制）。
 - Sources：两个 source 可读（`observed`，API）。
 - Creeps：
-  - `Spawn1-worker-71610306`，body `[WORK, CARRY, MOVE]`，最后读回位置 `37,14`，carry energy `50`（`observed`，API）。
-  - `Spawn1-worker-71610403`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `33,23`，carry energy `95`（`observed`，API）。
-  - `Spawn1-worker-71610531`，body `[WORK, CARRY, MOVE]`，最后读回位置 `36,12`，carry energy `50`（`observed`，API）。
+  - `Spawn1-worker-71623926`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `34,6`，carry energy `95`（`observed`，API）。
+  - `Spawn1-worker-71624035`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `28,38`，carry energy `95`（`observed`，API）。
+  - `Spawn1-worker-71624168`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `36,12`，carry energy `95`（`observed`，API）。
+  - `Spawn1-worker-71624273`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `37,29`，carry energy `100`（`observed`，API）。
+  - `Spawn1-worker-71624390`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `33,5`，carry energy `100`（`observed`，API）。
 - Extension construction sites：
-  - `34,22`，progress `0/3000`（`observed`，API）。
-  - `35,22`，progress `0/3000`（`observed`，API）。
-  - `36,22`，progress `0/3000`（`observed`，API）。
-  - `34,23`，progress `0/3000`（`observed`，API）。
-  - `36,23`，progress `5/3000`（`observed`，API）。
+  - `34,22`，progress `50/3000`（`observed`，API）。
+  - `35,22`，progress `5/3000`（`observed`，API）。
+  - `36,22`，progress `135/3000`（`observed`，API）。
+  - `34,23`，progress `55/3000`（`observed`，API）。
+  - `36,23`，progress `1610/3000`（`observed`，API）。
 - 自持循环证据：controller 已升级到 RCL `2`，RCL2 planner 已创建 5 个 extension construction site，worker 已开始 build，spawn/extension 补能和后续升级路径由 runtime boundary 执行（`observed`，API + derived source behavior）。
 - Former production room `shard3 / W15S27` 当前无 spawn、无 creeps、controller owner `null`，`place-spawn` 返回 `room not available`（`observed`，API）。
 
@@ -164,6 +166,10 @@ require('main').loop();
 - 2026-06-13 P2 structure maintenance live deploy：`pnpm deploy:screeps` 通过，先执行 `pnpm check` 和 build；branch `main`，remote modules `main`，module set hash `1d4e199722571f10f987440d50b532c6a9e4903b574c21bd8bfbd7b3948795de`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `6c1869574d8677c424c4a209f2892895ee72ac57f037eb10ddd86cd8d22f0beb`（`observed`，API write + readback + local snapshot）。
 - 2026-06-13 P2 structure maintenance live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `1d4e199722571f10f987440d50b532c6a9e4903b574c21bd8bfbd7b3948795de`；该脚本不验证自然 tick heartbeat（`observed`，API readback）。
 - 2026-06-13 P2 structure maintenance room readback：两次只读采样确认远端状态继续推进；`shard1 / W51N21` controller RCL `2` progress `9402`，`downgradeTime` `71632992`；`Spawn1` at `35,23` hits `5000/5000` 且未 spawning；worker 数量 `4 -> 5`，新增 `Spawn1-worker-71623926`；5 个 extension construction site 仍存在，进度分别为 `30/3000`、`5/3000`、`105/3000`、`35/3000`、`1535/3000`；当前 supported repair backlog 为空，说明 P2 repair path 已部署但本次自然采样没有 damaged spawn/extension/container/road 可触发 `Creep.repair`（`observed`，API readback + room-objects；`blocked`，natural repair action evidence）。
+- 2026-06-13 P3 defense fallback local implementation：本地源码已新增 `src/defense/` pure planner；runtime boundary 捕获 owned room hostile creep body/owner/hits/position、controller safe mode fields、spawn/extension/tower core structures，并捕获 `ATTACK_POWER`、`RANGED_ATTACK_POWER`、`DISMANTLE_POWER`、`HEAL_POWER` 等 official combat constants。kernel 先规划 defense，safe mode decision 由 runtime boundary 执行 `controller.activateSafeMode`；有攻击/拆除威胁但未接近核心结构时，`RoomDefenseState` 会让 P1/P2 construction eligibility 返回 `constructionDeferredForDefense`，暂停非关键 build。Tower skeleton 未在本地源码实现，原因是当前已记录 live room 为 RCL `2`，tower 解锁前只保留边界（`derived`，本地源码 + focused tests）。
+- 2026-06-13 P3 defense fallback live deploy：`pnpm deploy:screeps` 通过，先执行 `pnpm check` 和 build；branch `main`，remote modules `main`，module set hash `1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `1d4e199722571f10f987440d50b532c6a9e4903b574c21bd8bfbd7b3948795de`（`observed`，API write + readback + local snapshot）。
+- 2026-06-13 P3 defense fallback live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`；该脚本不验证自然 tick heartbeat（`observed`，API readback）。
+- 2026-06-13 P3 defense fallback room readback：首次组合读取 room/status/code endpoint 出现 `fetch failed`，随后单 endpoint 重试成功。两次 room-object 采样确认 `shard1 / W51N21` hostile creeps `0`、hostile spawns `0`、hostile towers `0`；controller RCL `2` progress `9412`，`downgradeTime` `71634002`，API room-object field `safeMode = 71622765`，safe mode available `1`；5 个 worker 存活；extension site `34,22` progress `45 -> 50`，`36,23` progress `1595 -> 1610`，说明部署后经济循环仍推进。当前无 hostile 可触发 natural `activateSafeMode`，safe mode charge 未消耗（`observed`，API room-objects；`blocked`，natural safe mode activation evidence）。
 
 ## PTR 代码验证
 
@@ -203,4 +209,4 @@ https://screeps.com/a/#!/account/auth-tokens
 
 ## 下一步生产动作
 
-当前重启房间、spawn、controller、source 采集、spawn/extension 补能、extension construction site 创建、worker build、P2 critical repair fallback 部署和远端代码 hash 已确认。P2 自然 repair action 证据暂时 blocked，原因是当前 supported repair backlog 为空。后续 road/container planner、wall/rampart fortification、tower 或更完整 base planning 应继续通过 Memory 边界和小行为切片进入。
+当前重启房间、spawn、controller、source 采集、spawn/extension 补能、extension construction site 创建、worker build、P2 critical repair fallback 部署、P3 defense fallback 部署和远端代码 hash 已确认。P2 自然 repair action 证据暂时 blocked，原因是当前 supported repair backlog 为空。P3 natural safe mode activation evidence 暂时 blocked，原因是当前 hostile creeps/spawns/towers 均为 `0`，safe mode charge `1` 未消耗。后续 road/container planner、wall/rampart fortification、tower 或更完整 base planning 应继续通过 Memory 边界和小行为切片进入。

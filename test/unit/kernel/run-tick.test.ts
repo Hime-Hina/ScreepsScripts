@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ConstructionDecision } from '../../../src/construction/construction-planner';
 import { runTick } from '../../../src/kernel/run-tick';
+import type { DefenseDecision, RoomDefenseState } from '../../../src/defense/defense-planner';
 import type { WorkerActionDecision } from '../../../src/creeps/worker-decision';
 import { createEmptyScreepsMemoryState } from '../../../src/memory/screeps-memory';
 import type { ScreepsTickIO } from '../../../src/runtime/screeps-runtime';
@@ -11,11 +12,20 @@ describe('runTick', () => {
   it('reports the current tick and executes bootstrap actions', () => {
     const consoleLines: string[] = [];
     const executedConstructionDecisions: ConstructionDecision[] = [];
+    const executedDefenseDecisions: DefenseDecision[] = [];
     const executedSpawnDecisions: SpawnDecision[] = [];
     const executedWorkerDecisions: WorkerActionDecision[] = [];
+    const roomDefenseStates: readonly RoomDefenseState[] = [
+      {
+        roomName: 'W1N1',
+        type: 'roomSafe',
+      },
+    ];
     const tickRuntime: ScreepsTickIO = {
       executeConstructionDecisions: (constructionDecisions) =>
         executedConstructionDecisions.push(...constructionDecisions),
+      executeDefenseDecisions: (defenseDecisions) =>
+        executedDefenseDecisions.push(...defenseDecisions),
       executeSpawnDecision: (spawnDecision) => executedSpawnDecisions.push(spawnDecision),
       executeWorkerActions: (workerDecisions) => executedWorkerDecisions.push(...workerDecisions),
       gameTime: 42,
@@ -27,6 +37,25 @@ describe('runTick', () => {
           },
         },
         ownedRooms: [],
+      }),
+      readDefenseWorld: () => ({
+        bodyPartConstants: {
+          attack: 'attack',
+          heal: 'heal',
+          move: 'move',
+          rangedAttack: 'ranged_attack',
+          work: 'work',
+        },
+        bodyPartPowers: {
+          attack: 30,
+          dismantle: 50,
+          heal: 12,
+          rangedAttack: 10,
+        },
+        controllers: [],
+        coreStructures: [],
+        hostileCreeps: [],
+        roomNames: ['W1N1'],
       }),
       readSpawningWorld: () => ({
         bodyPartCosts: {
@@ -73,17 +102,21 @@ describe('runTick', () => {
           },
         ],
       }),
-      readWorkerWorld: () => ({
-        constructionEligibilities: [],
-        constructionSites: [],
-        controllers: [],
-        creeps: [],
-        energyPickups: [],
-        energyStructures: [],
-        energyWithdrawals: [],
-        repairTargets: [],
-        sources: [],
-      }),
+      readWorkerWorld: (capturedRoomDefenseStates) => {
+        expect(capturedRoomDefenseStates).toEqual(roomDefenseStates);
+
+        return {
+          constructionEligibilities: [],
+          constructionSites: [],
+          controllers: [],
+          creeps: [],
+          energyPickups: [],
+          energyStructures: [],
+          energyWithdrawals: [],
+          repairTargets: [],
+          sources: [],
+        };
+      },
       writeConsoleLine: (message) => consoleLines.push(message),
     };
 
@@ -91,6 +124,7 @@ describe('runTick', () => {
 
     expect(tickExecution).toEqual({
       constructionDecisions: [],
+      defenseDecisions: [],
       memoryState: {
         schemaVersion: 1,
       },
@@ -107,6 +141,7 @@ describe('runTick', () => {
     });
     expect(consoleLines).toEqual(['[tick 42] cpu=1.25']);
     expect(executedConstructionDecisions).toEqual([]);
+    expect(executedDefenseDecisions).toEqual([]);
     expect(executedSpawnDecisions).toEqual([
       {
         body: ['work', 'carry', 'carry', 'move', 'move'],
@@ -121,6 +156,7 @@ describe('runTick', () => {
     const runtimeEvents: string[] = [];
     const tickRuntime: ScreepsTickIO = {
       executeConstructionDecisions: () => runtimeEvents.push('executeConstructionDecisions'),
+      executeDefenseDecisions: () => runtimeEvents.push('executeDefenseDecisions'),
       executeSpawnDecision: () => runtimeEvents.push('executeSpawnDecision'),
       executeWorkerActions: () => runtimeEvents.push('executeWorkerActions'),
       gameTime: 43,
@@ -160,6 +196,29 @@ describe('runTick', () => {
               ],
             },
           ],
+        };
+      },
+      readDefenseWorld: () => {
+        runtimeEvents.push('readDefenseWorld');
+
+        return {
+          bodyPartConstants: {
+            attack: 'attack',
+            heal: 'heal',
+            move: 'move',
+            rangedAttack: 'ranged_attack',
+            work: 'work',
+          },
+          bodyPartPowers: {
+            attack: 30,
+            dismantle: 50,
+            heal: 12,
+            rangedAttack: 10,
+          },
+          controllers: [],
+          coreStructures: [],
+          hostileCreeps: [],
+          roomNames: ['W1N1'],
         };
       },
       readSpawningWorld: () => {
@@ -211,8 +270,14 @@ describe('runTick', () => {
           ],
         };
       },
-      readWorkerWorld: () => {
+      readWorkerWorld: (roomDefenseStates) => {
         runtimeEvents.push('readWorkerWorld');
+        expect(roomDefenseStates).toEqual([
+          {
+            roomName: 'W1N1',
+            type: 'roomSafe',
+          },
+        ]);
 
         return {
           constructionEligibilities: [
@@ -278,9 +343,11 @@ describe('runTick', () => {
     ]);
     expect(runtimeEvents).toEqual([
       'readCpuUsed',
+      'readDefenseWorld',
       'readConstructionWorld',
       'readSpawningWorld',
       'readWorkerWorld',
+      'executeDefenseDecisions',
       'executeConstructionDecisions',
       'executeSpawnDecision',
       'executeWorkerActions',

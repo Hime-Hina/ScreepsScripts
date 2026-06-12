@@ -1,3 +1,5 @@
+import type { RoomDefenseState } from '../defense/defense-planner';
+
 export const BOOTSTRAP_SURVIVAL_WORKER_COUNT = 3;
 export const RCL2_CONSTRUCTION_WORKER_COUNT = 5;
 
@@ -62,6 +64,10 @@ export type RoomConstructionEligibility =
   | {
       readonly roomName: string;
       readonly type: 'constructionDeferredForSurvival';
+    }
+  | {
+      readonly roomName: string;
+      readonly type: 'constructionDeferredForDefense';
     };
 
 export type BootstrapWorkerDemand =
@@ -101,6 +107,7 @@ export interface BootstrapWorkerPopulationInput {
 export interface RoomConstructionEligibilityInput {
   readonly controllerDowngradeState: BootstrapControllerDowngradeState;
   readonly energyState: SpawnExtensionEnergyState;
+  readonly roomDefenseState: RoomDefenseState;
   readonly roomName: string;
   readonly workerPopulationState: BootstrapWorkerPopulationState;
 }
@@ -178,6 +185,13 @@ export const classifyBootstrapWorkerPopulation = (
 export const selectRoomConstructionEligibility = (
   eligibilityInput: RoomConstructionEligibilityInput,
 ): RoomConstructionEligibility => {
+  if (eligibilityInput.roomDefenseState.type === 'roomUnsafe') {
+    return {
+      roomName: eligibilityInput.roomName,
+      type: 'constructionDeferredForDefense',
+    };
+  }
+
   if (
     eligibilityInput.controllerDowngradeState.type === 'controllerDowngradeSafe' &&
     eligibilityInput.energyState.type === 'spawnExtensionEnergyStable' &&

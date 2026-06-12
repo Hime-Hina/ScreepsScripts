@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TEST_FIND_CONSTRUCTION_SITES = 107;
 const TEST_FIND_DROPPED_RESOURCES = 106;
+const TEST_FIND_HOSTILE_CREEPS = 103;
 const TEST_FIND_MY_CONSTRUCTION_SITES = 108;
 const TEST_FIND_MY_STRUCTURES = 109;
 const TEST_FIND_MINERALS = 110;
@@ -15,6 +16,15 @@ const TEST_STRUCTURE_RAMPART = 'rampart';
 const TEST_STRUCTURE_ROAD = 'road';
 const TEST_STRUCTURE_SPAWN = 'spawn';
 const TEST_STRUCTURE_WALL = 'constructedWall';
+const TEST_ATTACK = 'attack';
+const TEST_HEAL = 'heal';
+const TEST_MOVE = 'move';
+const TEST_RANGED_ATTACK = 'ranged_attack';
+const TEST_WORK = 'work';
+const TEST_ATTACK_POWER = 30;
+const TEST_DISMANTLE_POWER = 50;
+const TEST_HEAL_POWER = 12;
+const TEST_RANGED_ATTACK_POWER = 10;
 const TEST_BODY_PART_COST = {
   carry: 50,
   move: 50,
@@ -32,10 +42,14 @@ const TEST_CONTROLLER_STRUCTURES = {
 describe('Screeps main loop', () => {
   beforeEach(() => {
     vi.stubGlobal('BODYPART_COST', TEST_BODY_PART_COST);
+    vi.stubGlobal('ATTACK', TEST_ATTACK);
+    vi.stubGlobal('ATTACK_POWER', TEST_ATTACK_POWER);
     vi.stubGlobal('CONSTRUCTION_COST', TEST_CONSTRUCTION_COST);
     vi.stubGlobal('CONTROLLER_STRUCTURES', TEST_CONTROLLER_STRUCTURES);
+    vi.stubGlobal('DISMANTLE_POWER', TEST_DISMANTLE_POWER);
     vi.stubGlobal('FIND_CONSTRUCTION_SITES', TEST_FIND_CONSTRUCTION_SITES);
     vi.stubGlobal('FIND_DROPPED_RESOURCES', TEST_FIND_DROPPED_RESOURCES);
+    vi.stubGlobal('FIND_HOSTILE_CREEPS', TEST_FIND_HOSTILE_CREEPS);
     vi.stubGlobal('FIND_MY_CONSTRUCTION_SITES', TEST_FIND_MY_CONSTRUCTION_SITES);
     vi.stubGlobal('FIND_MY_STRUCTURES', TEST_FIND_MY_STRUCTURES);
     vi.stubGlobal('FIND_MINERALS', TEST_FIND_MINERALS);
@@ -43,12 +57,18 @@ describe('Screeps main loop', () => {
     vi.stubGlobal('FIND_SOURCES', TEST_FIND_SOURCES);
     vi.stubGlobal('FIND_STRUCTURES', TEST_FIND_STRUCTURES);
     vi.stubGlobal('FIND_TOMBSTONES', TEST_FIND_TOMBSTONES);
+    vi.stubGlobal('HEAL', TEST_HEAL);
+    vi.stubGlobal('HEAL_POWER', TEST_HEAL_POWER);
+    vi.stubGlobal('MOVE', TEST_MOVE);
+    vi.stubGlobal('RANGED_ATTACK', TEST_RANGED_ATTACK);
+    vi.stubGlobal('RANGED_ATTACK_POWER', TEST_RANGED_ATTACK_POWER);
     vi.stubGlobal('STRUCTURE_EXTENSION', TEST_STRUCTURE_EXTENSION);
     vi.stubGlobal('STRUCTURE_CONTAINER', TEST_STRUCTURE_CONTAINER);
     vi.stubGlobal('STRUCTURE_RAMPART', TEST_STRUCTURE_RAMPART);
     vi.stubGlobal('STRUCTURE_ROAD', TEST_STRUCTURE_ROAD);
     vi.stubGlobal('STRUCTURE_SPAWN', TEST_STRUCTURE_SPAWN);
     vi.stubGlobal('STRUCTURE_WALL', TEST_STRUCTURE_WALL);
+    vi.stubGlobal('WORK', TEST_WORK);
   });
 
   afterEach(() => {
@@ -1573,5 +1593,448 @@ describe('Screeps main loop', () => {
 
     expect(upgradeTargets).toEqual([controllerTarget]);
     expect(buildTargets).toEqual([]);
+  });
+
+  it('captures a hostile core threat and activates safe mode through the runtime boundary', async () => {
+    const safeModeRequests: string[] = [];
+    const controllerTarget = {
+      activateSafeMode: () => {
+        safeModeRequests.push('controller-1');
+        return 0;
+      },
+      id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+      safeModeAvailable: 1,
+      ticksToDowngrade: 9000,
+    };
+    const spawnStructure = {
+      hits: 5000,
+      hitsMax: 5000,
+      id: 'spawn-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const hostileCreep = {
+      body: [
+        {
+          hits: 100,
+          type: TEST_ATTACK,
+        },
+      ],
+      hits: 100,
+      id: 'hostile-1',
+      owner: {
+        username: 'Invader',
+      },
+      pos: {
+        roomName: 'W1N1',
+        x: 12,
+        y: 10,
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: {
+        getUsed: () => 0.63,
+      },
+      getObjectById: (objectId: string) => (objectId === 'controller-1' ? controllerTarget : null),
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_HOSTILE_CREEPS) {
+              return [hostileCreep];
+            }
+
+            if (findType === TEST_FIND_MY_STRUCTURES || findType === TEST_FIND_STRUCTURES) {
+              return [spawnStructure];
+            }
+
+            return [];
+          },
+          name: 'W1N1',
+        },
+      },
+      spawns: {},
+      time: 23,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(safeModeRequests).toEqual(['controller-1']);
+  });
+
+  it('keeps construction running when a harmless hostile scout is near core structures', async () => {
+    const buildTargets: unknown[] = [];
+    const safeModeRequests: string[] = [];
+    const constructionSiteTarget = {
+      id: 'site-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 9,
+        y: 9,
+      },
+      progress: 0,
+      progressTotal: 3000,
+      structureType: TEST_STRUCTURE_EXTENSION,
+    };
+    const controllerTarget = {
+      activateSafeMode: () => {
+        safeModeRequests.push('controller-1');
+        return 0;
+      },
+      id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+      safeModeAvailable: 1,
+      ticksToDowngrade: 9000,
+    };
+    const spawnStructure = {
+      hits: 5000,
+      hitsMax: 5000,
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const hostileScout = {
+      body: [
+        {
+          hits: 100,
+          type: TEST_MOVE,
+        },
+      ],
+      hits: 100,
+      id: 'hostile-scout',
+      owner: {
+        username: 'Scout',
+      },
+      pos: {
+        roomName: 'W1N1',
+        x: 12,
+        y: 10,
+      },
+    };
+    const workerCreep = {
+      build: (target: unknown) => {
+        buildTargets.push(target);
+        return 0;
+      },
+      harvest: () => 0,
+      moveTo: () => undefined,
+      name: 'Worker1',
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 0,
+        getUsedCapacity: () => 50,
+      },
+      transfer: () => 0,
+      upgradeController: () => 0,
+    };
+    const emptyWorkerCreep = {
+      build: () => 0,
+      harvest: () => 0,
+      moveTo: () => undefined,
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 50,
+        getUsedCapacity: () => 0,
+      },
+      transfer: () => 0,
+      upgradeController: () => 0,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: workerCreep,
+        Worker2: {
+          ...emptyWorkerCreep,
+          name: 'Worker2',
+        },
+        Worker3: {
+          ...emptyWorkerCreep,
+          name: 'Worker3',
+        },
+      },
+      cpu: {
+        getUsed: () => 0.63,
+      },
+      getObjectById: (objectId: string) => {
+        if (objectId === 'controller-1') {
+          return controllerTarget;
+        }
+
+        if (objectId === 'site-1') {
+          return constructionSiteTarget;
+        }
+
+        return null;
+      },
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          createConstructionSite: () => 0,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_HOSTILE_CREEPS) {
+              return [hostileScout];
+            }
+
+            if (findType === TEST_FIND_MY_STRUCTURES || findType === TEST_FIND_STRUCTURES) {
+              return [spawnStructure];
+            }
+
+            if (
+              findType === TEST_FIND_CONSTRUCTION_SITES ||
+              findType === TEST_FIND_MY_CONSTRUCTION_SITES
+            ) {
+              return [constructionSiteTarget];
+            }
+
+            return [];
+          },
+          getTerrain: () => ({
+            get: () => 0,
+          }),
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: spawnStructure,
+      },
+      time: 24,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(safeModeRequests).toEqual([]);
+    expect(buildTargets).toEqual([constructionSiteTarget]);
+  });
+
+  it('pauses construction work without activating safe mode when a dangerous hostile is away from core structures', async () => {
+    const buildTargets: unknown[] = [];
+    const upgradeTargets: unknown[] = [];
+    const safeModeRequests: string[] = [];
+    const constructionSiteTarget = {
+      id: 'site-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 9,
+        y: 9,
+      },
+      progress: 0,
+      progressTotal: 3000,
+      structureType: TEST_STRUCTURE_EXTENSION,
+    };
+    const controllerTarget = {
+      activateSafeMode: () => {
+        safeModeRequests.push('controller-1');
+        return 0;
+      },
+      id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+      safeModeAvailable: 1,
+      ticksToDowngrade: 9000,
+    };
+    const spawnStructure = {
+      hits: 5000,
+      hitsMax: 5000,
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const hostileCreep = {
+      body: [
+        {
+          hits: 100,
+          type: TEST_ATTACK,
+        },
+      ],
+      hits: 100,
+      id: 'hostile-1',
+      owner: {
+        username: 'Invader',
+      },
+      pos: {
+        roomName: 'W1N1',
+        x: 30,
+        y: 30,
+      },
+    };
+    const workerCreep = {
+      build: (target: unknown) => {
+        buildTargets.push(target);
+        return 0;
+      },
+      harvest: () => 0,
+      moveTo: () => undefined,
+      name: 'Worker1',
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 0,
+        getUsedCapacity: () => 50,
+      },
+      transfer: () => 0,
+      upgradeController: (target: unknown) => {
+        upgradeTargets.push(target);
+        return 0;
+      },
+    };
+    const emptyWorkerCreep = {
+      build: () => 0,
+      harvest: () => 0,
+      moveTo: () => undefined,
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 50,
+        getUsedCapacity: () => 0,
+      },
+      transfer: () => 0,
+      upgradeController: () => 0,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: workerCreep,
+        Worker2: {
+          ...emptyWorkerCreep,
+          name: 'Worker2',
+        },
+        Worker3: {
+          ...emptyWorkerCreep,
+          name: 'Worker3',
+        },
+      },
+      cpu: {
+        getUsed: () => 0.63,
+      },
+      getObjectById: (objectId: string) => {
+        if (objectId === 'controller-1') {
+          return controllerTarget;
+        }
+
+        if (objectId === 'site-1') {
+          return constructionSiteTarget;
+        }
+
+        return null;
+      },
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          createConstructionSite: () => 0,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_HOSTILE_CREEPS) {
+              return [hostileCreep];
+            }
+
+            if (findType === TEST_FIND_MY_STRUCTURES || findType === TEST_FIND_STRUCTURES) {
+              return [spawnStructure];
+            }
+
+            if (
+              findType === TEST_FIND_CONSTRUCTION_SITES ||
+              findType === TEST_FIND_MY_CONSTRUCTION_SITES
+            ) {
+              return [constructionSiteTarget];
+            }
+
+            return [];
+          },
+          getTerrain: () => ({
+            get: () => 0,
+          }),
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: spawnStructure,
+      },
+      time: 24,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(safeModeRequests).toEqual([]);
+    expect(buildTargets).toEqual([]);
+    expect(upgradeTargets).toEqual([controllerTarget]);
   });
 });

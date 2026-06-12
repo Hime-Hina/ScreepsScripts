@@ -211,7 +211,7 @@ runtime.executeConstructionDecisions(constructionDecisions);
 
 - Bootstrap survival floor is `3` generic workers.
 - RCL2 construction expansion target is `5` generic workers.
-- Construction is allowed only when controller downgrade state is safe, spawn/extension energy is stable, and survival worker population is stable.
+- Construction is allowed only when controller downgrade state is safe, spawn/extension energy is stable, survival worker population is stable, and `RoomDefenseState` is `roomSafe`.
 - RCL2 construction worker demand is allowed only when controller downgrade state is safe, spawn/extension energy is stable, a spawn is available, and construction backlog exists.
 - Controller downgrade thresholds are project policy and are classified by the colony economy contract; do not duplicate the numeric thresholds in spawning or worker modules.
 - Per-tick worker target reservations remain planner-local and must not persist to `Memory`.
@@ -224,6 +224,7 @@ runtime.executeConstructionDecisions(constructionDecisions);
 | Worker count `3` to `4`, RCL2, safe controller, stable energy, available spawn, and backlog | Spawning may request workers up to target `5` |
 | Controller not safe, energy unstable, spawn already spawning, or no backlog | Demand remains at survival floor `3` |
 | Construction deferred for survival | Full-energy workers refill or upgrade instead of building |
+| Construction deferred for defense | Full-energy workers refill or upgrade instead of building |
 | Dropped/tombstone/ruin/store energy exists in the worker room | Empty workers prefer pickup/withdraw before source harvest |
 | Limited pickup/withdraw/refill/build target is already reserved this tick | Later workers choose another valid target or fallback action |
 
@@ -257,4 +258,80 @@ const canBuild = controllerSafe && energyStable;
 ```typescript
 const workerDemand = selectBootstrapWorkerDemand(economyInput);
 const constructionEligibility = selectRoomConstructionEligibility(economyInput);
+```
+
+## Scenario: P3 Defense Fallback and Safe Mode Contracts
+
+### 1. Scope / Trigger
+
+- Trigger: P3 defense fallback crosses `src/runtime/`, `src/kernel/`, `src/defense/`, `src/colony/`, and `src/creeps/`.
+- This contract applies when adding or changing hostile capture, threat classification, room defense state, safe mode activation, or construction pause under threat.
+
+### 2. Signatures
+
+- Defense planner: `planRoomDefense(world: DefenseWorldSnapshot): RoomDefensePlan`.
+- Defense world: captured body part constants, body part powers, owned controller safe-mode fields, owned core structures, hostile creep snapshots, and visible room names.
+- Defense decision: `{ type: 'activateSafeMode'; controllerId: string; hostileCreepId: string; roomName: string }`.
+- Room defense state: `{ type: 'roomSafe' | 'roomUnsafe'; roomName: string }`.
+- Runtime interface owns `readDefenseWorld()` and `executeDefenseDecisions(decisions)`.
+- Kernel passes `defensePlan.roomDefenseStates` into `readWorkerWorld(roomDefenseStates)` before worker planning.
+
+### 3. Contracts
+
+- `src/runtime/` is the only owner of `FIND_HOSTILE_CREEPS`, body part constants, `ATTACK_POWER`, `RANGED_ATTACK_POWER`, `DISMANTLE_POWER`, `HEAL_POWER`, controller safe-mode fields, and `StructureController.activateSafeMode()`.
+- `src/defense/` receives snapshots only and must not read `Game`, `Memory`, or Screeps globals.
+- Hostile classification currently exposes `canDamage`, `canDismantle`, `canHeal`, and `nearCore`; it is not a full combat simulator.
+- `canDamage` comes from active `ATTACK` and `RANGED_ATTACK` parts with captured official power greater than zero.
+- `canDismantle` comes from active `WORK` parts with captured `DISMANTLE_POWER` greater than zero.
+- `canHeal` comes from active `HEAL` parts with captured `HEAL_POWER` greater than zero.
+- Core structures for P3 safe mode are owned `spawn`, `extension`, and `tower` snapshots. Tower behavior remains a later RCL3 slice.
+- Safe mode decision requires a dangerous hostile near a core structure, `safeModeAvailable > 0`, no active safe mode, no safe mode cooldown, and no `upgradeBlocked`.
+- Because Screeps permits only one active safe-mode room per shard, planner emits at most one deterministic `activateSafeMode` decision per tick.
+- `roomUnsafe` means a hostile with attack or dismantle capability exists in the room; it pauses non-critical build through `RoomConstructionEligibility` even when safe mode is not activated.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required Behavior |
+| --- | --- |
+| Hostile has only harmless active parts such as `MOVE` | Room remains `roomSafe`; no safe mode decision |
+| Hostile has active `ATTACK` or `RANGED_ATTACK` near core | Planner emits `activateSafeMode` when controller is available |
+| Hostile has active `WORK` near core | Planner emits `activateSafeMode` when controller is available |
+| Dangerous hostile is far from core | Room becomes `roomUnsafe`; no safe mode decision |
+| Controller has no activation, active safe mode, cooldown, or `upgradeBlocked` | No safe mode decision |
+| Multiple rooms qualify for safe mode in one tick | Planner emits one deterministic decision only |
+| Runtime cannot resolve safe-mode controller id | Runtime throws a boundary error; defense planner must not invent fallback action |
+| Room is `roomUnsafe` | Worker construction eligibility returns `constructionDeferredForDefense`; workers fall back to refill/upgrade |
+
+### 5. Good/Base/Bad Cases
+
+- Good: runtime captures hostile body part snapshots and official combat constants, planner classifies threat from the snapshot, then runtime executes `controller.activateSafeMode`.
+- Good: a dangerous hostile away from the core pauses construction without consuming safe mode.
+- Base: a harmless MOVE-only hostile near spawn records hostile classification but leaves construction running.
+- Bad: defense planner reads `Game.rooms`, hard-codes combat power values, or calls `activateSafeMode` directly.
+- Bad: construction pause is represented by a boolean flag instead of `RoomDefenseState` flowing into `RoomConstructionEligibility`.
+
+### 6. Tests Required
+
+- Unit tests for `planRoomDefense` must cover harmless scout, attack/ranged attack, dismantle, heal classification, controller unavailable conditions, and distant dangerous hostile.
+- Unit tests must prove hostile threat classification uses captured official body-part power constants.
+- Integration tests must prove runtime captures hostile body/owner/hits/position and executes `controller.activateSafeMode`.
+- Integration tests must prove harmless hostile does not pause construction, while dangerous distant hostile pauses construction without safe mode activation.
+- Bundle smoke must define every Screeps constant newly read by compiled runtime code.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+if (Game.rooms.W51N21.find(FIND_HOSTILE_CREEPS).length > 0) {
+  Game.rooms.W51N21.controller?.activateSafeMode();
+}
+```
+
+#### Correct
+
+```typescript
+const defensePlan = planRoomDefense(runtime.readDefenseWorld());
+runtime.executeDefenseDecisions(defensePlan.decisions);
+const workerWorld = runtime.readWorkerWorld(defensePlan.roomDefenseStates);
 ```
