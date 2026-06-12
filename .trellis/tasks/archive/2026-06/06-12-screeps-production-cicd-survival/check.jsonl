@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "最终检查代码、文档、live verification 或 blocked reason 是否齐全。"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "检查新增测试和 CI 没有混淆默认门禁、本地 server e2e、PTR 或 live。"}
+{"file": ".trellis/spec/tooling/package-manager.md", "reason": "检查 pnpm scripts 和 CI 命令符合项目契约。"}
+{"file": ".trellis/spec/tooling/ci-hooks.md", "reason": "检查 GitHub Actions workflow 是否只执行无凭据默认门禁。"}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "检查 live deploy/readback/rollback 没有进入默认 CI。"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "检查 docs/game-state.md 是否区分 API readback、natural tick 和 blocked facts。"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "检查未提交或打印 Screeps token、cookies、screeps.json 内容。"}
+{"file": ".trellis/spec/documentation/synchronization.md", "reason": "检查 README、CONTEXT、docs/architecture、docs/development、docs/game-state 与实现同步。"}

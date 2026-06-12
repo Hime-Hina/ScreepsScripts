@@ -1,0 +1,17 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本任务同时触及 runtime、tests、CI、docs 和 live verification，需要先确认层间边界。"}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "约束 Screeps globals 和 action execution 只能留在 runtime boundary。"}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "约束 spawn/creep 行为归属，避免重建旧 role-folder 架构。"}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "约束早期生产逻辑不能引入未预算的 pathfinding、扫描或 cache。"}
+{"file": ".trellis/spec/runtime/diagnostics.md", "reason": "约束 tick、room、CPU 和 live verification 日志语义。"}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "要求每个生产行为切片先有失败测试再实现。"}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "定义 spawn body、source distribution、CI workflow 的可观察行为形状。"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "约束 unit、integration、system、bundle smoke、本地 server e2e 的职责。"}
+{"file": ".trellis/spec/tooling/package-manager.md", "reason": "约束 pnpm-only、脚本命名和 live/PTR 命令不得进入默认门禁。"}
+{"file": ".trellis/spec/tooling/ci-hooks.md", "reason": "定义本轮 GitHub Actions 默认 CI 契约。"}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "约束 live deploy/readback/rollback 边界。"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "约束 API readback 与 natural tick evidence 的区别。"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "约束 CI 和部署不得提交或打印 Screeps secrets。"}
+{"file": ".trellis/spec/documentation/synchronization.md", "reason": "约束 runtime、tooling、deployment、game-state 变更的文档同步。"}
+{"file": ".trellis/spec/research/official-screeps-docs.md", "reason": "约束使用 Screeps API 行为前先核对官方文档。"}
+{"file": ".trellis/spec/research/player-code-research.md", "reason": "约束成熟 bot 参考只吸收模式，不复制架构或源码。"}
+{"file": "docs/references.md", "reason": "记录本任务参考的成熟 Screeps bot 与官方资料入口。"}
