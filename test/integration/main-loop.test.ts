@@ -9,8 +9,12 @@ const TEST_FIND_RUINS = 123;
 const TEST_FIND_SOURCES = 105;
 const TEST_FIND_STRUCTURES = 111;
 const TEST_FIND_TOMBSTONES = 118;
+const TEST_STRUCTURE_CONTAINER = 'container';
 const TEST_STRUCTURE_EXTENSION = 'extension';
+const TEST_STRUCTURE_RAMPART = 'rampart';
+const TEST_STRUCTURE_ROAD = 'road';
 const TEST_STRUCTURE_SPAWN = 'spawn';
+const TEST_STRUCTURE_WALL = 'constructedWall';
 const TEST_BODY_PART_COST = {
   carry: 50,
   move: 50,
@@ -40,7 +44,11 @@ describe('Screeps main loop', () => {
     vi.stubGlobal('FIND_STRUCTURES', TEST_FIND_STRUCTURES);
     vi.stubGlobal('FIND_TOMBSTONES', TEST_FIND_TOMBSTONES);
     vi.stubGlobal('STRUCTURE_EXTENSION', TEST_STRUCTURE_EXTENSION);
+    vi.stubGlobal('STRUCTURE_CONTAINER', TEST_STRUCTURE_CONTAINER);
+    vi.stubGlobal('STRUCTURE_RAMPART', TEST_STRUCTURE_RAMPART);
+    vi.stubGlobal('STRUCTURE_ROAD', TEST_STRUCTURE_ROAD);
     vi.stubGlobal('STRUCTURE_SPAWN', TEST_STRUCTURE_SPAWN);
+    vi.stubGlobal('STRUCTURE_WALL', TEST_STRUCTURE_WALL);
   });
 
   afterEach(() => {
@@ -1068,6 +1076,254 @@ describe('Screeps main loop', () => {
     mainModule.loop();
 
     expect(buildTargets).toEqual([constructionSiteTarget]);
+  });
+
+  it('captures structure hits and repairs a critical road through the runtime boundary', async () => {
+    const repairTargets: unknown[] = [];
+    const moveTargets: unknown[] = [];
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        x: 20,
+        y: 20,
+      },
+      ticksToDowngrade: 9000,
+    };
+    const roadTarget = {
+      hits: 499,
+      hitsMax: 5000,
+      id: 'road-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 11,
+        y: 10,
+      },
+      structureType: TEST_STRUCTURE_ROAD,
+    };
+    const firstSpawn = {
+      hits: 5000,
+      hitsMax: 5000,
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const roomTerrain = {
+      get: () => 0,
+    };
+    const workerCreep = {
+      build: () => 0,
+      harvest: () => 0,
+      moveTo: (target: unknown) => moveTargets.push(target),
+      name: 'Worker1',
+      repair: (target: unknown) => {
+        repairTargets.push(target);
+        return -9;
+      },
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 0,
+        getUsedCapacity: () => 50,
+      },
+      transfer: () => 0,
+      upgradeController: () => 0,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: workerCreep,
+      },
+      cpu: {
+        getUsed: () => 0.62,
+      },
+      getObjectById: (objectId: string) => {
+        if (objectId === 'road-1') {
+          return roadTarget;
+        }
+
+        if (objectId === 'controller-1') {
+          return controllerTarget;
+        }
+
+        return null;
+      },
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          createConstructionSite: () => 0,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_STRUCTURES) {
+              return [firstSpawn, roadTarget];
+            }
+
+            if (findType === TEST_FIND_MY_STRUCTURES) {
+              return [firstSpawn];
+            }
+
+            return [];
+          },
+          getTerrain: () => roomTerrain,
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 21,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(repairTargets).toEqual([roadTarget]);
+    expect(moveTargets).toEqual([roadTarget]);
+  });
+
+  it('does not capture walls or ramparts as P2 repair targets', async () => {
+    const repairTargets: unknown[] = [];
+    const upgradeTargets: unknown[] = [];
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        x: 20,
+        y: 20,
+      },
+      ticksToDowngrade: 9000,
+    };
+    const wallTarget = {
+      hits: 1,
+      hitsMax: 300000000,
+      id: 'wall-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 11,
+        y: 10,
+      },
+      structureType: TEST_STRUCTURE_WALL,
+    };
+    const rampartTarget = {
+      hits: 1,
+      hitsMax: 300000000,
+      id: 'rampart-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 12,
+        y: 10,
+      },
+      structureType: TEST_STRUCTURE_RAMPART,
+    };
+    const firstSpawn = {
+      hits: 5000,
+      hitsMax: 5000,
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const roomTerrain = {
+      get: () => 0,
+    };
+    const workerCreep = {
+      build: () => 0,
+      harvest: () => 0,
+      moveTo: () => undefined,
+      name: 'Worker1',
+      repair: (target: unknown) => {
+        repairTargets.push(target);
+        return 0;
+      },
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 0,
+        getUsedCapacity: () => 50,
+      },
+      transfer: () => 0,
+      upgradeController: (target: unknown) => {
+        upgradeTargets.push(target);
+        return 0;
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: workerCreep,
+      },
+      cpu: {
+        getUsed: () => 0.62,
+      },
+      getObjectById: (objectId: string) => (objectId === 'controller-1' ? controllerTarget : null),
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          createConstructionSite: () => 0,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_STRUCTURES) {
+              return [firstSpawn, wallTarget, rampartTarget];
+            }
+
+            if (findType === TEST_FIND_MY_STRUCTURES) {
+              return [firstSpawn];
+            }
+
+            return [];
+          },
+          getTerrain: () => roomTerrain,
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 22,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(repairTargets).toEqual([]);
+    expect(upgradeTargets).toEqual([controllerTarget]);
   });
 
   it('defers construction through the runtime boundary until the worker population is stable', async () => {

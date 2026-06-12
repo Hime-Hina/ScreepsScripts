@@ -81,6 +81,7 @@ describe('runTick', () => {
         energyPickups: [],
         energyStructures: [],
         energyWithdrawals: [],
+        repairTargets: [],
         sources: [],
       }),
       writeConsoleLine: (message) => consoleLines.push(message),
@@ -252,6 +253,7 @@ describe('runTick', () => {
             },
           ],
           energyWithdrawals: [],
+          repairTargets: [],
           sources: [
             {
               id: 'source-1',

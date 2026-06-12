@@ -17,7 +17,12 @@ import type {
   ConstructionTerrainSnapshot,
   ConstructionWorldSnapshot,
 } from '../construction/construction-planner';
-import type { WorkerActionDecision, WorkerWorldSnapshot } from '../creeps/worker-decision';
+import {
+  isWorkerRepairStructureType,
+  type WorkerActionDecision,
+  type WorkerRepairTargetSnapshot,
+  type WorkerWorldSnapshot,
+} from '../creeps/worker-decision';
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
 import type { SpawnDecision } from '../spawning/spawn-decision';
 
@@ -203,6 +208,7 @@ const captureWorkerWorld = (): WorkerWorldSnapshot => ({
         roomName: energyStructure.pos.roomName,
       })),
   ),
+  repairTargets: Object.values(Game.rooms).flatMap(captureRoomRepairTargets),
   sources: Object.values(Game.rooms).flatMap((room) =>
     room.find(FIND_SOURCES).map((source) => ({
       id: source.id,
@@ -219,6 +225,34 @@ const captureRoomEnergyStructures = (room: Room): readonly SpawnExtensionEnergyS
       availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
       energyCapacity: readEnergyCapacity(energyStructure.store),
     }));
+
+const captureRoomRepairTargets = (room: Room): readonly WorkerRepairTargetSnapshot[] => {
+  if (room.controller?.my !== true) {
+    return [];
+  }
+
+  return room.find(FIND_STRUCTURES).flatMap(toWorkerRepairTargetSnapshot);
+};
+
+const toWorkerRepairTargetSnapshot = (
+  structure: Structure,
+): readonly [WorkerRepairTargetSnapshot] | readonly [] => {
+  if (!isWorkerRepairStructureType(structure.structureType)) {
+    return [];
+  }
+
+  return [
+    {
+      hits: structure.hits,
+      hitsMax: structure.hitsMax,
+      id: structure.id,
+      roomName: structure.pos.roomName,
+      structureType: structure.structureType,
+      x: structure.pos.x,
+      y: structure.pos.y,
+    },
+  ];
+};
 
 const countRoomWorkerCreeps = (roomName: string): number =>
   Object.values(Game.creeps).filter((creep) => creep.room.name === roomName).length;
@@ -358,6 +392,14 @@ const executeWorkerAction = (workerDecision: WorkerActionDecision): void => {
       return;
     }
 
+    case 'repairStructure': {
+      const repairStructure = readRepairStructure(workerDecision.structureId);
+      const actionReturnCode = creep.repair(repairStructure);
+
+      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, repairStructure);
+      return;
+    }
+
     case 'upgradeController': {
       const controller = readController(workerDecision.controllerId);
       const actionReturnCode = creep.upgradeController(controller);
@@ -398,6 +440,16 @@ const readConstructionSite = (constructionSiteId: string): ConstructionSite => {
   }
 
   return constructionSite;
+};
+
+const readRepairStructure = (structureId: string): Structure => {
+  const repairStructure = Game.getObjectById(structureId as Id<Structure>);
+
+  if (repairStructure === null) {
+    throw new Error(`Repair structure "${structureId}" does not exist for worker action.`);
+  }
+
+  return repairStructure;
 };
 
 const readSource = (sourceId: string): Source => {

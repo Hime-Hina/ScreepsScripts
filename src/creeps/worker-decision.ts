@@ -47,6 +47,18 @@ export interface WorkerEnergyWithdrawSnapshot {
   readonly roomName: string;
 }
 
+export type WorkerRepairStructureType = 'container' | 'extension' | 'road' | 'spawn';
+
+export interface WorkerRepairTargetSnapshot {
+  readonly hits: number;
+  readonly hitsMax: number;
+  readonly id: string;
+  readonly roomName: string;
+  readonly structureType: WorkerRepairStructureType;
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface WorkerWorldSnapshot {
   readonly constructionEligibilities: readonly RoomConstructionEligibility[];
   readonly constructionSites: readonly WorkerConstructionSiteSnapshot[];
@@ -55,6 +67,7 @@ export interface WorkerWorldSnapshot {
   readonly energyPickups: readonly WorkerEnergyPickupSnapshot[];
   readonly energyWithdrawals: readonly WorkerEnergyWithdrawSnapshot[];
   readonly energyStructures: readonly WorkerEnergyStructureSnapshot[];
+  readonly repairTargets: readonly WorkerRepairTargetSnapshot[];
   readonly sources: readonly WorkerSourceSnapshot[];
 }
 
@@ -63,6 +76,7 @@ export type WorkerActionDecision =
   | PickupEnergyDecision
   | WithdrawEnergyDecision
   | RefillEnergyStructureDecision
+  | RepairStructureDecision
   | BuildConstructionSiteDecision
   | UpgradeControllerDecision;
 
@@ -96,6 +110,12 @@ export interface BuildConstructionSiteDecision {
   readonly type: 'buildConstructionSite';
 }
 
+export interface RepairStructureDecision {
+  readonly creepName: string;
+  readonly structureId: string;
+  readonly type: 'repairStructure';
+}
+
 export interface UpgradeControllerDecision {
   readonly controllerId: string;
   readonly creepName: string;
@@ -104,6 +124,24 @@ export interface UpgradeControllerDecision {
 
 export type ControllerDowngradeState = BootstrapControllerDowngradeState & {
   readonly controllerId: string;
+};
+
+const CONTAINER_CRITICAL_HITS_RATIO = 0.25;
+const ROAD_CRITICAL_HITS_RATIO = 0.2;
+
+export const isWorkerRepairStructureType = (
+  structureType: string,
+): structureType is WorkerRepairStructureType => {
+  switch (structureType) {
+    case 'container':
+    case 'extension':
+    case 'road':
+    case 'spawn':
+      return true;
+
+    default:
+      return false;
+  }
 };
 
 export const planBootstrapWorkerActions = (
@@ -116,6 +154,7 @@ export const planBootstrapWorkerActions = (
   const reservedWithdrawEnergyById = new Map<string, number>();
   const reservedRefillEnergyById = new Map<string, number>();
   const reservedConstructionSiteIds = new Set<string>();
+  const reservedRepairStructureIds = new Set<string>();
 
   return sortWorkerCreeps(workerWorld.creeps)
     .map((workerCreep) =>
@@ -129,6 +168,7 @@ export const planBootstrapWorkerActions = (
         reservedWithdrawEnergyById,
         reservedRefillEnergyById,
         reservedConstructionSiteIds,
+        reservedRepairStructureIds,
       ),
     )
     .filter((workerDecision): workerDecision is WorkerActionDecision => workerDecision !== null);
@@ -144,6 +184,7 @@ const planBootstrapWorkerAction = (
   reservedWithdrawEnergyById: Map<string, number>,
   reservedRefillEnergyById: Map<string, number>,
   reservedConstructionSiteIds: Set<string>,
+  reservedRepairStructureIds: Set<string>,
 ): WorkerActionDecision | null => {
   if (workerCreep.freeCapacity > 0) {
     const energyPickup = selectEnergyPickup(
@@ -231,6 +272,22 @@ const planBootstrapWorkerAction = (
       controllerId: controllerDowngradeState.controllerId,
       creepName: workerCreep.name,
       type: 'upgradeController',
+    };
+  }
+
+  const repairTarget = selectCriticalRepairTarget(
+    workerWorld,
+    workerCreep.roomName,
+    reservedRepairStructureIds,
+  );
+
+  if (repairTarget !== undefined) {
+    reservedRepairStructureIds.add(repairTarget.id);
+
+    return {
+      creepName: workerCreep.name,
+      structureId: repairTarget.id,
+      type: 'repairStructure',
     };
   }
 
@@ -344,6 +401,41 @@ const reserveTargetEnergy = (
 
   reservedEnergyById.set(targetId, currentReservedEnergy + workerFreeCapacity);
 };
+
+const selectCriticalRepairTarget = (
+  workerWorld: WorkerWorldSnapshot,
+  roomName: string,
+  reservedRepairStructureIds: ReadonlySet<string>,
+): WorkerRepairTargetSnapshot | undefined =>
+  workerWorld.repairTargets
+    .filter(
+      (repairTarget) =>
+        repairTarget.roomName === roomName &&
+        !reservedRepairStructureIds.has(repairTarget.id) &&
+        isCriticalRepairTarget(repairTarget),
+    )
+    .sort((leftRepairTarget, rightRepairTarget) =>
+      leftRepairTarget.id.localeCompare(rightRepairTarget.id),
+    )[0];
+
+const isCriticalRepairTarget = (repairTarget: WorkerRepairTargetSnapshot): boolean => {
+  switch (repairTarget.structureType) {
+    case 'container':
+      return isBelowRepairRatio(repairTarget, CONTAINER_CRITICAL_HITS_RATIO);
+
+    case 'road':
+      return isBelowRepairRatio(repairTarget, ROAD_CRITICAL_HITS_RATIO);
+
+    case 'extension':
+    case 'spawn':
+      return repairTarget.hits < repairTarget.hitsMax;
+  }
+};
+
+const isBelowRepairRatio = (
+  repairTarget: WorkerRepairTargetSnapshot,
+  criticalHitsRatio: number,
+): boolean => repairTarget.hits < Math.ceil(repairTarget.hitsMax * criticalHitsRatio);
 
 const selectConstructionSite = (
   workerWorld: WorkerWorldSnapshot,
