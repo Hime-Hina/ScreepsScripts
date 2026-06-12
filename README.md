@@ -12,7 +12,7 @@
 - 源码会在 300 energy 可用时优先孵化 `[WORK, CARRY, CARRY, MOVE, MOVE]` early worker，并按 worker 名称在同房间多 source 间稳定分配采集目标。
 - 默认 GitHub Actions CI 已配置，运行 `corepack enable`、`pnpm install --frozen-lockfile` 和 `pnpm check`，不读取 Screeps 凭据。
 - Active shard 已记录为 `shard1`。
-- Live Screeps 部署 branch 已记录为 `main`；上一轮自持 bootstrap 部署产物已读回，本轮源码迭代尚未 live deploy，blocked reason 见 `docs/game-state.md`。
+- Live Screeps 部署 branch 已记录为 `main`；本轮生产逻辑迭代已部署并通过 API readback。
 - Active production room 为 `shard1 / W51N21`，spawn 为 `Spawn1` at `35,23`。
 - 自然生产 tick heartbeat 已通过 console websocket 观察。
 

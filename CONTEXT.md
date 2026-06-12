@@ -8,7 +8,7 @@
 
 - Active production room 已记录为 `shard1 / W51N21`。
 - Spawn 已记录为 `Spawn1` at `35,23`。
-- Screeps branch `main` 已用于上一轮自持 bootstrap 部署 readback；本轮源码迭代尚未 live deploy，blocked reason 已记录在 `docs/game-state.md`。
+- Screeps branch `main` 已用于本轮生产逻辑迭代部署；API readback 已确认远端 `main` module 与本地 `dist/main.js` 一致。
 - heartbeat 的自然生产 tick 执行已通过 console websocket 验证。
 - 当前源码运行时行为是 tick heartbeat、Memory 边界和自持 bootstrap：runtime boundary 执行 `spawnCreep`、worker 采集 source、回补 spawn 和 controller upgrade action。
 - 当前源码在 300 energy 可用时优先孵化 `[WORK, CARRY, CARRY, MOVE, MOVE]` early worker；只有 200 energy 可用时保留 `[WORK, CARRY, MOVE]` emergency worker。
