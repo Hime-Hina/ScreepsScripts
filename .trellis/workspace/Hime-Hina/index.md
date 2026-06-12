@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
-- **Last Active**: 2026-06-12
+- **Total Sessions**: 8
+- **Last Active**: 2026-06-13
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~263 | Active |
+| `journal-1.md` | ~297 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-06-13 | P2 structure repair fallback | `6801802`, `ab71454` | `master` |
 | 7 | 2026-06-12 | P1 economic fallback | `4f3ab9b`, `de312b4` | `master` |
 | 6 | 2026-06-12 | P0 controller downgrade guard | `b990156` | `master` |
 | 5 | 2026-06-12 | RCL2 economic infrastructure loop | `55eb94c` | `master` |

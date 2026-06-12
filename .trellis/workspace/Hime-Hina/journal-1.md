@@ -261,3 +261,37 @@ Implemented P1 bootstrap economy backpressure: stale Memory.creeps cleanup, offi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: P2 structure repair fallback
+
+**Date**: 2026-06-13
+**Task**: P2 structure repair fallback
+**Branch**: `master`
+
+### Summary
+
+Implemented, verified, deployed, and documented P2 critical repair fallback for spawn/extension/container/road structures.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6801802` | (see git log) |
+| `ab71454` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
