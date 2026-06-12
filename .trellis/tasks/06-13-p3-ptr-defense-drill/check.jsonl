@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "task completion gate and docs/spec review requirements"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "required validation layer separation"}
+{"file": ".trellis/spec/documentation/game-state.md", "reason": "game-state update rules and secret exclusions"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "credential leak checks"}
+{"file": ".trellis/spec/operations/deployment.md", "reason": "PTR deploy/readback completion checks"}
+{"file": ".trellis/spec/operations/rollback.md", "reason": "PTR rollback evidence checks"}
+{"file": ".trellis/spec/operations/ptr-room-founding.md", "reason": "PTR room founding verification checks"}
+{"file": ".trellis/spec/operations/ptr-cpu-shards.md", "reason": "PTR CPU assignment and runtime CPU blocked-state verification checks"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "observed/derived/blocked evidence classification"}

@@ -44,6 +44,7 @@ describe('project scripts', () => {
       'check',
       'deploy:screeps',
       'deploy:ptr:screeps',
+      'found:ptr-room:screeps',
       'lint',
       'rollback:screeps',
       'rollback:ptr:screeps',
@@ -88,6 +89,9 @@ describe('project scripts', () => {
     expect(packageManifest.scripts['deploy:ptr:screeps']).toBe(
       'pnpm check && pnpm build && node scripts/screeps/deploy-ptr.mjs',
     );
+    expect(packageManifest.scripts['found:ptr-room:screeps']).toBe(
+      'node scripts/screeps/found-ptr-room.mjs',
+    );
     expect(packageManifest.scripts['verify:ptr:screeps']).toBe(
       'pnpm build && node scripts/screeps/verify-ptr.mjs',
     );
@@ -119,6 +123,7 @@ describe('project scripts', () => {
     const forbiddenProjectCommands = [
       'deploy:screeps',
       'deploy:ptr:screeps',
+      'found:ptr-room:screeps',
       'verify:live:screeps',
       'verify:ptr:screeps',
       'rollback:screeps',

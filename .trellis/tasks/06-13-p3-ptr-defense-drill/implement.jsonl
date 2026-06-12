@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/operations/deployment.md", "reason": "PTR deploy/readback boundaries and explicit command naming"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "PTR credential isolation and non-secret diagnostics"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "evidence labels and natural tick distinction"}
+{"file": ".trellis/spec/operations/rollback.md", "reason": "PTR code rollback snapshot requirements"}
+{"file": ".trellis/spec/operations/ptr-room-founding.md", "reason": "PTR room creation boundary and command behavior"}
+{"file": ".trellis/spec/operations/ptr-cpu-shards.md", "reason": "PTR CPU shard allocation, runtime limit, cooldown, and request body contract"}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "red-green-refactor and mock boundary requirements"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "PTR smoke and local official server e2e boundaries"}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "P3 defense public interfaces and runtime/strategy separation"}
+{"file": "docs/development.md", "reason": "existing PTR and local server command contracts"}
+{"file": "docs/game-state.md", "reason": "main-room replication target and evidence destination"}
+{"file": ".trellis/tasks/archive/2026-06/06-12-p3-defense-fallback-safe-mode/prd.md", "reason": "completed P3 behavior scope and acceptance history"}

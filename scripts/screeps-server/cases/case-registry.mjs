@@ -1,4 +1,5 @@
 import {
+  DEFENSE_CORE_THREAT_FIXTURE_NAME,
   SINGLE_OWNED_SPAWN_ACTIVE_BOT,
   SINGLE_OWNED_SPAWN_FIXTURE_NAME,
 } from '../fixtures/single-owned-spawn-fixture.mjs';
@@ -18,6 +19,14 @@ const SCREEPS_SERVER_CASES = new Map([
       fixtureName: SINGLE_OWNED_SPAWN_FIXTURE_NAME,
       name: 'memory-schema-write',
       run: assertMemorySchemaWrite,
+    },
+  ],
+  [
+    'defense-core-threat-safe-mode',
+    {
+      fixtureName: DEFENSE_CORE_THREAT_FIXTURE_NAME,
+      name: 'defense-core-threat-safe-mode',
+      run: assertDefenseCoreThreatSafeMode,
     },
   ],
 ]);
@@ -106,6 +115,11 @@ async function assertMemorySchemaWrite(harness) {
       `Saved ${SINGLE_OWNED_SPAWN_ACTIVE_BOT.username} Memory does not contain ${SINGLE_OWNED_SPAWN_ACTIVE_BOT.memoryRootKey}.schemaVersion = ${SINGLE_OWNED_SPAWN_ACTIVE_BOT.memorySchemaVersion}.`,
     );
   }
+}
+
+async function assertDefenseCoreThreatSafeMode(harness) {
+  await harness.waitForPlayerHeartbeat();
+  await harness.waitForDefenseSafeModeActivation();
 }
 
 function describeAvailableSuites() {

@@ -4,6 +4,34 @@ import path from 'node:path';
 import { SERVER_PACKAGE_ROOT } from '../framework/local-server-contract.mjs';
 
 export async function writeStatusMod(statusModPath, statusFilePath, activeBotRuntimeContract) {
+  await writeStatusModSource(
+    statusModPath,
+    statusFilePath,
+    activeBotRuntimeContract,
+    'function registerDefenseStatusObserver() {}',
+  );
+}
+
+export async function writeDefenseStatusMod(
+  statusModPath,
+  statusFilePath,
+  activeBotRuntimeContract,
+  defenseRuntimeContract,
+) {
+  await writeStatusModSource(
+    statusModPath,
+    statusFilePath,
+    activeBotRuntimeContract,
+    createDefenseStatusObserverSource(defenseRuntimeContract),
+  );
+}
+
+async function writeStatusModSource(
+  statusModPath,
+  statusFilePath,
+  activeBotRuntimeContract,
+  defenseStatusObserverSource,
+) {
   const statusModSource = `'use strict';
 
 const fs = require('fs');
@@ -55,6 +83,8 @@ function registerOfflineSteamWebApi() {
 
   writeStatus('steam-webapi-offline');
 }
+
+${defenseStatusObserverSource}
 
 module.exports = function registerScreepsServerTestStatus(config) {
   writeStatus('mod-loaded', {
@@ -128,8 +158,106 @@ module.exports = function registerScreepsServerTestStatus(config) {
       }
     });
   }
+
+  registerDefenseStatusObserver(config);
 };
 `;
 
   await fs.writeFile(statusModPath, statusModSource, 'utf8');
+}
+
+function createDefenseStatusObserverSource(defenseRuntimeContract) {
+  return `
+const defenseControllerId = ${JSON.stringify(defenseRuntimeContract.controllerId)};
+const defenseHostileCreepId = ${JSON.stringify(defenseRuntimeContract.hostileCreepId)};
+const defenseRoomName = ${JSON.stringify(defenseRuntimeContract.roomName)};
+const defenseUserId = ${JSON.stringify(defenseRuntimeContract.userId)};
+
+function findDefenseHostile(roomObjects) {
+  return roomObjects && roomObjects[defenseHostileCreepId] || null;
+}
+
+function toDefenseHostileStatus(hostileCreep) {
+  if (!hostileCreep) {
+    return null;
+  }
+
+  return {
+    bodyParts: Array.isArray(hostileCreep.body)
+      ? hostileCreep.body.map((bodyPart) => ({
+          hits: bodyPart.hits,
+          type: bodyPart.type
+        }))
+      : [],
+    hits: hostileCreep.hits,
+    id: hostileCreep._id,
+    roomName: hostileCreep.room,
+    user: hostileCreep.user,
+    x: hostileCreep.x,
+    y: hostileCreep.y
+  };
+}
+
+function writeDefenseSafeModeStatus(event, controller, roomObjects, gameTime) {
+  writeStatus(event, {
+    controllerId: controller._id,
+    gameTime,
+    hostile: toDefenseHostileStatus(findDefenseHostile(roomObjects)),
+    roomName: controller.room,
+    safeMode: controller.safeMode || null,
+    safeModeAvailable: controller.safeModeAvailable || 0
+  });
+}
+
+function registerDefenseStatusObserver(config) {
+  if (!config.engine) {
+    return;
+  }
+
+  config.engine.on(
+    'preProcessObjectIntents',
+    function onDefenseSafeModeIntent(controller, userId, objectIntents, roomObjects, roomTerrain, gameTime) {
+      if (
+        !controller ||
+        controller._id !== defenseControllerId ||
+        userId !== defenseUserId ||
+        !objectIntents ||
+        !objectIntents.activateSafeMode
+      ) {
+        return;
+      }
+
+      writeDefenseSafeModeStatus('safe-mode-intent', controller, roomObjects, gameTime);
+    }
+  );
+
+  config.engine.on(
+    'processObjectIntents',
+    function onDefenseSafeModeAccepted(controller, userId, objectIntents, roomObjects, roomTerrain, gameTime) {
+      if (
+        !controller ||
+        controller._id !== defenseControllerId ||
+        controller._safeModeActivated !== 1
+      ) {
+        return;
+      }
+
+      writeDefenseSafeModeStatus('safe-mode-accepted', controller, roomObjects, gameTime);
+    }
+  );
+
+  config.engine.on('processObject', function onDefenseSafeModeActive(controller, roomObjects, roomTerrain, gameTime) {
+    if (
+      !controller ||
+      controller._id !== defenseControllerId ||
+      controller.room !== defenseRoomName ||
+      !(controller.safeMode > gameTime)
+    ) {
+      return;
+    }
+
+    writeDefenseSafeModeStatus('safe-mode-active', controller, roomObjects, gameTime);
+  });
+}
+`;
 }

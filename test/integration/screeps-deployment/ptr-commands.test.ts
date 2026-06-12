@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   loadPtrDeployModule,
+  loadPtrRoomFoundingModule,
   loadPtrRollbackModule,
   loadPtrRollbackSnapshotModule,
   loadPtrVerifyModule,
@@ -280,6 +281,164 @@ describe('Screeps PTR commands', () => {
       );
       expect(joinedLogLines(logSpy)).not.toContain('ptr-secret-token');
       expect(joinedLogLines(logSpy)).not.toContain('old-main');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('founds the documented main room on PTR when no PTR room exists', async () => {
+    const workspacePath = await createPtrWorkspace('local-main');
+    const fetchRecords = stubPtrFetch([
+      {
+        cpu: 80,
+        cpuShard: { shard1: 20 },
+        ok: 1,
+        username: 'Dragon_King',
+      },
+      {
+        ok: 1,
+        shards: {
+          shard1: {
+            gametime: 71630000,
+            rooms: [],
+          },
+        },
+      },
+      {
+        ok: 1,
+        shards: [{ cpuLimit: 20, name: 'shard1' }],
+      },
+      {
+        ok: 1,
+        room: { status: 'normal' },
+      },
+      {
+        newbie: true,
+        ok: 1,
+      },
+      {
+        objects: [
+          {
+            name: 'Spawn1',
+            type: 'spawn',
+            x: 35,
+            y: 23,
+          },
+        ],
+        ok: 1,
+      },
+    ]);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const ptrRoomFoundingModule = await loadPtrRoomFoundingModule();
+
+      await ptrRoomFoundingModule.foundPtrMainRoomFrom(workspacePath);
+
+      expect(fetchRecords.map((fetchRecord) => fetchRecord.url)).toEqual([
+        'https://screeps.com/ptr/api/auth/me',
+        'https://screeps.com/ptr/api/user/overview?interval=8',
+        'https://screeps.com/ptr/api/game/shards/info',
+        'https://screeps.com/ptr/api/game/room-status?room=W51N21&shard=shard1',
+        'https://screeps.com/ptr/api/game/place-spawn',
+        'https://screeps.com/ptr/api/game/room-objects?room=W51N21&shard=shard1',
+      ]);
+      expect(fetchRecords[4]?.init?.body).toBe(
+        JSON.stringify({ room: 'W51N21', shard: 'shard1', x: 35, y: 23, name: 'Spawn1' }),
+      );
+      expect(joinedLogLines(logSpy)).toContain(
+        '[found:ptr-room:screeps] status=spawn-placed room=shard1/W51N21 spawn=Spawn1 x=35 y=23 newbie=true',
+      );
+      expect(joinedLogLines(logSpy)).not.toContain('ptr-secret-token');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('verifies the documented PTR main room without placing another spawn', async () => {
+    const workspacePath = await createPtrWorkspace('local-main');
+    const fetchRecords = stubPtrFetch([
+      {
+        cpu: 80,
+        cpuShard: { shard1: 20 },
+        ok: 1,
+        username: 'Dragon_King',
+      },
+      {
+        ok: 1,
+        shards: {
+          shard1: {
+            gametime: 71630000,
+            rooms: ['W51N21'],
+          },
+        },
+      },
+      {
+        ok: 1,
+        shards: [{ cpuLimit: 20, name: 'shard1' }],
+      },
+      {
+        objects: [
+          {
+            name: 'Spawn1',
+            type: 'spawn',
+            x: 35,
+            y: 23,
+          },
+        ],
+        ok: 1,
+      },
+    ]);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const ptrRoomFoundingModule = await loadPtrRoomFoundingModule();
+
+      await ptrRoomFoundingModule.foundPtrMainRoomFrom(workspacePath);
+
+      expect(fetchRecords.map((fetchRecord) => fetchRecord.url)).toEqual([
+        'https://screeps.com/ptr/api/auth/me',
+        'https://screeps.com/ptr/api/user/overview?interval=8',
+        'https://screeps.com/ptr/api/game/shards/info',
+        'https://screeps.com/ptr/api/game/room-objects?room=W51N21&shard=shard1',
+      ]);
+      expect(joinedLogLines(logSpy)).toContain(
+        '[found:ptr-room:screeps] status=already-founded room=shard1/W51N21 spawn=Spawn1 x=35 y=23',
+      );
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('stops PTR founding when another PTR owned room exists', async () => {
+    const workspacePath = await createPtrWorkspace('local-main');
+    stubPtrFetch([
+      {
+        cpu: 80,
+        ok: 1,
+        username: 'Dragon_King',
+      },
+      {
+        ok: 1,
+        shards: {
+          shard3: {
+            gametime: 71630000,
+            rooms: ['W1N1'],
+          },
+        },
+      },
+      {
+        ok: 1,
+        shards: [{ cpuLimit: 20, name: 'shard3' }],
+      },
+    ]);
+
+    try {
+      const ptrRoomFoundingModule = await loadPtrRoomFoundingModule();
+
+      await expect(ptrRoomFoundingModule.foundPtrMainRoomFrom(workspacePath)).rejects.toThrow(
+        'PTR already has owned room shard3/W1N1; refusing to found shard1/W51N21.',
+      );
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
     }

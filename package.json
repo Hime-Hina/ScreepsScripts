@@ -13,6 +13,7 @@
     "deploy:screeps": "pnpm check && pnpm build && node scripts/screeps/deploy.mjs",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
+    "found:ptr-room:screeps": "node scripts/screeps/found-ptr-room.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "rollback:screeps": "node scripts/screeps/rollback.mjs",

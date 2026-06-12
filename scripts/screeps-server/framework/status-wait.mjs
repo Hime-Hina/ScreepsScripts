@@ -34,6 +34,18 @@ export async function waitForPlayerMemory(preparedRun) {
   );
 }
 
+export async function waitForDefenseSafeModeActivation(preparedRun) {
+  const defenseRuntimeContract = readDefenseRuntimeContract(preparedRun);
+
+  return waitForStatusCondition(
+    preparedRun.runDirectory,
+    preparedRun.statusFilePath,
+    (statusRecords) => findDefenseSafeModeActivation(statusRecords, defenseRuntimeContract),
+    () => describeMissingDefenseSafeModeActivation(defenseRuntimeContract),
+    PLAYER_HEARTBEAT_WATCHDOG_MS,
+  );
+}
+
 async function waitForStatusCondition(
   runDirectory,
   statusFilePath,
@@ -111,6 +123,29 @@ function findPlayerMemory(statusRecords, playerRuntimeContract) {
 
 function describeMissingPlayerMemory(playerRuntimeContract) {
   return `${playerRuntimeContract.username} Memory.${playerRuntimeContract.memoryRootKey}.schemaVersion = ${playerRuntimeContract.memorySchemaVersion}`;
+}
+
+function readDefenseRuntimeContract(preparedRun) {
+  if (!preparedRun.defenseRuntimeContract) {
+    throw new Error('Screeps server fixture does not expose a defense runtime contract.');
+  }
+
+  return preparedRun.defenseRuntimeContract;
+}
+
+function findDefenseSafeModeActivation(statusRecords, defenseRuntimeContract) {
+  return statusRecords.find(
+    (statusRecord) =>
+      statusRecord.event === 'safe-mode-active' &&
+      statusRecord.controllerId === defenseRuntimeContract.controllerId &&
+      statusRecord.roomName === defenseRuntimeContract.roomName &&
+      statusRecord.hostile &&
+      statusRecord.hostile.id === defenseRuntimeContract.hostileCreepId,
+  );
+}
+
+function describeMissingDefenseSafeModeActivation(defenseRuntimeContract) {
+  return `safe-mode-active for controller ${defenseRuntimeContract.controllerId} and hostile ${defenseRuntimeContract.hostileCreepId}`;
 }
 
 async function waitForFileCondition(

@@ -31,6 +31,7 @@ pnpm deploy:screeps
 pnpm rollback:screeps
 pnpm verify:ptr:screeps
 pnpm deploy:ptr:screeps
+pnpm found:ptr-room:screeps
 pnpm rollback:ptr:screeps
 ```
 

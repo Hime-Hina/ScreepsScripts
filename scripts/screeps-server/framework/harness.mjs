@@ -1,7 +1,10 @@
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 
-import { prepareSingleOwnedSpawnRun } from '../fixtures/single-owned-spawn-fixture.mjs';
+import {
+  prepareDefenseCoreThreatRun,
+  prepareSingleOwnedSpawnRun,
+} from '../fixtures/single-owned-spawn-fixture.mjs';
 import { runCommand } from './command-execution.mjs';
 import {
   LOCAL_STORAGE_HOST,
@@ -11,7 +14,12 @@ import {
 import { createOfficialServerRequire, ensureOfficialServerPackage } from './official-package.mjs';
 import { raceWithServerExit, stopServerChildren } from './process-control.mjs';
 import { ScreepsServerOutput } from './server-output.mjs';
-import { waitForPlayerHeartbeat, waitForPlayerMemory, waitForServerReady } from './status-wait.mjs';
+import {
+  waitForDefenseSafeModeActivation,
+  waitForPlayerHeartbeat,
+  waitForPlayerMemory,
+  waitForServerReady,
+} from './status-wait.mjs';
 import { reserveTcpPort } from './tcp-port-reservation.mjs';
 
 export class ScreepsLocalServerHarness {
@@ -27,6 +35,12 @@ export class ScreepsLocalServerHarness {
   async prepareSingleOwnedSpawnFixture() {
     await this.measure('install', () => ensureOfficialServerPackage());
     this.preparedRun = await this.measure('fixture', () => prepareSingleOwnedSpawnRun());
+    this.isStopping = false;
+  }
+
+  async prepareDefenseCoreThreatFixture() {
+    await this.measure('install', () => ensureOfficialServerPackage());
+    this.preparedRun = await this.measure('fixture', () => prepareDefenseCoreThreatRun());
     this.isStopping = false;
   }
 
@@ -90,6 +104,12 @@ export class ScreepsLocalServerHarness {
     );
   }
 
+  async waitForDefenseSafeModeActivation() {
+    await this.measure('defense', () =>
+      this.raceWithServerExit(waitForDefenseSafeModeActivation(this.requirePreparedRun())),
+    );
+  }
+
   async stop() {
     await this.measure('teardown', async () => {
       this.isStopping = true;
@@ -113,6 +133,7 @@ export class ScreepsLocalServerHarness {
       `ready=${formatDuration(this.timings.get('ready'))}`,
       `tick=${formatDuration(this.timings.get('tick'))}`,
       `memory=${formatDuration(this.timings.get('memory'))}`,
+      `defense=${formatDuration(this.timings.get('defense'))}`,
       `teardown=${formatDuration(this.timings.get('teardown'))}`,
       `total=${formatDuration(totalDurationMs)}`,
     ];

@@ -3,9 +3,10 @@ import path from 'node:path';
 
 import { RUNS_ROOT } from '../framework/local-server-contract.mjs';
 import { createOfficialServerRequire } from '../framework/official-package.mjs';
-import { writeStatusMod } from '../observability/status-mod.mjs';
+import { writeDefenseStatusMod, writeStatusMod } from '../observability/status-mod.mjs';
 
 export const SINGLE_OWNED_SPAWN_FIXTURE_NAME = 'single-owned-spawn';
+export const DEFENSE_CORE_THREAT_FIXTURE_NAME = 'defense-core-threat';
 
 export const SINGLE_OWNED_SPAWN_ACTIVE_BOT = Object.freeze({
   memoryRootKey: 'screepsScripts',
@@ -16,8 +17,61 @@ export const SINGLE_OWNED_SPAWN_ACTIVE_BOT = Object.freeze({
   username: 'AliceBot',
 });
 
+export const DEFENSE_CORE_THREAT_HOSTILE_BOT = Object.freeze({
+  userId: 'a1123272b261687',
+  username: 'MichaelBot',
+});
+
+export const DEFENSE_CORE_THREAT_HOSTILE_CREEP = Object.freeze({
+  id: 'defense-core-threat-hostile',
+  name: 'MichaelBot-core-threat',
+  room: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+  x: 35,
+  y: 5,
+});
+
+export const DEFENSE_CORE_THREAT_CONTROLLER_ID = 'a87b0774c89f868';
+
 export async function prepareSingleOwnedSpawnRun() {
-  const runId = createRunId();
+  const runPaths = await createFixtureRunPaths(SINGLE_OWNED_SPAWN_FIXTURE_NAME);
+
+  await rewriteDbForSingleOwnedSpawn(runPaths.dbPath);
+  await writeStatusMod(
+    path.join(runPaths.runDirectory, 'status-mod.cjs'),
+    runPaths.statusFilePath,
+    SINGLE_OWNED_SPAWN_ACTIVE_BOT,
+  );
+  await writeFixtureModsFile(runPaths.runDirectory);
+
+  return createPreparedRun(runPaths);
+}
+
+export async function prepareDefenseCoreThreatRun() {
+  const runPaths = await createFixtureRunPaths(DEFENSE_CORE_THREAT_FIXTURE_NAME);
+  const defenseRuntimeContract = {
+    controllerId: DEFENSE_CORE_THREAT_CONTROLLER_ID,
+    hostileCreepId: DEFENSE_CORE_THREAT_HOSTILE_CREEP.id,
+    roomName: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+    userId: SINGLE_OWNED_SPAWN_ACTIVE_BOT.userId,
+  };
+
+  await rewriteDbForDefenseCoreThreat(runPaths.dbPath);
+  await writeDefenseStatusMod(
+    path.join(runPaths.runDirectory, 'status-mod.cjs'),
+    runPaths.statusFilePath,
+    SINGLE_OWNED_SPAWN_ACTIVE_BOT,
+    defenseRuntimeContract,
+  );
+  await writeFixtureModsFile(runPaths.runDirectory);
+
+  return {
+    ...createPreparedRun(runPaths),
+    defenseRuntimeContract,
+  };
+}
+
+async function createFixtureRunPaths(fixtureName) {
+  const runId = createRunId(fixtureName);
   const runDirectory = path.join(RUNS_ROOT, runId);
   const packageRequire = createOfficialServerRequire();
   const launcherManifestPath = packageRequire.resolve('@screeps/launcher/package.json');
@@ -30,28 +84,34 @@ export async function prepareSingleOwnedSpawnRun() {
   await fs.cp(initDistributionRoot, runDirectory, { recursive: true });
   await fs.mkdir(logDirectory, { recursive: true });
   await rewriteServerRc(path.join(runDirectory, '.screepsrc'));
-  await rewriteDbForSingleOwnedSpawn(dbPath);
-  await writeStatusMod(
-    path.join(runDirectory, 'status-mod.cjs'),
+
+  return {
+    dbPath,
+    logDirectory,
+    runDirectory,
     statusFilePath,
-    SINGLE_OWNED_SPAWN_ACTIVE_BOT,
-  );
+  };
+}
+
+async function writeFixtureModsFile(runDirectory) {
   await fs.writeFile(
     path.join(runDirectory, 'mods.json'),
     JSON.stringify({ bots: {}, mods: ['status-mod.cjs'] }, null, 2),
     'utf8',
   );
+}
 
+function createPreparedRun(runPaths) {
   return {
-    dbPath,
-    logDirectory,
+    dbPath: runPaths.dbPath,
+    logDirectory: runPaths.logDirectory,
     playerRuntimeContract: {
       memoryRootKey: SINGLE_OWNED_SPAWN_ACTIVE_BOT.memoryRootKey,
       memorySchemaVersion: SINGLE_OWNED_SPAWN_ACTIVE_BOT.memorySchemaVersion,
       username: SINGLE_OWNED_SPAWN_ACTIVE_BOT.username,
     },
-    runDirectory,
-    statusFilePath,
+    runDirectory: runPaths.runDirectory,
+    statusFilePath: runPaths.statusFilePath,
   };
 }
 
@@ -122,6 +182,75 @@ async function rewriteDbForSingleOwnedSpawn(dbPath) {
   await fs.writeFile(dbPath, JSON.stringify(lokiDatabase), 'utf8');
 }
 
+async function rewriteDbForDefenseCoreThreat(dbPath) {
+  await rewriteDbForSingleOwnedSpawn(dbPath);
+
+  const lokiDatabase = JSON.parse(await fs.readFile(dbPath, 'utf8'));
+  const roomObjectsCollection = readLokiCollection(lokiDatabase, 'rooms.objects');
+  const controller = roomObjectsCollection.data.find(
+    (roomObject) => roomObject._id === DEFENSE_CORE_THREAT_CONTROLLER_ID,
+  );
+  const hostileBotUser = readLokiCollection(lokiDatabase, 'users').data.find(
+    (user) => user._id === DEFENSE_CORE_THREAT_HOSTILE_BOT.userId,
+  );
+
+  if (!controller || controller.type !== 'controller') {
+    throw new Error('Official seed data does not contain the expected W1N9 controller.');
+  }
+  if (!hostileBotUser || hostileBotUser.username !== DEFENSE_CORE_THREAT_HOSTILE_BOT.username) {
+    throw new Error('Official seed data does not contain the expected hostile bot user.');
+  }
+
+  controller.safeMode = null;
+  controller.safeModeAvailable = 1;
+  controller.safeModeCooldown = null;
+  controller.upgradeBlocked = null;
+  controller.downgradeTime = 20_000;
+
+  addDefenseCoreThreatHostile(roomObjectsCollection);
+
+  await fs.writeFile(dbPath, JSON.stringify(lokiDatabase), 'utf8');
+}
+
+function addDefenseCoreThreatHostile(roomObjectsCollection) {
+  const hostileBody = [
+    { hits: 100, type: 'move' },
+    { hits: 100, type: 'attack' },
+    { hits: 100, type: 'work' },
+    { hits: 100, type: 'move' },
+  ];
+  const nextLokiId = roomObjectsCollection.maxId + 1;
+
+  roomObjectsCollection.data = roomObjectsCollection.data.filter(
+    (roomObject) => roomObject._id !== DEFENSE_CORE_THREAT_HOSTILE_CREEP.id,
+  );
+  roomObjectsCollection.data.push({
+    $loki: nextLokiId,
+    _id: DEFENSE_CORE_THREAT_HOSTILE_CREEP.id,
+    body: hostileBody,
+    fatigue: 0,
+    hits: hostileBody.length * 100,
+    hitsMax: hostileBody.length * 100,
+    meta: {
+      created: Date.now(),
+      revision: 0,
+      version: 0,
+    },
+    name: DEFENSE_CORE_THREAT_HOSTILE_CREEP.name,
+    notifyWhenAttacked: false,
+    room: DEFENSE_CORE_THREAT_HOSTILE_CREEP.room,
+    spawning: false,
+    store: {},
+    storeCapacity: 0,
+    type: 'creep',
+    user: DEFENSE_CORE_THREAT_HOSTILE_BOT.userId,
+    x: DEFENSE_CORE_THREAT_HOSTILE_CREEP.x,
+    y: DEFENSE_CORE_THREAT_HOSTILE_CREEP.y,
+  });
+  roomObjectsCollection.idIndex.push(nextLokiId);
+  roomObjectsCollection.maxId = nextLokiId;
+}
+
 function readLokiCollection(lokiDatabase, collectionName) {
   const collection = lokiDatabase.collections.find(
     (candidateCollection) => candidateCollection.name === collectionName,
@@ -134,7 +263,7 @@ function readLokiCollection(lokiDatabase, collectionName) {
   return collection;
 }
 
-function createRunId() {
+function createRunId(fixtureName) {
   const timestamp = new Date()
     .toISOString()
     .replaceAll(':', '')
@@ -142,9 +271,13 @@ function createRunId() {
     .replace('T', '-')
     .replace('Z', '');
 
-  return `single-owned-spawn-${timestamp}-${process.pid}`;
+  return `${fixtureName}-${timestamp}-${process.pid}`;
 }
 
 export function describeSingleOwnedSpawnFixture() {
   return `fixture=${SINGLE_OWNED_SPAWN_FIXTURE_NAME} user=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.username} room=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.room} spawn=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.spawnName}`;
+}
+
+export function describeDefenseCoreThreatFixture() {
+  return `fixture=${DEFENSE_CORE_THREAT_FIXTURE_NAME} user=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.username} room=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.room} spawn=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.spawnName} hostile=${DEFENSE_CORE_THREAT_HOSTILE_CREEP.name}`;
 }

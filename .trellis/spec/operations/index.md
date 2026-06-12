@@ -14,6 +14,8 @@ These rules apply to deployment, live Screeps verification, rollback, and creden
 | Guide | Applies When |
 | --- | --- |
 | [Deployment](./deployment.md) | Building, uploading, branch selection, readback, or rollback |
+| [PTR Room Founding](./ptr-room-founding.md) | Creating or verifying an owned room on official PTR |
+| [PTR CPU Shards](./ptr-cpu-shards.md) | Verifying or changing official PTR CPU shard allocation |
 | [Live Verification](./live-verification.md) | Confirming behavior in Screeps production or console |
 | [Room Scouting](./room-scouting.md) | Read-only live API room candidate scoring before spawn placement |
 | [Rollback](./rollback.md) | Restoring the previous Screeps remote module set |

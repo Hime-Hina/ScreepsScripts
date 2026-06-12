@@ -7,8 +7,10 @@ import { describe, expect, it } from 'vitest';
 const SCREEPS_SERVER_SCRIPT_ROOT = path.join('scripts', 'screeps-server');
 
 interface RegistryProbe {
-  readonly debugCaseLabel: string;
-  readonly debugCaseNames: readonly string[];
+  readonly defenseCaseFixtureNames: readonly string[];
+  readonly defenseCaseLabel: string;
+  readonly defenseCaseNames: readonly string[];
+  readonly mixedFixtureError: string;
   readonly smokeCaseNames: readonly string[];
   readonly smokeFixtureNames: readonly string[];
 }
@@ -20,14 +22,26 @@ const readRegistryProbe = (): RegistryProbe => {
       '--input-type=module',
       '--eval',
       `
-        import { createSingleCaseSelection, createSuiteSelection } from './scripts/screeps-server/cases/case-registry.mjs';
+        import { createSingleCaseSelection, createSuiteSelection, readSharedFixtureName } from './scripts/screeps-server/cases/case-registry.mjs';
 
         const suiteSelection = createSuiteSelection('smoke');
-        const caseSelection = createSingleCaseSelection('memory-schema-write');
+        const defenseCaseSelection = createSingleCaseSelection('defense-core-threat-safe-mode');
+        let mixedFixtureError = '';
+
+        try {
+          readSharedFixtureName([
+            ...suiteSelection.caseDefinitions,
+            ...defenseCaseSelection.caseDefinitions,
+          ]);
+        } catch (error) {
+          mixedFixtureError = error instanceof Error ? error.message : String(error);
+        }
 
         console.log(JSON.stringify({
-          debugCaseLabel: caseSelection.label,
-          debugCaseNames: caseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
+          defenseCaseFixtureNames: defenseCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
+          defenseCaseLabel: defenseCaseSelection.label,
+          defenseCaseNames: defenseCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
+          mixedFixtureError,
           smokeCaseNames: suiteSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
           smokeFixtureNames: suiteSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
         }));
@@ -52,8 +66,10 @@ const isRegistryProbe = (registryProbe: unknown): registryProbe is RegistryProbe
   const candidateProbe = registryProbe as Record<string, unknown>;
 
   return (
-    typeof candidateProbe['debugCaseLabel'] === 'string' &&
-    isStringArray(candidateProbe['debugCaseNames']) &&
+    isStringArray(candidateProbe['defenseCaseFixtureNames']) &&
+    typeof candidateProbe['defenseCaseLabel'] === 'string' &&
+    isStringArray(candidateProbe['defenseCaseNames']) &&
+    typeof candidateProbe['mixedFixtureError'] === 'string' &&
     isStringArray(candidateProbe['smokeCaseNames']) &&
     isStringArray(candidateProbe['smokeFixtureNames'])
   );
@@ -94,7 +110,7 @@ describe('Screeps server suite registry', () => {
     ]);
   });
 
-  it('keeps the smoke suite inside the single-owned-spawn fixture boundary', () => {
+  it('keeps the smoke suite inside the single-owned-spawn fixture boundary and selects the defense drill case explicitly', () => {
     const registryProbe = readRegistryProbe();
 
     expect(registryProbe.smokeCaseNames).toEqual([
@@ -102,8 +118,12 @@ describe('Screeps server suite registry', () => {
       'memory-schema-write',
     ]);
     expect(registryProbe.smokeFixtureNames).toEqual(['single-owned-spawn', 'single-owned-spawn']);
-    expect(registryProbe.debugCaseLabel).toBe('case=memory-schema-write');
-    expect(registryProbe.debugCaseNames).toEqual(['memory-schema-write']);
+    expect(registryProbe.defenseCaseLabel).toBe('case=defense-core-threat-safe-mode');
+    expect(registryProbe.defenseCaseNames).toEqual(['defense-core-threat-safe-mode']);
+    expect(registryProbe.defenseCaseFixtureNames).toEqual(['defense-core-threat']);
+    expect(registryProbe.mixedFixtureError).toContain(
+      'Screeps server e2e cases in one run must share one fixture',
+    );
   });
 });
 

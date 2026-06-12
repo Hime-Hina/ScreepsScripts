@@ -19,6 +19,60 @@ export const readPtrRemoteModuleSet = async (ptrConfig) => {
   return decodePtrCodeResponse(apiPayload);
 };
 
+export const readPtrAccountStatus = async (ptrConfig) =>
+  readPtrJsonPayloadWithRetry(buildPtrAuthMeUrl(), {
+    headers: buildPtrAuthHeaders(ptrConfig),
+  });
+
+export const readPtrOverview = async (ptrConfig) =>
+  readPtrJsonPayloadWithRetry(buildPtrOverviewUrl(), {
+    headers: buildPtrAuthHeaders(ptrConfig),
+  });
+
+export const readPtrShardInfo = async (ptrConfig) =>
+  readPtrJsonPayloadWithRetry(buildPtrShardInfoUrl(), {
+    headers: buildPtrAuthHeaders(ptrConfig),
+  });
+
+export const readPtrRoomStatus = async (ptrConfig, shardName, roomName) => {
+  const apiPayload = await readPtrJsonPayloadWithRetry(buildPtrRoomStatusUrl(shardName, roomName), {
+    headers: buildPtrAuthHeaders(ptrConfig),
+  });
+
+  return decodePtrRoomStatusResponse(apiPayload);
+};
+
+export const readPtrRoomObjects = async (ptrConfig, shardName, roomName) => {
+  const apiPayload = await readPtrJsonPayloadWithRetry(
+    buildPtrRoomObjectsUrl(shardName, roomName),
+    {
+      headers: buildPtrAuthHeaders(ptrConfig),
+    },
+  );
+
+  return decodePtrRoomObjectsResponse(apiPayload);
+};
+
+export const placePtrSpawn = async (ptrConfig, spawnTarget) => {
+  const placeSpawnResponse = await fetch(buildPtrPlaceSpawnUrl(), {
+    body: JSON.stringify({
+      room: spawnTarget.roomName,
+      shard: spawnTarget.shardName,
+      x: spawnTarget.x,
+      y: spawnTarget.y,
+      name: spawnTarget.spawnName,
+    }),
+    headers: {
+      ...buildPtrAuthHeaders(ptrConfig),
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    method: 'POST',
+  });
+  const apiPayload = await readPtrJsonResponse(placeSpawnResponse);
+
+  return decodePtrPlaceSpawnResponse(apiPayload);
+};
+
 export const uploadPtrRemoteModuleSet = async (ptrConfig, moduleSet) => {
   const uploadResponse = await fetch(buildPtrWriteUserCodeUrl(), {
     body: JSON.stringify({
@@ -44,6 +98,35 @@ export const buildPtrReadUserCodeUrl = (ptrConfig) => {
 };
 
 export const buildPtrWriteUserCodeUrl = () => buildPtrApiUrl('user/code');
+
+export const buildPtrAuthMeUrl = () => buildPtrApiUrl('auth/me');
+
+export const buildPtrOverviewUrl = () => {
+  const overviewUrl = buildPtrApiUrl('user/overview');
+
+  overviewUrl.searchParams.set('interval', '8');
+
+  return overviewUrl;
+};
+
+export const buildPtrShardInfoUrl = () => buildPtrApiUrl('game/shards/info');
+
+export const buildPtrRoomStatusUrl = (shardName, roomName) =>
+  buildPtrGameRoomUrl('game/room-status', shardName, roomName);
+
+export const buildPtrRoomObjectsUrl = (shardName, roomName) =>
+  buildPtrGameRoomUrl('game/room-objects', shardName, roomName);
+
+export const buildPtrPlaceSpawnUrl = () => buildPtrApiUrl('game/place-spawn');
+
+const buildPtrGameRoomUrl = (endpointPath, shardName, roomName) => {
+  const gameRoomUrl = buildPtrApiUrl(endpointPath);
+
+  gameRoomUrl.searchParams.set('room', roomName);
+  gameRoomUrl.searchParams.set('shard', shardName);
+
+  return gameRoomUrl;
+};
 
 const buildPtrApiUrl = (endpointPath) => new URL(endpointPath, SCREEPS_PTR_API_BASE_URL);
 
@@ -82,8 +165,12 @@ const readPtrJsonResponse = async (response) => {
     throw new ScreepsPtrApiError(`Screeps PTR API request failed with HTTP ${response.status}.`);
   }
 
-  if (!isPlainObject(apiPayload) || apiPayload.ok !== 1) {
+  if (!isPlainObject(apiPayload)) {
     throw new ScreepsPtrApiError('Screeps PTR API response did not include ok=1.');
+  }
+
+  if (apiPayload.ok !== 1) {
+    throw new ScreepsPtrApiError(readPtrApiFailureMessage(apiPayload));
   }
 
   return apiPayload;
@@ -95,6 +182,42 @@ const decodePtrCodeResponse = (apiPayload) => {
   }
 
   return decodeRemoteModuleSet(apiPayload.modules);
+};
+
+const decodePtrRoomStatusResponse = (apiPayload) => {
+  if (apiPayload.room === null) {
+    return 'unknown';
+  }
+
+  if (
+    !isPlainObject(apiPayload.room) ||
+    typeof apiPayload.room.status !== 'string' ||
+    apiPayload.room.status.trim() === ''
+  ) {
+    throw new ScreepsPtrApiError('Screeps PTR API room status response did not include status.');
+  }
+
+  return apiPayload.room.status.trim();
+};
+
+const decodePtrRoomObjectsResponse = (apiPayload) => {
+  if (!Array.isArray(apiPayload.objects)) {
+    throw new ScreepsPtrApiError('Screeps PTR API room objects response did not include objects.');
+  }
+
+  return apiPayload.objects;
+};
+
+const decodePtrPlaceSpawnResponse = (apiPayload) => ({
+  ...(typeof apiPayload.newbie === 'boolean' ? { newbie: apiPayload.newbie } : {}),
+});
+
+const readPtrApiFailureMessage = (apiPayload) => {
+  if (typeof apiPayload.error === 'string' && apiPayload.error.trim() !== '') {
+    return `Screeps PTR API request was rejected: ${apiPayload.error.trim()}.`;
+  }
+
+  return 'Screeps PTR API response did not include ok=1.';
 };
 
 const isPlainObject = (candidateValue) =>

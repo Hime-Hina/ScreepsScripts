@@ -401,4 +401,157 @@ describe('Screeps PTR API deployment boundary', () => {
       JSON.stringify({ branch: 'main', modules: { main: 'local-main' } }),
     );
   });
+
+  it('reads PTR account, overview, and shard state through fixed PTR endpoints', async () => {
+    const capturedUrls: string[] = [];
+    const capturedHeaders: (RequestInit['headers'] | undefined)[] = [];
+    const apiPayloads = [
+      {
+        cpu: 80,
+        cpuShard: { shard1: 20 },
+        ok: 1,
+        username: 'Dragon_King',
+      },
+      {
+        ok: 1,
+        shard1: {
+          gametime: 71630000,
+          rooms: [],
+        },
+      },
+      {
+        ok: 1,
+        shards: [{ cpuLimit: 20, name: 'shard1' }],
+      },
+    ];
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrls.push(requestInput.toString());
+      capturedHeaders.push(requestInit?.headers);
+
+      return Promise.resolve(
+        new Response(JSON.stringify(apiPayloads[capturedUrls.length - 1]), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const ptrApiModule = await loadPtrApiModule();
+
+    await expect(ptrApiModule.readPtrAccountStatus(ptrConfig)).resolves.toMatchObject({
+      cpu: 80,
+      username: 'Dragon_King',
+    });
+    await expect(ptrApiModule.readPtrOverview(ptrConfig)).resolves.toMatchObject({
+      shard1: {
+        rooms: [],
+      },
+    });
+    await expect(ptrApiModule.readPtrShardInfo(ptrConfig)).resolves.toMatchObject({
+      shards: [{ cpuLimit: 20, name: 'shard1' }],
+    });
+    expect(capturedUrls).toEqual([
+      'https://screeps.com/ptr/api/auth/me',
+      'https://screeps.com/ptr/api/user/overview?interval=8',
+      'https://screeps.com/ptr/api/game/shards/info',
+    ]);
+    expect(capturedHeaders).toEqual([
+      { 'X-Token': 'ptr-secret-token' },
+      { 'X-Token': 'ptr-secret-token' },
+      { 'X-Token': 'ptr-secret-token' },
+    ]);
+  });
+
+  it('reads PTR room status and room objects through shard and room query parameters', async () => {
+    const capturedUrls: string[] = [];
+    const apiPayloads = [
+      {
+        ok: 1,
+        room: { status: 'normal' },
+      },
+      {
+        objects: [
+          {
+            name: 'Spawn1',
+            type: 'spawn',
+            x: 35,
+            y: 23,
+          },
+        ],
+        ok: 1,
+      },
+    ];
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrls.push(requestInput.toString());
+      expect(requestInit?.headers).toEqual({
+        'X-Token': 'ptr-secret-token',
+      });
+
+      return Promise.resolve(
+        new Response(JSON.stringify(apiPayloads[capturedUrls.length - 1]), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const ptrApiModule = await loadPtrApiModule();
+
+    await expect(ptrApiModule.readPtrRoomStatus(ptrConfig, 'shard1', 'W51N21')).resolves.toBe(
+      'normal',
+    );
+    await expect(ptrApiModule.readPtrRoomObjects(ptrConfig, 'shard1', 'W51N21')).resolves.toEqual([
+      {
+        name: 'Spawn1',
+        type: 'spawn',
+        x: 35,
+        y: 23,
+      },
+    ]);
+    expect(capturedUrls).toEqual([
+      'https://screeps.com/ptr/api/game/room-status?room=W51N21&shard=shard1',
+      'https://screeps.com/ptr/api/game/room-objects?room=W51N21&shard=shard1',
+    ]);
+  });
+
+  it('places a PTR spawn with an explicit room founding request body', async () => {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrl = requestInput.toString();
+      capturedInit = requestInit;
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ newbie: true, ok: 1 }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const ptrApiModule = await loadPtrApiModule();
+
+    await expect(
+      ptrApiModule.placePtrSpawn(ptrConfig, {
+        roomName: 'W51N21',
+        shardName: 'shard1',
+        spawnName: 'Spawn1',
+        x: 35,
+        y: 23,
+      }),
+    ).resolves.toEqual({ newbie: true });
+    expect(capturedUrl).toBe('https://screeps.com/ptr/api/game/place-spawn');
+    expect(capturedUrl).not.toContain('ptr-secret-token');
+    expect(capturedInit?.headers).toEqual({
+      'Content-Type': 'application/json; charset=utf-8',
+      'X-Token': 'ptr-secret-token',
+    });
+    expect(capturedInit?.method).toBe('POST');
+    expect(capturedInit?.body).toBe(
+      JSON.stringify({ room: 'W51N21', shard: 'shard1', x: 35, y: 23, name: 'Spawn1' }),
+    );
+  });
 });

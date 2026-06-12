@@ -24,7 +24,8 @@
     "06-12-p2-structure-maintenance-repair-fallback",
     "06-12-p3-defense-fallback-safe-mode",
     "06-12-p4-runtime-resilience-monitoring-fallback",
-    "06-12-p5-recovery-rebuild-fallback"
+    "06-12-p5-recovery-rebuild-fallback",
+    "06-13-p3-ptr-defense-drill"
   ],
   "parent": null,
   "relatedFiles": [],

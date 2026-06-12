@@ -94,6 +94,29 @@ export interface ScreepsApiModule {
 }
 
 export interface PtrApiModule {
+  placePtrSpawn(
+    ptrConfig: PtrScreepsConfig,
+    spawnTarget: {
+      readonly roomName: string;
+      readonly shardName: string;
+      readonly spawnName: string;
+      readonly x: number;
+      readonly y: number;
+    },
+  ): Promise<{ readonly newbie?: boolean }>;
+  readPtrAccountStatus(ptrConfig: PtrScreepsConfig): Promise<Record<string, unknown>>;
+  readPtrOverview(ptrConfig: PtrScreepsConfig): Promise<Record<string, unknown>>;
+  readPtrRoomObjects(
+    ptrConfig: PtrScreepsConfig,
+    shardName: string,
+    roomName: string,
+  ): Promise<unknown[]>;
+  readPtrRoomStatus(
+    ptrConfig: PtrScreepsConfig,
+    shardName: string,
+    roomName: string,
+  ): Promise<string>;
+  readPtrShardInfo(ptrConfig: PtrScreepsConfig): Promise<Record<string, unknown>>;
   readPtrRemoteModuleSet(ptrConfig: PtrScreepsConfig): Promise<Record<string, string>>;
   uploadPtrRemoteModuleSet(
     ptrConfig: PtrScreepsConfig,
@@ -111,6 +134,10 @@ export interface PtrRollbackModule {
 
 export interface PtrVerifyModule {
   verifyPtrScreepsReadbackFrom(workspacePath: string): Promise<void>;
+}
+
+export interface PtrRoomFoundingModule {
+  foundPtrMainRoomFrom(workspacePath: string): Promise<void>;
 }
 
 export const loadConfigModule = async (): Promise<ConfigModule> => {
@@ -213,6 +240,16 @@ export const loadPtrVerifyModule = async (): Promise<PtrVerifyModule> => {
   return loadedModule;
 };
 
+export const loadPtrRoomFoundingModule = async (): Promise<PtrRoomFoundingModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/found-ptr-room.mjs');
+
+  if (!isPtrRoomFoundingModule(loadedModule)) {
+    throw new Error('found-ptr-room.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
 const loadDeploymentModule = async (relativePath: string): Promise<unknown> => {
   const loadedModule = (await import(pathToFileURL(resolve(relativePath)).href)) as unknown;
 
@@ -269,6 +306,12 @@ const isScreepsApiModule = (candidateModule: unknown): candidateModule is Screep
 
 const isPtrApiModule = (candidateModule: unknown): candidateModule is PtrApiModule =>
   isRecord(candidateModule) &&
+  hasFunction(candidateModule, 'placePtrSpawn') &&
+  hasFunction(candidateModule, 'readPtrAccountStatus') &&
+  hasFunction(candidateModule, 'readPtrOverview') &&
+  hasFunction(candidateModule, 'readPtrRoomObjects') &&
+  hasFunction(candidateModule, 'readPtrRoomStatus') &&
+  hasFunction(candidateModule, 'readPtrShardInfo') &&
   hasFunction(candidateModule, 'readPtrRemoteModuleSet') &&
   hasFunction(candidateModule, 'uploadPtrRemoteModuleSet');
 
@@ -280,6 +323,11 @@ const isPtrRollbackModule = (candidateModule: unknown): candidateModule is PtrRo
 
 const isPtrVerifyModule = (candidateModule: unknown): candidateModule is PtrVerifyModule =>
   isRecord(candidateModule) && hasFunction(candidateModule, 'verifyPtrScreepsReadbackFrom');
+
+const isPtrRoomFoundingModule = (
+  candidateModule: unknown,
+): candidateModule is PtrRoomFoundingModule =>
+  isRecord(candidateModule) && hasFunction(candidateModule, 'foundPtrMainRoomFrom');
 
 const isRecord = (candidateValue: unknown): candidateValue is Record<string, unknown> =>
   typeof candidateValue === 'object' && candidateValue !== null;
