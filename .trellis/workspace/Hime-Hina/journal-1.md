@@ -493,3 +493,34 @@ Implemented pure room recovery classification, live read-only recovery status ou
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: P0-P5 acceptance
+
+**Date**: 2026-06-13
+**Task**: P0-P5 acceptance
+**Branch**: `master`
+
+### Summary
+
+P0-P5 验收通过；Trellis validate 与 pnpm check 通过；父任务已归档。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
