@@ -427,3 +427,36 @@ Implemented CPU budget fallback, runtime alerting, error isolation, live surviva
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: Live heartbeat readback verification
+
+**Date**: 2026-06-13
+**Task**: Live heartbeat readback verification
+**Branch**: `codex/live-heartbeat-readback-verification`
+
+### Summary
+
+Implemented read-only live console heartbeat readback for status:live:screeps, verified P4 CPU/bucket/room summary through tests and live status output.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b18d5f1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
