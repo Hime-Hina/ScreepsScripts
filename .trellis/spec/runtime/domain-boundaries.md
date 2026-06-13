@@ -335,3 +335,55 @@ const defensePlan = planRoomDefense(runtime.readDefenseWorld());
 runtime.executeDefenseDecisions(defensePlan.decisions);
 const workerWorld = runtime.readWorkerWorld(defensePlan.roomDefenseStates);
 ```
+
+## Scenario: P5 Room Recovery Diagnostics
+
+### 1. Scope / Trigger
+
+- Trigger: P5 recovery fallback introduces fallen room, missing spawn, missing creep population, controller loss, and rebuild blocker diagnostics.
+- This contract applies when adding or changing `src/colony/room-recovery.ts`, live recovery status output, or future rebuild request contracts.
+
+### 2. Signatures
+
+- Recovery planner: `planRoomRecovery(world: RoomRecoveryWorldSnapshot): RoomRecoveryPlan`.
+- Recovery room snapshot includes room name, controller ownership/downgrade state, owned spawn presence, worker count, and `RoomDefenseState`.
+- Recovery states include `roomHealthy`, `roomDegraded`, `spawnMissing`, `creepPopulationMissing`, `controllerLost`, and `rebuildBlocked`.
+- Recovery plan currently returns `rebuildRequests: []`.
+- Live status command prints recovery diagnostics through `recoveryStates` and `recoveryBlockers`.
+
+### 3. Contracts
+
+- `src/colony/` owns pure room recovery classification.
+- Recovery classification receives snapshots only and must not read `Game`, `Memory`, Screeps globals, API credentials, or live object ids.
+- `controllerLost` has priority over spawn and creep population diagnostics.
+- `spawnMissing` records the room fact. If no owned support room exists, also record `rebuildBlocked` with reason `noOwnedSupportRoom`.
+- If another owned room exists but cross-room support contracts are missing, keep rebuild blocked with reason `rebuildSupportContractMissing`.
+- `creepPopulationMissing` uses `BOOTSTRAP_SURVIVAL_WORKER_COUNT`; do not duplicate the survival floor in TypeScript strategy modules.
+- `roomDegraded` records existing survival pressure such as non-safe controller downgrade state or `roomUnsafe`.
+- Current P5 does not generate `requestRebuildSupport`, pathfind across rooms, execute claim, or fabricate rebuild actions from diagnostics.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required Behavior |
+| --- | --- |
+| Owned controller, owned spawn, survival worker count met, safe controller, safe room | Return `roomHealthy` |
+| Owned controller and owned spawn, but controller downgrade state is not safe | Return `roomDegraded` with the downgrade state as reason |
+| Owned controller and owned spawn, but defense state is `roomUnsafe` | Return `roomDegraded` with reason `roomUnsafe` |
+| Owned controller exists but owned spawn is absent | Return `spawnMissing` |
+| Spawn is absent and no other owned room exists | Also return `rebuildBlocked` with reason `noOwnedSupportRoom` and no rebuild request |
+| Spawn is absent and another owned room exists before support contracts exist | Return `rebuildBlocked` with reason `rebuildSupportContractMissing` and no rebuild request |
+| Owned spawn exists but worker count is below survival floor | Return `creepPopulationMissing`; P0/P1 owns emergency spawn/worker action |
+| Controller is no longer owned | Return `controllerLost`; do not also report spawn rebuild diagnostics |
+
+### 5. Good/Base/Bad Cases
+
+- Good: status output for a healthy single room includes `recoveryStates=W51N21:roomHealthy recoveryBlockers=-`.
+- Good: unit tests prove a single-room missing spawn produces `spawnMissing` plus `rebuildBlocked` and no `requestRebuildSupport`.
+- Base: current live room has spawn and worker population, so recovery diagnostics are read-only status evidence.
+- Bad: recovery planner reads `Game.rooms`, hard-codes `W51N21` / `Spawn1`, creates pathfinding, or emits claim/rebuild actions without support-room contracts.
+
+### 6. Tests Required
+
+- Unit tests for `planRoomRecovery` must cover healthy, degraded, spawn missing, creep population missing, controller lost, and rebuild blocked.
+- Integration tests for `status:live:screeps` must cover read-only recovery status output, including single-room `spawnMissing` / `rebuildBlocked`.
+- Future tests for `requestRebuildSupport` are required before emitting any cross-room rebuild request.

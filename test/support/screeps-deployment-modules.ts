@@ -74,6 +74,9 @@ export interface ScreepsApiModule {
   readLiveAccountIdentity(
     screepsConfig: ScreepsConfig,
   ): Promise<{ readonly accountId: string; readonly username?: string }>;
+  readLiveOwnedRooms(
+    screepsConfig: ScreepsConfig,
+  ): Promise<readonly { readonly roomName: string; readonly shardName: string }[]>;
   readRoomObjects(
     screepsConfig: ScreepsConfig,
     shardName: string,
@@ -323,6 +326,7 @@ const isPtrRollbackSnapshotModule = (
 const isScreepsApiModule = (candidateModule: unknown): candidateModule is ScreepsApiModule =>
   isRecord(candidateModule) &&
   hasFunction(candidateModule, 'readLiveAccountIdentity') &&
+  hasFunction(candidateModule, 'readLiveOwnedRooms') &&
   hasFunction(candidateModule, 'readRoomObjects') &&
   hasFunction(candidateModule, 'readRoomStatus') &&
   hasFunction(candidateModule, 'readRoomTerrainText') &&

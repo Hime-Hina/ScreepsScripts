@@ -17,6 +17,14 @@ export const readLiveAccountIdentity = async (screepsConfig) => {
   return decodeLiveAccountIdentityResponse(apiPayload);
 };
 
+export const readLiveOwnedRooms = async (screepsConfig) => {
+  const apiPayload = await readScreepsJsonPayloadWithRetry(buildLiveOverviewUrl(screepsConfig), {
+    headers: buildAuthHeaders(screepsConfig),
+  });
+
+  return decodeOwnedRoomsFromOverview(apiPayload);
+};
+
 export const readRemoteModuleSet = async (screepsConfig) => {
   const apiPayload = await readScreepsJsonPayloadWithRetry(buildReadUserCodeUrl(screepsConfig), {
     headers: buildAuthHeaders(screepsConfig),
@@ -107,6 +115,17 @@ export const buildWriteUserCodeUrl = (screepsConfig) =>
 export const buildAuthMeUrl = (screepsConfig) =>
   new URL('/api/auth/me', `${screepsConfig.protocol}://${screepsConfig.server}`);
 
+export const buildLiveOverviewUrl = (screepsConfig) => {
+  const overviewUrl = new URL(
+    '/api/user/overview',
+    `${screepsConfig.protocol}://${screepsConfig.server}`,
+  );
+
+  overviewUrl.searchParams.set('interval', '8');
+
+  return overviewUrl;
+};
+
 export const buildRoomObjectsUrl = (screepsConfig, shardName, roomName) =>
   buildGameRoomUrl(screepsConfig, '/api/game/room-objects', shardName, roomName);
 
@@ -177,6 +196,35 @@ const decodeLiveAccountIdentityResponse = (apiPayload) => {
 
   return accountIdentity;
 };
+
+const decodeOwnedRoomsFromOverview = (apiPayload) =>
+  iterateOverviewShardEntries(apiPayload)
+    .flatMap(([shardName, shardOverview]) =>
+      shardOverview.rooms.map((roomName) => ({
+        roomName,
+        shardName,
+      })),
+    )
+    .sort((leftRoom, rightRoom) => {
+      const shardOrder = leftRoom.shardName.localeCompare(rightRoom.shardName);
+
+      return shardOrder === 0 ? leftRoom.roomName.localeCompare(rightRoom.roomName) : shardOrder;
+    });
+
+const iterateOverviewShardEntries = (apiPayload) => {
+  if (isPlainObject(apiPayload.shards)) {
+    return Object.entries(apiPayload.shards).filter(([fieldName, fieldValue]) =>
+      isOverviewShardEntry(fieldName, fieldValue),
+    );
+  }
+
+  return Object.entries(apiPayload).filter(([fieldName, fieldValue]) =>
+    isOverviewShardEntry(fieldName, fieldValue),
+  );
+};
+
+const isOverviewShardEntry = (fieldName, fieldValue) =>
+  /^shard\d+$/u.test(fieldName) && isPlainObject(fieldValue) && Array.isArray(fieldValue.rooms);
 
 const decodeRoomObjectsResponse = (apiPayload) => {
   if (!Array.isArray(apiPayload.objects)) {

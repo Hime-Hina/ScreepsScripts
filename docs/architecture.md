@@ -45,6 +45,8 @@ flowchart LR
 
 `src/defense/` 拥有纯 defense fallback 决策。当前 planner 使用 runtime 捕获的 Screeps body part constants 和 official combat power constants 识别 hostile `canDamage`、`canDismantle`、`canHeal` 和 `nearCore`；当危险 hostile 接近 spawn/extension/tower 且 controller safe mode 可用时产出 `activateSafeMode` decision。`RoomDefenseState` 会传入 colony construction eligibility，让有攻击/拆除威胁的房间暂停非关键 build。Tower attack/heal/repair policy 仍是 RCL3 后续切片。
 
+`src/colony/` 拥有 room-level recovery 诊断。当前 `planRoomRecovery` 是纯分类操作，基于 owned controller、owned spawn、worker 数、controller downgrade state 和 room defense state 输出 `roomHealthy`、`roomDegraded`、`spawnMissing`、`creepPopulationMissing`、`controllerLost` 和 `rebuildBlocked`。当前实现不生成跨房 rebuild action，不做 pathfinding，也不做 claim。
+
 其他未来领域模块应围绕 Screeps 概念划分，例如 colony、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由运行时拥有的操作统一裁决和执行。
 
 CPU 和 bucket 行为是架构的一部分。当前 heartbeat 输出 `cpu`、`bucket`、`limit`、`tickLimit`、budget decision 和每房间 `workers`、`spawnEnergy`、`construction`、`hostiles` 摘要。Pathfinding、room scan、market scan、cache rebuild 在实现前必须明确预算、执行频率和低 bucket 行为。

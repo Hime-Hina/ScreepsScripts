@@ -35,12 +35,12 @@
 
 ## Acceptance Criteria
 
-- [ ] Unit tests 覆盖 healthy/degraded/spawnMissing/creepLess/controllerLost/rebuildBlocked 状态分类。
-- [ ] Unit tests 覆盖单房无 spawn 时不产出无法执行 action。
+- [x] Unit tests 覆盖 healthy/degraded/spawnMissing/creepLess/controllerLost/rebuildBlocked 状态分类。
+- [x] Unit tests 覆盖单房无 spawn 时不产出无法执行 action。
 - [ ] 如果实现 multi-room request contract，unit tests 覆盖支援房可用时生成 rebuild request。
-- [ ] Integration tests 或 system tests 覆盖 live/read-only room recovery summary。
-- [ ] Docs 记录当前单房 recovery blocker。
-- [ ] `pnpm check` 通过。
+- [x] Integration tests 或 system tests 覆盖 live/read-only room recovery summary。
+- [x] Docs 记录当前单房 recovery blocker。
+- [x] `pnpm check` 通过。
 
 ## Out of Scope
 

@@ -13,6 +13,7 @@ interface FetchRecord {
 
 interface LiveFetchPayloads {
   readonly authMe: Record<string, unknown>;
+  readonly overview: Record<string, unknown>;
   readonly remoteModules: Record<string, unknown>;
   readonly roomObjects: Record<string, unknown>;
   readonly roomStatus: Record<string, unknown>;
@@ -92,6 +93,12 @@ describe('live survival status command', () => {
         },
         ok: 1,
       },
+      overview: {
+        ok: 1,
+        shard1: {
+          rooms: ['W51N21'],
+        },
+      },
       roomObjects: {
         objects: [
           {
@@ -99,6 +106,7 @@ describe('live survival status command', () => {
             level: 2,
             progress: 9412,
             type: 'controller',
+            user: 'alice-user',
           },
           {
             name: 'Spawn1',
@@ -163,11 +171,13 @@ describe('live survival status command', () => {
 
       expect(fetchRecords.map((fetchRecord) => fetchRecord.url)).toEqual([
         'https://screeps.com/api/auth/me',
+        'https://screeps.com/api/user/overview?interval=8',
         'https://screeps.com/api/game/room-status?room=W51N21&shard=shard1',
         'https://screeps.com/api/game/room-objects?room=W51N21&shard=shard1',
         'https://screeps.com/api/user/code?branch=main',
       ]);
       expect(fetchRecords.map((fetchRecord) => fetchRecord.init?.headers)).toEqual([
+        { 'X-Token': 'secret-token' },
         { 'X-Token': 'secret-token' },
         { 'X-Token': 'secret-token' },
         { 'X-Token': 'secret-token' },
@@ -192,12 +202,80 @@ describe('live survival status command', () => {
       expect(joinedLogLines(logSpy)).toContain('constructionSites=1 constructionProgress=50/3000');
       expect(joinedLogLines(logSpy)).toContain('hostileCreeps=1 hostileSpawns=0 hostileTowers=1');
       expect(joinedLogLines(logSpy)).toContain(
+        'recoveryStates=W51N21:creepPopulationMissing recoveryBlockers=-',
+      );
+      expect(joinedLogLines(logSpy)).toContain(
         'naturalTickHeartbeat=verified tick=71650000 heartbeatShard=shard1 heartbeatRoom=W51N21 heartbeatCpu=0.63 heartbeatBucket=9876 heartbeatLimit=20 heartbeatTickLimit=500 heartbeatBudget=full heartbeatWorkers=5 heartbeatSpawnEnergy=300/300 heartbeatConstruction=5 heartbeatHostiles=0',
       );
       expect(joinedLogLines(logSpy)).toContain('constants=official-runtime-capture');
       expect(joinedLogLines(logSpy)).not.toContain('secret-token');
       expect(joinedLogLines(logSpy)).not.toContain('refreshed-token');
       expect(joinedLogLines(logSpy)).not.toContain('remote-main-source');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('prints single-room spawn-missing rebuild blocker without creating rebuild action evidence', async () => {
+    const workspacePath = await createLiveStatusWorkspace();
+    stubLiveFetch({
+      authMe: {
+        _id: 'alice-user',
+        ok: 1,
+        username: 'Alice',
+      },
+      overview: {
+        ok: 1,
+        shard1: {
+          rooms: ['W51N21'],
+        },
+      },
+      remoteModules: {
+        modules: {
+          main: 'remote-main-source',
+        },
+        ok: 1,
+      },
+      roomObjects: {
+        objects: [
+          {
+            downgradeTime: 71634002,
+            level: 2,
+            progress: 9412,
+            type: 'controller',
+            user: 'alice-user',
+          },
+        ],
+        ok: 1,
+      },
+      roomStatus: {
+        ok: 1,
+        room: { status: 'normal' },
+      },
+    });
+    stubConsoleWebSocket({
+      accountId: 'alice-user',
+      heartbeatLine:
+        '[tick 71650000] cpu=0.63 bucket=9876 limit=20 tickLimit=500 budget=full rooms=W51N21:workers=0:spawnEnergy=0/0:construction=0:hostiles=0',
+      shardName: 'shard1',
+    });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const liveStatusModule = await loadLiveSurvivalStatusModule();
+
+      await liveStatusModule.checkLiveSurvivalStatusFrom(workspacePath, [
+        '--shard',
+        'shard1',
+        '--room',
+        'W51N21',
+      ]);
+
+      expect(joinedLogLines(logSpy)).toContain(
+        'recoveryStates=W51N21:spawnMissing,W51N21:rebuildBlocked recoveryBlockers=W51N21:noOwnedSupportRoom',
+      );
+      expect(joinedLogLines(logSpy)).not.toContain('requestRebuildSupport');
+      expect(joinedLogLines(logSpy)).not.toContain('claim');
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
     }
@@ -352,6 +430,12 @@ const createMinimalLiveFetchPayloads = (): LiveFetchPayloads => ({
     },
     ok: 1,
   },
+  overview: {
+    ok: 1,
+    shard1: {
+      rooms: ['W51N21'],
+    },
+  },
   roomObjects: {
     objects: [
       {
@@ -359,6 +443,7 @@ const createMinimalLiveFetchPayloads = (): LiveFetchPayloads => ({
         level: 2,
         progress: 9412,
         type: 'controller',
+        user: 'alice-user',
       },
       {
         name: 'Spawn1',
@@ -403,6 +488,10 @@ const stubLiveFetch = (apiPayloadsByRoute: LiveFetchPayloads) => {
 const selectLiveApiPayload = (apiPayloadsByRoute: LiveFetchPayloads, apiPath: string) => {
   if (apiPath === '/api/auth/me') {
     return apiPayloadsByRoute.authMe;
+  }
+
+  if (apiPath === '/api/user/overview') {
+    return apiPayloadsByRoute.overview;
   }
 
   if (apiPath === '/api/game/room-status') {

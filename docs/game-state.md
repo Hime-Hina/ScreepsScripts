@@ -8,10 +8,11 @@
 - 世界：Persistent World（`observed`，既有 UI 记录）
 - Account CPU shard 配置：`shard1 = 20`（`observed`，`/api/auth/me`）
 - P4 runtime heartbeat CPU snapshot：`cpu=0.10`、`bucket=10000`、`limit=20`、`tickLimit=500`、`budget=full`（`observed`，2026-06-13 `status:live:screeps` console websocket）。
+- P5 recovery read-only summary：`recoveryStates=W51N21:roomHealthy`、`recoveryBlockers=-`（`observed`，2026-06-13 `status:live:screeps`）。
 - `shards/info` 运行态 `cpuLimit` 仍显示旧值 `shard3 = 20`、`shard1 = 0`；实际执行以账号 `cpuShard` 配置和新房间 live 行为为准（`observed`，API）。
 - Active production room：`shard1 / W51N21`（`observed`，API）。
-- Spawn：`Spawn1`，位置 `35,23`，energy `269`，当前未 spawning（`observed`，API）。
-- Controller：位置 `26,7`，RCL `2`，progress `9572`，API room-object field `safeMode = 71622765`，safe mode available `1`（`observed`，API）。当前用户确认 room safe mode 已过期；API room-object 中 `safeModeCooldown = 60510881`、`upgradeBlocked = 58760194` 是 room-object 读回字段，不等同于 runtime sandbox 的 remaining-tick 字段（`observed`，API；`derived`，字段语义限制）。
+- Spawn：`Spawn1`，位置 `35,23`，energy `300/300`，当前未 spawning（`observed`，API）。
+- Controller：位置 `26,7`，RCL `2`，progress `9608`，API room-object `downgradeTime = 71651193`，API room-object field `safeMode = 71622765`，safe mode available `1`（`observed`，API）。当前用户确认 room safe mode 已过期；API room-object 中 `safeModeCooldown = 60510881`、`upgradeBlocked = 58760194` 是 room-object 读回字段，不等同于 runtime sandbox 的 remaining-tick 字段（`observed`，API；`derived`，字段语义限制）。
 - Sources：两个 source 可读（`observed`，API）。
 - Creeps：
   - `Spawn1-worker-71623926`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `34,6`，carry energy `95`（`observed`，API）。
@@ -19,7 +20,7 @@
   - `Spawn1-worker-71624168`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `36,12`，carry energy `95`（`observed`，API）。
   - `Spawn1-worker-71624273`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `37,29`，carry energy `100`（`observed`，API）。
   - `Spawn1-worker-71624390`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `33,5`，carry energy `100`（`observed`，API）。
-- Extension construction sites：`5` 个，aggregate progress `4775/15000`（`observed`，API）。
+- Extension construction sites：`5` 个，aggregate progress `5055/15000`（`observed`，API）。
 - 自持循环证据：controller 已升级到 RCL `2`，RCL2 planner 已创建 5 个 extension construction site，worker 已开始 build，spawn/extension 补能和后续升级路径由 runtime boundary 执行（`observed`，API + derived source behavior）。
 - Former production room `shard3 / W15S27` 当前无 spawn、无 creeps、controller owner `null`，`place-spawn` 返回 `room not available`（`observed`，API）。
 
@@ -172,6 +173,8 @@ require('main').loop();
 - 2026-06-13 P4 runtime resilience live deploy：`pnpm deploy:screeps` 通过，先执行 `pnpm check` 和 build；branch `main`，remote modules `main`，module set hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`（`observed`，API write + readback + local snapshot）。
 - 2026-06-13 P4 runtime resilience live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`；该脚本不验证自然 tick heartbeat（`observed`，API readback）。
 - 2026-06-13 P4 runtime resilience live status：`pnpm status:live:screeps` 通过，只读输出 branch `main`、`shard1 / W51N21` status `normal`、module hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`、controller RCL `2`、API `controllerDowngradeTime=71650085`、controller progress `9572`、workerCount `5`、spawnEnergy `269/300`、spawning `no`、constructionSites `5`、constructionProgress `4775/15000`、hostile creeps/spawns/towers 均为 `0`，并通过 live console websocket 观察到自然 P4 heartbeat：`naturalTickHeartbeat=verified`、tick `71640676`、CPU `0.10`、bucket `10000`、limit `20`、tickLimit `500`、budget `full`、room summary `W51N21:workers=5:spawnEnergy=269/300:construction=5:hostiles=0`。当前 readback 证明 P4 部署后远端 module hash、API room survival 状态和自然 runtime monitor heartbeat 均已验证；该命令未部署代码、未提交 console expression（`observed`，API readback + console websocket）。
+- 2026-06-13 P5 recovery diagnostic local implementation：本地源码已新增 `planRoomRecovery` 纯分类操作，覆盖 `roomHealthy`、`roomDegraded`、`spawnMissing`、`creepPopulationMissing`、`controllerLost` 和 `rebuildBlocked`；当前不生成 `requestRebuildSupport`，不做跨房 pathfinding，也不做 claim（`derived`，本地源码 + focused tests）。
+- 2026-06-13 P5 recovery status read-only：`pnpm status:live:screeps` 通过，只读输出 branch `main`、`shard1 / W51N21` status `normal`、module hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`、controller RCL `2`、API `controllerDowngradeTime=71651193`、controller progress `9608`、workerCount `5`、spawnEnergy `300/300`、spawning `no`、constructionSites `5`、constructionProgress `5055/15000`、hostile creeps/spawns/towers 均为 `0`、`recoveryStates=W51N21:roomHealthy`、`recoveryBlockers=-`，并通过 live console websocket 观察到自然 P4 heartbeat：tick `71642105`、CPU `0.10`、bucket `10000`、limit `20`、tickLimit `500`、budget `full`、room summary `W51N21:workers=5:spawnEnergy=300/300:construction=5:hostiles=0`。该命令未部署代码、未提交 console expression、未生成 rebuild action（`observed`，API readback + console websocket）。
 
 ## PTR 代码验证
 
@@ -213,8 +216,8 @@ https://screeps.com/a/#!/account/auth-tokens
 
 ## 阻塞事实
 
-当前 P4 runtime heartbeat 已通过 live console websocket 观察到 CPU bucket 和 CPU tick limit。P2 自然 repair action 证据暂时 blocked，原因是当前 supported repair backlog 为空。P3 live natural safe mode activation evidence 暂时 blocked，原因是当前 hostile creeps/spawns/towers 均为 `0`，safe mode charge `1` 未消耗。
+当前 P4 runtime heartbeat 已通过 live console websocket 观察到 CPU bucket 和 CPU tick limit。P2 自然 repair action 证据暂时 blocked，原因是当前 supported repair backlog 为空。P3 live natural safe mode activation evidence 暂时 blocked，原因是当前 hostile creeps/spawns/towers 均为 `0`，safe mode charge `1` 未消耗。P5 自然 `spawnMissing` / `rebuildBlocked` 证据暂时 blocked，原因是当前 active room `W51N21` 的 `Spawn1` 存在且房间 recovery summary 为 `roomHealthy`；不能为了验证破坏 live spawn。
 
 ## 下一步生产动作
 
-当前重启房间、spawn、controller、source 采集、spawn/extension 补能、extension construction site 创建、worker build、P2 critical repair fallback 部署、P3 defense fallback 部署、P4 runtime monitor heartbeat 和远端代码 hash 已确认。P2 自然 repair action 证据暂时 blocked，原因是当前 supported repair backlog 为空。P3 live natural safe mode activation evidence 暂时 blocked，原因是当前 hostile creeps/spawns/towers 均为 `0`，safe mode charge `1` 未消耗。P3 PTR hostile drill blocked，原因是 PTR shard1 runtime CPU 尚未生效且不能在 CPU shard 冷却窗口内重提分配；local official server fallback 已验证 near-core dangerous hostile 触发 safe mode、near-core harmless scout 不触发 safe mode 且施工继续、distant dangerous hostile 不触发 safe mode 且暂停非关键 build。后续 road/container planner、wall/rampart fortification、tower 或更完整 base planning 应继续通过 Memory 边界和小行为切片进入。
+当前重启房间、spawn、controller、source 采集、spawn/extension 补能、extension construction site 创建、worker build、P2 critical repair fallback 部署、P3 defense fallback 部署、P4 runtime monitor heartbeat、P5 recovery read-only summary 和远端代码 hash 已确认。P2 自然 repair action 证据暂时 blocked，原因是当前 supported repair backlog 为空。P3 live natural safe mode activation evidence 暂时 blocked，原因是当前 hostile creeps/spawns/towers 均为 `0`，safe mode charge `1` 未消耗。P5 自然 `spawnMissing` / `rebuildBlocked` 证据暂时 blocked，原因是当前 active room spawn 存在；当前代码只提供诊断摘要，不实现跨房 pathfinding 或 claim。P3 PTR hostile drill blocked，原因是 PTR shard1 runtime CPU 尚未生效且不能在 CPU shard 冷却窗口内重提分配；local official server fallback 已验证 near-core dangerous hostile 触发 safe mode、near-core harmless scout 不触发 safe mode 且施工继续、distant dangerous hostile 不触发 safe mode 且暂停非关键 build。后续 road/container planner、wall/rampart fortification、tower 或更完整 base planning 应继续通过 Memory 边界和小行为切片进入。

@@ -2,15 +2,15 @@
 
 ## Checklist
 
-- [ ] Confirm P3 and P4 signals exist.
-- [ ] Add pure room recovery state classifier tests.
-- [ ] Add `planRoomRecovery` pure operation.
-- [ ] Capture room/spawn/controller/creep availability needed by classifier.
-- [ ] Add no-support-room blocked recovery tests.
+- [x] Confirm P3 and P4 signals exist.
+- [x] Add pure room recovery state classifier tests.
+- [x] Add `planRoomRecovery` pure operation.
+- [x] Capture room/spawn/controller/creep availability needed by classifier.
+- [x] Add no-support-room blocked recovery tests.
 - [ ] Optionally add `requestRebuildSupport` contract if support room snapshot exists.
-- [ ] Add read-only recovery summary to live check docs/script if P4 created one.
-- [ ] Update `docs/game-state.md` with current single-room recovery blockers.
-- [ ] Run validation commands.
+- [x] Add read-only recovery summary to live check docs/script if P4 created one.
+- [x] Update `docs/game-state.md` with current single-room recovery blockers.
+- [x] Run validation commands.
 
 ## Validation Commands
 

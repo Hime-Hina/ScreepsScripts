@@ -80,6 +80,52 @@ describe('Screeps API deployment boundary', () => {
     });
   });
 
+  it('reads live owned rooms from overview with X-Token authentication', async () => {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrl = requestInput.toString();
+      capturedInit = requestInit;
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ok: 1,
+            shard1: {
+              rooms: ['W51N21'],
+            },
+            shard3: {
+              rooms: ['W15S27'],
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        ),
+      );
+    });
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(screepsApiModule.readLiveOwnedRooms(screepsConfig)).resolves.toEqual([
+      {
+        roomName: 'W51N21',
+        shardName: 'shard1',
+      },
+      {
+        roomName: 'W15S27',
+        shardName: 'shard3',
+      },
+    ]);
+    expect(capturedUrl).toBe('http://127.0.0.1:21025/api/user/overview?interval=8');
+    expect(capturedUrl).not.toContain('secret-token');
+    expect(capturedInit?.headers).toEqual({
+      'X-Token': 'secret-token',
+    });
+  });
+
   it('rejects live account identity payloads without an account id', async () => {
     vi.stubGlobal('fetch', () =>
       Promise.resolve(

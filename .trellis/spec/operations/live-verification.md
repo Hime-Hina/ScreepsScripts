@@ -65,6 +65,7 @@ Use this contract when a live command must prove natural runtime execution throu
 - Command: `pnpm status:live:screeps`
 - Script: `node scripts/screeps/live-survival-status.mjs --shard <name> --room <name>`
 - Live account API: `GET /api/auth/me`
+- Live overview API: `GET /api/user/overview?interval=8`
 - Console websocket subscription: `user:<accountId>/console`
 
 ### 3. Contracts
@@ -72,6 +73,7 @@ Use this contract when a live command must prove natural runtime execution throu
 - `screeps.json` supplies `protocol`, `server`, `branch`, and `token`; the command validates this at the boundary.
 - HTTP requests use `X-Token`, never `_token`.
 - `/api/auth/me` must provide `_id`; `username` is optional diagnostic context only.
+- `/api/user/overview?interval=8` supplies owned room names used only for support-room diagnostics. It must not trigger room founding, rebuild, pathfinding, claim, or deployment behavior.
 - The websocket URL is derived from `protocol/server`: `https -> wss`, `http -> ws`, path `/socket/<serverId>/<sessionId>/websocket`.
 - After SockJS open frame `o`, send `["auth <token>"]`; after `auth ok`, send `["subscribe user:<accountId>/console"]`.
 - The command must not send `POST /api/user/console` or any console expression.
@@ -92,10 +94,13 @@ Use this contract when a live command must prove natural runtime execution throu
 | Console event is for another shard | Keep waiting until timeout/close |
 | Target-shard tick line lacks CPU, bucket, limit, tickLimit, budget, or room summary | Fail closed; do not downgrade to API-only success |
 | Target room summary is absent | Fail closed |
+| Target room has no owned spawn and overview contains no other owned room | Print `recoveryStates=<room>:spawnMissing,<room>:rebuildBlocked` and `recoveryBlockers=<room>:noOwnedSupportRoom`; do not print or imply rebuild action evidence |
+| Target room has no owned spawn and overview contains another owned room | Print `recoveryBlockers=<room>:rebuildSupportContractMissing`; do not generate `requestRebuildSupport` until cross-room contracts exist |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: `status:live:screeps` reports room/API summary plus `naturalTickHeartbeat=verified`, tick, shard, room, CPU, bucket, limit, tickLimit, budget, and room survival summary.
+- Good: `status:live:screeps` reports `recoveryStates` and `recoveryBlockers` from read-only room objects plus overview.
 - Base: API readback succeeds but no target heartbeat appears; the command fails and docs record the blocked reason.
 - Bad: command prints token, remote module source, browser cookies, or full `screeps.json`.
 - Bad: command sends `require('main').loop()` or any `POST /api/user/console` expression to manufacture evidence.
@@ -103,7 +108,9 @@ Use this contract when a live command must prove natural runtime execution throu
 ### 6. Tests Required
 
 - Integration test for `/api/auth/me` URL and `X-Token` header.
+- Integration test for `/api/user/overview?interval=8` URL and `X-Token` header.
 - Integration test for successful websocket readback that asserts subscribe channel and `naturalTickHeartbeat=verified` output.
+- Integration test for single-room `spawnMissing` plus `rebuildBlocked` status output.
 - Integration tests for malformed heartbeat, missing target room summary, wrong shard, auth failure, and websocket close.
 - System test must keep `status:live:screeps` explicit and outside `pnpm check`.
 

@@ -16,6 +16,7 @@
 - 当前源码会在 RCL2 owned room 为缺失 extension 规划 construction site，并维护已有 spawn/extension/container/road 的 critical repair fallback；暂不做 road/container planner、wall/rampart fortification、tower 或完整 base planner。
 - 当前源码会在 runtime boundary 捕获 owned room hostile creep body/owner/hits/position、controller safe mode 字段和核心 owned structures；pure defense planner 识别攻击、远程攻击、拆除、治疗和 near-core 威胁，危险 hostile 接近核心结构时产出 `activateSafeMode` decision，runtime boundary 执行 `controller.activateSafeMode`。有攻击/拆除威胁但未接近核心结构时，room defense state 会暂停非关键 construction build。
 - 当前源码会在 runtime boundary 捕获 `Game.cpu` snapshot，kernel 根据 bucket 选择 full 或 survival-only tick budget；survival-only 保留 defense、emergency spawn 和 controller upgrade，跳过非关键 construction/repair。runtime operation 按关键性分组隔离，关键失败通过 `Game.notify` 报告后抛出，非关键失败报告后继续。tick heartbeat 输出 CPU snapshot、budget decision 和每房间 workers/spawnEnergy/construction/hostiles 摘要。
+- 当前源码包含 `planRoomRecovery` 纯诊断分类，识别 `roomHealthy`、`roomDegraded`、`spawnMissing`、`creepPopulationMissing`、`controllerLost` 和 `rebuildBlocked`；当前只输出诊断，不生成跨房 rebuild request，不做 pathfinding 或 claim。
 
 ## 领域语言
 

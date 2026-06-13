@@ -7,6 +7,7 @@ import { readMainScreepsConfig, readMainScreepsConfigFrom } from './config.mjs';
 import { hashModuleSet } from './module-set.mjs';
 import {
   readLiveAccountIdentity,
+  readLiveOwnedRooms,
   readRemoteModuleSet,
   readRoomObjects,
   readRoomStatus,
@@ -14,6 +15,7 @@ import {
 
 const CONSOLE_HEARTBEAT_TIMEOUT_MS = 30000;
 const SOCKJS_SESSION_ALPHABET = 'abcdefghijklmnopqrstuvwxyz012345';
+const LIVE_STATUS_SURVIVAL_WORKER_COUNT = 3;
 
 export class LiveSurvivalStatusError extends Error {
   constructor(message) {
@@ -78,6 +80,7 @@ export const parseLiveSurvivalStatusRequest = (commandArguments) => {
 
 const printLiveSurvivalStatus = async (screepsConfig, statusRequest) => {
   const accountIdentity = await readLiveAccountIdentity(screepsConfig);
+  const ownedRooms = await readLiveOwnedRooms(screepsConfig);
   const roomStatus = await readRoomStatus(
     screepsConfig,
     statusRequest.shardName,
@@ -89,7 +92,14 @@ const printLiveSurvivalStatus = async (screepsConfig, statusRequest) => {
     statusRequest.roomName,
   );
   const remoteModules = await readRemoteModuleSet(screepsConfig);
-  const survivalSummary = summarizeLiveRoomSurvival(roomObjects);
+  const survivalSummary = summarizeLiveRoomSurvival(roomObjects, accountIdentity.accountId);
+  const recoverySummary = summarizeLiveRoomRecovery(
+    roomObjects,
+    accountIdentity.accountId,
+    statusRequest,
+    ownedRooms,
+    survivalSummary,
+  );
   const naturalHeartbeat = await readNaturalConsoleHeartbeat(
     screepsConfig,
     accountIdentity.accountId,
@@ -115,6 +125,8 @@ const printLiveSurvivalStatus = async (screepsConfig, statusRequest) => {
       `hostileCreeps=${survivalSummary.hostileCreepCount}`,
       `hostileSpawns=${survivalSummary.hostileSpawnCount}`,
       `hostileTowers=${survivalSummary.hostileTowerCount}`,
+      `recoveryStates=${formatRecoveryStates(recoverySummary)}`,
+      `recoveryBlockers=${formatRecoveryBlockers(recoverySummary)}`,
       'naturalTickHeartbeat=verified',
       `tick=${naturalHeartbeat.tick}`,
       `heartbeatShard=${naturalHeartbeat.shardName}`,
@@ -475,9 +487,8 @@ const readRequiredRoomSummaryEnergy = (roomFields, roomName) => {
   return spawnEnergy;
 };
 
-const summarizeLiveRoomSurvival = (roomObjects) => {
-  const ownedSpawn = selectOwnedSpawn(roomObjects);
-  const ownedUserId = readStringField(ownedSpawn, 'user');
+const summarizeLiveRoomSurvival = (roomObjects, ownedUserId) => {
+  const ownedSpawn = selectOwnedSpawn(roomObjects, ownedUserId);
   const spawnName = readStringField(ownedSpawn, 'name');
   const controller = roomObjects.find(
     (roomObject) => readStringField(roomObject, 'type') === 'controller',
@@ -503,9 +514,89 @@ const summarizeLiveRoomSurvival = (roomObjects) => {
   };
 };
 
-const selectOwnedSpawn = (roomObjects) =>
+const summarizeLiveRoomRecovery = (
+  roomObjects,
+  ownedUserId,
+  statusRequest,
+  ownedRooms,
+  survivalSummary,
+) => {
+  const controller = roomObjects.find(
+    (roomObject) => readStringField(roomObject, 'type') === 'controller',
+  );
+
+  if (!objectBelongsToUser(controller, ownedUserId)) {
+    return [
+      {
+        roomName: statusRequest.roomName,
+        type: 'controllerLost',
+      },
+    ];
+  }
+
+  const ownedSpawn = selectOwnedSpawn(roomObjects, ownedUserId);
+
+  if (ownedSpawn === null) {
+    return [
+      {
+        roomName: statusRequest.roomName,
+        type: 'spawnMissing',
+      },
+      {
+        reason: selectLiveRebuildBlockedReason(statusRequest, ownedRooms),
+        roomName: statusRequest.roomName,
+        type: 'rebuildBlocked',
+      },
+    ];
+  }
+
+  if (survivalSummary.workerCount < LIVE_STATUS_SURVIVAL_WORKER_COUNT) {
+    return [
+      {
+        roomName: statusRequest.roomName,
+        type: 'creepPopulationMissing',
+      },
+    ];
+  }
+
+  return [
+    {
+      roomName: statusRequest.roomName,
+      type: 'roomHealthy',
+    },
+  ];
+};
+
+const selectLiveRebuildBlockedReason = (statusRequest, ownedRooms) => {
+  const hasOwnedSupportRoom = ownedRooms.some(
+    (ownedRoom) =>
+      ownedRoom.shardName !== statusRequest.shardName ||
+      ownedRoom.roomName !== statusRequest.roomName,
+  );
+
+  return hasOwnedSupportRoom ? 'rebuildSupportContractMissing' : 'noOwnedSupportRoom';
+};
+
+const formatRecoveryStates = (recoveryStates) =>
+  recoveryStates
+    .map((recoveryState) => `${recoveryState.roomName}:${recoveryState.type}`)
+    .join(',');
+
+const formatRecoveryBlockers = (recoveryStates) => {
+  const recoveryBlockers = recoveryStates
+    .filter((recoveryState) => recoveryState.type === 'rebuildBlocked')
+    .map((recoveryState) => `${recoveryState.roomName}:${recoveryState.reason}`);
+
+  return recoveryBlockers.length === 0 ? '-' : recoveryBlockers.join(',');
+};
+
+const selectOwnedSpawn = (roomObjects, ownedUserId) =>
   roomObjects
-    .filter((roomObject) => readStringField(roomObject, 'type') === 'spawn')
+    .filter(
+      (roomObject) =>
+        readStringField(roomObject, 'type') === 'spawn' &&
+        objectBelongsToUser(roomObject, ownedUserId),
+    )
     .sort((leftSpawn, rightSpawn) =>
       readStringField(leftSpawn, 'name').localeCompare(readStringField(rightSpawn, 'name')),
     )[0] ?? null;
