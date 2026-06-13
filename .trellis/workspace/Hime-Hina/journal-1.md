@@ -524,3 +524,36 @@ P0-P5 验收通过；Trellis validate 与 pnpm check 通过；父任务已归档
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: Fix energy capacity runtime capture
+
+**Date**: 2026-06-13
+**Task**: Fix energy capacity runtime capture
+**Branch**: `master`
+
+### Summary
+
+Fixed runtime energy capacity capture for spawn/extension snapshots, deployed live hash a54c183ed600a41dcd8fb427bdc132f18985b00463e355c59cd17dd29f0bb93c, verified live readback and natural heartbeat.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f9dcbd2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

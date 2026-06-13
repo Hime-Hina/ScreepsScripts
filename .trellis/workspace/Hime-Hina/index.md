@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
+- **Total Sessions**: 16
 - **Last Active**: 2026-06-13
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~526 | Active |
+| `journal-1.md` | ~559 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-06-13 | Fix energy capacity runtime capture | `f9dcbd2` | `master` |
 | 15 | 2026-06-13 | P0-P5 acceptance | - | `master` |
 | 14 | 2026-06-13 | P5 recovery diagnostics | `a1125f4` | `codex/live-heartbeat-readback-verification` |
 | 13 | 2026-06-13 | Live heartbeat readback verification | `b18d5f1` | `codex/live-heartbeat-readback-verification` |
