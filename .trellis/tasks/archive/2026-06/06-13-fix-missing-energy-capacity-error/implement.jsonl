@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/runtime/index.md", "reason": "Runtime layer entrypoint and quality gate for Screeps global capture changes."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Defines that Screeps globals and validation belong at the runtime boundary."}
+{"file": ".trellis/spec/runtime/typescript-rules.md", "reason": "TypeScript constraints for project-owned runtime code."}
+{"file": ".trellis/spec/runtime/diagnostics.md", "reason": "Runtime errors and heartbeat diagnostics must remain actionable."}
+{"file": ".trellis/spec/testing/index.md", "reason": "Testing layer index for behavior-slice bug fixes."}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "Requires a failing regression test before the fix."}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "Defines observable loop-level acceptance behavior."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Integration test is the correct layer for runtime boundary Screeps global stubs."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Runtime snapshot data crosses into kernel and strategy layers."}

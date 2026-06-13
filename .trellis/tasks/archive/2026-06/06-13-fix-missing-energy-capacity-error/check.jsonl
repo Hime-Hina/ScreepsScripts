@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/runtime/index.md", "reason": "Check required runtime quality commands and boundaries."}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Check capacity capture stays in the runtime boundary."}
+{"file": ".trellis/spec/runtime/typescript-rules.md", "reason": "Check source TypeScript constraints."}
+{"file": ".trellis/spec/testing/index.md", "reason": "Check required test layer commands."}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "Check the bug fix has a regression test."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Check integration coverage owns the loop/runtime behavior."}
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "Final readiness requires more than a single passing test."}
