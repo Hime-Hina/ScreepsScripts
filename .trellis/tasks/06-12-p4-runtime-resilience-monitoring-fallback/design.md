@@ -72,11 +72,22 @@ Add or extend a read-only script to report:
 
 Script must use `X-Token` from ignored config and never print token.
 
+## Local Official Server E2E
+
+Add a P4 runner case under `scripts/screeps-server/cases/` to observe runtime monitoring in the official local standalone engine.
+
+The case should reuse an existing fixture when possible. It must prove a natural tick emits the P4 runtime health evidence needed by this task, including CPU snapshot fields and room survival summary fields that can be observed without credentials.
+
+Do not add a behavior-specific package script. Use the existing local server runner boundary, for example `node scripts/screeps-server/run-suite.mjs case runtime-resilience-monitoring`, unless the project later defines a stable full suite entrypoint.
+
+Do not mutate local engine constants, tick semantics, intents, or player sandbox behavior to force low bucket or failures. Low-bucket and injected-failure behavior belongs in source-level unit/integration tests unless the official engine exposes a stable natural setup for that condition.
+
 ## Tests
 
 - Unit tests for budget decision variants.
 - Unit tests for alert throttling.
 - Integration tests for operation group error handling.
+- Local official server e2e for natural tick runtime monitor evidence.
 - System tests for live-check script existence and no inclusion in `pnpm check`.
 
 ## Rollback

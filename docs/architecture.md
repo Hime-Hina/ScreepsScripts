@@ -31,9 +31,9 @@ flowchart LR
 
 `src/main.ts` 刻意保持很薄，只负责捕获 Screeps 运行时边界并调用 kernel。
 
-`src/runtime/` 拥有对 Screeps 全局对象的直接访问权。策略模块应从该边界接收明确输入，而不是自行读取全局对象。
+`src/runtime/` 拥有对 Screeps 全局对象的直接访问权。策略模块应从该边界接收明确输入，而不是自行读取全局对象。该边界也负责捕获 `Game.cpu` snapshot、执行 `Game.notify` 和输出 tick heartbeat。
 
-`src/kernel/` 拥有 tick 级编排。当前实现记录 tick telemetry，把 runtime 快照交给 defense、construction、spawning 和 creeps 边界产出可测试的决策，并通过 runtime boundary 执行 safe mode、construction、spawn 和 worker action。
+`src/kernel/` 拥有 tick 级编排。当前实现记录 tick telemetry，把 runtime 快照交给 defense、construction、spawning 和 creeps 边界产出可测试的决策，并通过 runtime boundary 执行 safe mode、construction、spawn 和 worker action。kernel 根据 CPU bucket 选择 full 或 survival-only tick budget；低 bucket 时保留 defense、emergency spawn 和 controller upgrade，跳过非关键 construction/repair。runtime operation 按 defense、spawn、critical worker、construction、non-critical worker 分组隔离，关键组失败会先通知再抛出，非关键组失败会通知并继续当前 tick。
 
 `src/memory/` 负责原始 `Memory` 的校验、schema version、迁移入口和写回。当前 schema 只有项目 root 与 `schemaVersion`，在 creep、room、spawn 状态进入前先建立单一持久化边界。
 
@@ -47,7 +47,7 @@ flowchart LR
 
 其他未来领域模块应围绕 Screeps 概念划分，例如 colony、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由运行时拥有的操作统一裁决和执行。
 
-CPU 和 bucket 行为是架构的一部分。Pathfinding、room scan、market scan、cache rebuild 在实现前必须明确预算、执行频率和低 bucket 行为。
+CPU 和 bucket 行为是架构的一部分。当前 heartbeat 输出 `cpu`、`bucket`、`limit`、`tickLimit`、budget decision 和每房间 `workers`、`spawnEnergy`、`construction`、`hostiles` 摘要。Pathfinding、room scan、market scan、cache rebuild 在实现前必须明确预算、执行频率和低 bucket 行为。
 
 ## 测试层
 
@@ -65,7 +65,7 @@ CPU 和 bucket 行为是架构的一部分。Pathfinding、room scan、market sc
 
 PTR 命令使用独立的 `screeps.ptr.json` 和固定 API base `https://screeps.com/ptr/api/`。PTR API readback 只证明远端 `main` module 与本地 `dist/main.js` 同步；PTR 自然 tick 证据必须单独观察或记录为 blocked。
 
-Local server e2e 增长时应通过 runner 内部的 suite/case/fixture registry 扩展。`package.json` 只暴露少量稳定套件入口；不要为每个策略行为新增脚本，也不要用同一命令的 mode/flag 切换到 PTR、live、部署或回滚边界。
+Local server e2e 增长时应通过 runner 内部的 suite/case/fixture registry 扩展。`package.json` 只暴露少量稳定套件入口；不要为每个策略行为新增脚本，也不要用同一命令的 mode/flag 切换到 PTR、live、部署或回滚边界。P4 runtime monitor 使用显式 case `runtime-resilience-monitoring`，保持在本地官方 server 边界内验证自然 tick 心跳内容。
 
 ## 扩展规则
 

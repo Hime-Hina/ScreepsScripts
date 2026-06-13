@@ -17,6 +17,9 @@ interface RegistryProbe {
   readonly harmlessScoutCaseLabel: string;
   readonly harmlessScoutCaseNames: readonly string[];
   readonly mixedFixtureError: string;
+  readonly runtimeMonitorCaseFixtureNames: readonly string[];
+  readonly runtimeMonitorCaseLabel: string;
+  readonly runtimeMonitorCaseNames: readonly string[];
   readonly smokeCaseNames: readonly string[];
   readonly smokeFixtureNames: readonly string[];
 }
@@ -34,6 +37,7 @@ const readRegistryProbe = (): RegistryProbe => {
         const coreThreatCaseSelection = createSingleCaseSelection('defense-core-threat-safe-mode');
         const harmlessScoutCaseSelection = createSingleCaseSelection('defense-harmless-scout-continues');
         const distantThreatCaseSelection = createSingleCaseSelection('defense-distant-threat-defers-build');
+        const runtimeMonitorCaseSelection = createSingleCaseSelection('runtime-resilience-monitoring');
         let mixedFixtureError = '';
 
         try {
@@ -56,6 +60,9 @@ const readRegistryProbe = (): RegistryProbe => {
           harmlessScoutCaseLabel: harmlessScoutCaseSelection.label,
           harmlessScoutCaseNames: harmlessScoutCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
           mixedFixtureError,
+          runtimeMonitorCaseFixtureNames: runtimeMonitorCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
+          runtimeMonitorCaseLabel: runtimeMonitorCaseSelection.label,
+          runtimeMonitorCaseNames: runtimeMonitorCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
           smokeCaseNames: suiteSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
           smokeFixtureNames: suiteSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
         }));
@@ -90,6 +97,9 @@ const isRegistryProbe = (registryProbe: unknown): registryProbe is RegistryProbe
     typeof candidateProbe['harmlessScoutCaseLabel'] === 'string' &&
     isStringArray(candidateProbe['harmlessScoutCaseNames']) &&
     typeof candidateProbe['mixedFixtureError'] === 'string' &&
+    isStringArray(candidateProbe['runtimeMonitorCaseFixtureNames']) &&
+    typeof candidateProbe['runtimeMonitorCaseLabel'] === 'string' &&
+    isStringArray(candidateProbe['runtimeMonitorCaseNames']) &&
     isStringArray(candidateProbe['smokeCaseNames']) &&
     isStringArray(candidateProbe['smokeFixtureNames'])
   );
@@ -130,7 +140,7 @@ describe('Screeps server suite registry', () => {
     ]);
   });
 
-  it('keeps smoke inside the single-owned-spawn fixture and selects defense drill cases explicitly', () => {
+  it('keeps smoke inside the single-owned-spawn fixture and selects drill cases explicitly', () => {
     const registryProbe = readRegistryProbe();
 
     expect(registryProbe.smokeCaseNames).toEqual([
@@ -147,6 +157,9 @@ describe('Screeps server suite registry', () => {
     expect(registryProbe.distantThreatCaseLabel).toBe('case=defense-distant-threat-defers-build');
     expect(registryProbe.distantThreatCaseNames).toEqual(['defense-distant-threat-defers-build']);
     expect(registryProbe.distantThreatCaseFixtureNames).toEqual(['defense-distant-threat']);
+    expect(registryProbe.runtimeMonitorCaseLabel).toBe('case=runtime-resilience-monitoring');
+    expect(registryProbe.runtimeMonitorCaseNames).toEqual(['runtime-resilience-monitoring']);
+    expect(registryProbe.runtimeMonitorCaseFixtureNames).toEqual(['single-owned-spawn']);
     expect(registryProbe.mixedFixtureError).toContain(
       'Screeps server e2e cases in one run must share one fixture',
     );

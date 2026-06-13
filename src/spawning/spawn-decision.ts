@@ -1,4 +1,5 @@
 import {
+  BOOTSTRAP_SURVIVAL_WORKER_COUNT,
   classifyBootstrapControllerDowngradeState,
   classifySpawnExtensionEnergyState,
   selectBootstrapWorkerDemand,
@@ -82,6 +83,36 @@ export const planBootstrapWorkerSpawn = (
     });
 
     if (spawningRoom.workerCreepCount >= workerDemand.targetWorkerCount) {
+      continue;
+    }
+
+    if (spawnSnapshot.isSpawning) {
+      continue;
+    }
+
+    const workerBody = selectEarlyWorkerBody(spawnSnapshot, spawningWorld.bodyPartCosts);
+
+    if (workerBody === null) {
+      continue;
+    }
+
+    return {
+      body: workerBody,
+      creepName: `${spawnSnapshot.name}-worker-${spawningWorld.gameTime}`,
+      spawnName: spawnSnapshot.name,
+    };
+  }
+
+  return null;
+};
+
+export const planBootstrapSurvivalWorkerSpawn = (
+  spawningWorld: SpawningWorldSnapshot,
+): SpawnDecision | null => {
+  for (const spawnSnapshot of spawningWorld.spawns) {
+    const spawningRoom = readSpawningRoom(spawningWorld, spawnSnapshot.roomName);
+
+    if (spawningRoom.workerCreepCount >= BOOTSTRAP_SURVIVAL_WORKER_COUNT) {
       continue;
     }
 

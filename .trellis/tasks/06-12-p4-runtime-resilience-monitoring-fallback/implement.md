@@ -2,17 +2,18 @@
 
 ## Checklist
 
-- [ ] Confirm P0 and P1 survival signals exist.
-- [ ] Add CPU snapshot capture to runtime interface.
-- [ ] Add pure budget decision tests.
-- [ ] Add kernel branch for survival-only budget.
-- [ ] Add alert decision and throttling tests.
-- [ ] Add runtime `Game.notify` execution with group interval.
-- [ ] Add operation-group error boundary tests.
-- [ ] Add read-only live survival check script or extend existing script.
-- [ ] Add system tests for script contract and no default CI inclusion.
-- [ ] Update docs/game-state and development docs.
-- [ ] Run validation commands.
+- [x] Confirm P0 and P1 survival signals exist.
+- [x] Add CPU snapshot capture to runtime interface.
+- [x] Add pure budget decision tests.
+- [x] Add kernel branch for survival-only budget.
+- [x] Add alert decision and throttling tests.
+- [x] Add runtime `Game.notify` execution with group interval.
+- [x] Add operation-group error boundary tests.
+- [x] Add local official server e2e case for runtime monitor natural tick evidence.
+- [x] Add read-only live survival check script or extend existing script.
+- [x] Add system tests for script contract and no default CI inclusion.
+- [x] Update docs/game-state and development docs.
+- [x] Run validation commands.
 
 ## Validation Commands
 
@@ -20,11 +21,20 @@
 pnpm test:unit -- test/unit/kernel test/unit/runtime
 pnpm test:integration -- test/integration/main-loop.test.ts
 pnpm test:system
+node scripts/screeps-server/run-suite.mjs case runtime-resilience-monitoring
 pnpm check
 pnpm verify:live:screeps
 ```
 
-`verify:live:screeps` remains readback only. The new live survival check must be explicit and read-only.
+`verify:live:screeps` remains readback only. The new live survival check must be explicit and read-only. The local server case is explicit, credential-free, and remains outside default `pnpm check`.
+
+## Validation Results
+
+- `pnpm check` passed.
+- `node scripts/screeps-server/run-suite.mjs case runtime-resilience-monitoring` passed and observed a natural local engine heartbeat with CPU snapshot and room survival summary.
+- `pnpm deploy:screeps` passed and deployed live branch `main` with module set hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`.
+- `pnpm verify:live:screeps` passed with `apiReadback=main-matched` for hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`.
+- `pnpm status:live:screeps` passed and printed the read-only live survival summary for `shard1 / W51N21`.
 
 ## Risk Points
 
@@ -34,4 +44,4 @@ pnpm verify:live:screeps
 
 ## Parallelization
 
-Live-check script and CPU budget pure tests can be delegated. Kernel/runtime integration should be single-owner.
+Live-check script, local server runner case, and CPU budget pure tests can be delegated. Kernel/runtime integration should be single-owner.

@@ -24,6 +24,14 @@ const SCREEPS_SERVER_CASES = new Map([
     },
   ],
   [
+    'runtime-resilience-monitoring',
+    {
+      fixtureName: SINGLE_OWNED_SPAWN_FIXTURE_NAME,
+      name: 'runtime-resilience-monitoring',
+      run: assertRuntimeResilienceMonitoring,
+    },
+  ],
+  [
     'defense-core-threat-safe-mode',
     {
       fixtureName: DEFENSE_CORE_THREAT_FIXTURE_NAME,
@@ -133,6 +141,10 @@ async function assertMemorySchemaWrite(harness) {
       `Saved ${SINGLE_OWNED_SPAWN_ACTIVE_BOT.username} Memory does not contain ${SINGLE_OWNED_SPAWN_ACTIVE_BOT.memoryRootKey}.schemaVersion = ${SINGLE_OWNED_SPAWN_ACTIVE_BOT.memorySchemaVersion}.`,
     );
   }
+}
+
+async function assertRuntimeResilienceMonitoring(harness) {
+  await harness.waitForRuntimeMonitorEvidence();
 }
 
 async function assertDefenseCoreThreatSafeMode(harness) {

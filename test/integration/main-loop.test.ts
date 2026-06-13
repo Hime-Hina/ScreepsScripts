@@ -39,6 +39,13 @@ const TEST_CONTROLLER_STRUCTURES = {
   },
 };
 
+const createTestCpu = (usedAtTickStart: number) => ({
+  bucket: 5000,
+  getUsed: () => usedAtTickStart,
+  limit: 20,
+  tickLimit: 500,
+});
+
 describe('Screeps main loop', () => {
   beforeEach(() => {
     vi.stubGlobal('BODYPART_COST', TEST_BODY_PART_COST);
@@ -94,10 +101,9 @@ describe('Screeps main loop', () => {
 
     vi.stubGlobal('Game', {
       creeps: {},
-      cpu: {
-        getUsed: () => 0.5,
-      },
+      cpu: createTestCpu(0.5),
       getObjectById: () => null,
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -120,7 +126,9 @@ describe('Screeps main loop', () => {
 
     mainModule.loop();
 
-    expect(consoleLines).toEqual(['[tick 7] cpu=0.50']);
+    expect(consoleLines).toEqual([
+      '[tick 7] cpu=0.50 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=0:spawnEnergy=0/0:construction=0:hostiles=0',
+    ]);
     expect(spawnRequests).toEqual([
       [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-7'],
     ]);
@@ -161,10 +169,9 @@ describe('Screeps main loop', () => {
       creeps: {
         LiveWorker: liveWorkerCreep,
       },
-      cpu: {
-        getUsed: () => 0.55,
-      },
+      cpu: createTestCpu(0.55),
       getObjectById: () => null,
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -239,10 +246,9 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.7,
-      },
+      cpu: createTestCpu(0.7),
       getObjectById: (objectId: string) => (objectId === 'source-1' ? sourceTarget : null),
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -268,7 +274,9 @@ describe('Screeps main loop', () => {
 
     expect(harvestTargets).toEqual([sourceTarget]);
     expect(moveTargets).toEqual([sourceTarget]);
-    expect(consoleLines).toEqual(['[tick 8] cpu=0.70']);
+    expect(consoleLines).toEqual([
+      '[tick 8] cpu=0.70 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=1:spawnEnergy=0/0:construction=0:hostiles=0',
+    ]);
   });
 
   it('executes distributed harvest decisions through the runtime boundary', async () => {
@@ -331,9 +339,7 @@ describe('Screeps main loop', () => {
         WorkerA: firstWorkerCreep,
         WorkerB: secondWorkerCreep,
       },
-      cpu: {
-        getUsed: () => 0.75,
-      },
+      cpu: createTestCpu(0.75),
       getObjectById: (objectId: string) => {
         if (objectId === 'source-a') {
           return firstSource;
@@ -345,6 +351,7 @@ describe('Screeps main loop', () => {
 
         return null;
       },
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -420,11 +427,10 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.71,
-      },
+      cpu: createTestCpu(0.71),
       getObjectById: (objectId: string) =>
         objectId === 'dropped-energy-1' ? droppedEnergyTarget : sourceTarget,
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -510,11 +516,10 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.72,
-      },
+      cpu: createTestCpu(0.72),
       getObjectById: (objectId: string) =>
         objectId === 'tombstone-1' ? tombstoneTarget : sourceTarget,
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -612,11 +617,10 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.73,
-      },
+      cpu: createTestCpu(0.73),
       getObjectById: (objectId: string) =>
         objectId === testCase.targetId ? storedEnergyTarget : sourceTarget,
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -692,10 +696,9 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.8,
-      },
+      cpu: createTestCpu(0.8),
       getObjectById: (objectId: string) => (objectId === 'spawn-1' ? firstSpawn : null),
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: {
@@ -779,10 +782,9 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.9,
-      },
+      cpu: createTestCpu(0.9),
       getObjectById: (objectId: string) => (objectId === 'controller-1' ? controllerTarget : null),
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -848,10 +850,9 @@ describe('Screeps main loop', () => {
 
     vi.stubGlobal('Game', {
       creeps: {},
-      cpu: {
-        getUsed: () => 0.6,
-      },
+      cpu: createTestCpu(0.6),
       getObjectById: () => null,
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -942,10 +943,9 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.65,
-      },
+      cpu: createTestCpu(0.65),
       getObjectById: (objectId: string) => (objectId === 'extension-1' ? extensionTarget : null),
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: undefined,
@@ -1054,10 +1054,9 @@ describe('Screeps main loop', () => {
           name: 'Worker3',
         },
       },
-      cpu: {
-        getUsed: () => 0.66,
-      },
+      cpu: createTestCpu(0.66),
       getObjectById: (objectId: string) => (objectId === 'site-1' ? constructionSiteTarget : null),
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -1167,9 +1166,7 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.62,
-      },
+      cpu: createTestCpu(0.62),
       getObjectById: (objectId: string) => {
         if (objectId === 'road-1') {
           return roadTarget;
@@ -1181,6 +1178,7 @@ describe('Screeps main loop', () => {
 
         return null;
       },
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -1303,10 +1301,9 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.62,
-      },
+      cpu: createTestCpu(0.62),
       getObjectById: (objectId: string) => (objectId === 'controller-1' ? controllerTarget : null),
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -1415,9 +1412,7 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.64,
-      },
+      cpu: createTestCpu(0.64),
       getObjectById: (objectId: string) => {
         if (objectId === 'controller-1') {
           return controllerTarget;
@@ -1429,6 +1424,7 @@ describe('Screeps main loop', () => {
 
         return null;
       },
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -1539,9 +1535,7 @@ describe('Screeps main loop', () => {
       creeps: {
         Worker1: workerCreep,
       },
-      cpu: {
-        getUsed: () => 0.67,
-      },
+      cpu: createTestCpu(0.67),
       getObjectById: (objectId: string) => {
         if (objectId === 'controller-1') {
           return controllerTarget;
@@ -1553,6 +1547,7 @@ describe('Screeps main loop', () => {
 
         return null;
       },
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -1649,10 +1644,9 @@ describe('Screeps main loop', () => {
 
     vi.stubGlobal('Game', {
       creeps: {},
-      cpu: {
-        getUsed: () => 0.63,
-      },
+      cpu: createTestCpu(0.63),
       getObjectById: (objectId: string) => (objectId === 'controller-1' ? controllerTarget : null),
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -1798,9 +1792,7 @@ describe('Screeps main loop', () => {
           name: 'Worker3',
         },
       },
-      cpu: {
-        getUsed: () => 0.63,
-      },
+      cpu: createTestCpu(0.63),
       getObjectById: (objectId: string) => {
         if (objectId === 'controller-1') {
           return controllerTarget;
@@ -1812,6 +1804,7 @@ describe('Screeps main loop', () => {
 
         return null;
       },
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -1975,9 +1968,7 @@ describe('Screeps main loop', () => {
           name: 'Worker3',
         },
       },
-      cpu: {
-        getUsed: () => 0.63,
-      },
+      cpu: createTestCpu(0.63),
       getObjectById: (objectId: string) => {
         if (objectId === 'controller-1') {
           return controllerTarget;
@@ -1989,6 +1980,7 @@ describe('Screeps main loop', () => {
 
         return null;
       },
+      notify: () => undefined,
       rooms: {
         W1N1: {
           controller: controllerTarget,
@@ -2036,5 +2028,144 @@ describe('Screeps main loop', () => {
     expect(safeModeRequests).toEqual([]);
     expect(buildTargets).toEqual([]);
     expect(upgradeTargets).toEqual([controllerTarget]);
+  });
+
+  it('reports a non-critical construction action failure and continues the tick', async () => {
+    const consoleLines: string[] = [];
+    const constructionAttempts: unknown[] = [];
+    const notifyRequests: unknown[] = [];
+    const spawnRequests: unknown[] = [];
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 2,
+      my: true,
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+      ticksToDowngrade: 9000,
+    };
+    const firstSpawn = {
+      hits: 5000,
+      hitsMax: 5000,
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      spawnCreep: (...spawnArguments: unknown[]) => spawnRequests.push(spawnArguments),
+      spawning: null,
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.88),
+      getObjectById: () => null,
+      notify: (...notifyArguments: unknown[]) => notifyRequests.push(notifyArguments),
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          createConstructionSite: (...request: unknown[]) => {
+            constructionAttempts.push(request);
+            throw new Error('construction failed');
+          },
+          find: (findType: number) => {
+            if (findType === TEST_FIND_STRUCTURES || findType === TEST_FIND_MY_STRUCTURES) {
+              return [firstSpawn];
+            }
+
+            return [];
+          },
+          getTerrain: () => ({
+            get: () => 0,
+          }),
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 25,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: (message: string) => consoleLines.push(message),
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(constructionAttempts).not.toEqual([]);
+    expect(spawnRequests).toEqual([
+      [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-25'],
+    ]);
+    expect(notifyRequests).toContainEqual([
+      'alert=runtime-action-failure operation=construction criticality=non-critical error=construction failed',
+      100,
+    ]);
+    expect(consoleLines.some((line) => line.startsWith('[tick 25] cpu=0.88 bucket=5000'))).toBe(
+      true,
+    );
+  });
+
+  it('reports a critical spawn action failure before surfacing the error', async () => {
+    const notifyRequests: unknown[] = [];
+    const firstSpawn = {
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+      },
+      spawnCreep: () => {
+        throw new Error('spawn failed');
+      },
+      spawning: null,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.89),
+      getObjectById: () => null,
+      notify: (...notifyArguments: unknown[]) => notifyRequests.push(notifyArguments),
+      rooms: {
+        W1N1: {
+          controller: undefined,
+          find: () => [],
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 26,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    expect(() => mainModule.loop()).toThrow('spawn failed');
+    expect(notifyRequests).toContainEqual([
+      'alert=runtime-action-failure operation=spawn criticality=critical error=spawn failed',
+      100,
+    ]);
   });
 });

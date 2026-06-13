@@ -49,6 +49,7 @@ describe('project scripts', () => {
       'rollback:screeps',
       'rollback:ptr:screeps',
       'scout:screeps',
+      'status:live:screeps',
       'test:bundle',
       'test:coverage',
       'test:integration',
@@ -86,6 +87,9 @@ describe('project scripts', () => {
     );
     expect(packageManifest.scripts['rollback:screeps']).toBe('node scripts/screeps/rollback.mjs');
     expect(packageManifest.scripts['scout:screeps']).toBe('node scripts/screeps/scout-rooms.mjs');
+    expect(packageManifest.scripts['status:live:screeps']).toBe(
+      'node scripts/screeps/live-survival-status.mjs --shard shard1 --room W51N21',
+    );
     expect(packageManifest.scripts['deploy:ptr:screeps']).toBe(
       'pnpm check && pnpm build && node scripts/screeps/deploy-ptr.mjs',
     );
@@ -113,6 +117,7 @@ describe('project scripts', () => {
     expect(packageManifest.scripts['check']).not.toContain('rollback:screeps');
     expect(packageManifest.scripts['check']).not.toContain('rollback:ptr:screeps');
     expect(packageManifest.scripts['check']).not.toContain('scout:screeps');
+    expect(packageManifest.scripts['check']).not.toContain('status:live:screeps');
     expect(packageManifest.scripts['check']).not.toContain('test:screeps-server');
     expect(packageManifest.scripts['check']).not.toContain('verify:live:screeps');
     expect(packageManifest.scripts['check']).not.toContain('verify:ptr:screeps');
@@ -129,6 +134,7 @@ describe('project scripts', () => {
       'rollback:screeps',
       'rollback:ptr:screeps',
       'scout:screeps',
+      'status:live:screeps',
       'test:screeps-server',
     ];
 

@@ -43,6 +43,13 @@ const TEST_CONTROLLER_STRUCTURES = {
 const isScreepsLoop = (candidateLoop: unknown): candidateLoop is ScreepsLoop =>
   typeof candidateLoop === 'function';
 
+const createTestCpu = (usedAtTickStart: number) => ({
+  bucket: 5000,
+  getUsed: () => usedAtTickStart,
+  limit: 20,
+  tickLimit: 500,
+});
+
 describe('compiled Screeps bundle', () => {
   it('exports and executes loop from dist/main.js', () => {
     const compiledSource = readFileSync('dist/main.js', 'utf8');
@@ -65,10 +72,9 @@ describe('compiled Screeps bundle', () => {
     const scriptContext = {
       Game: {
         creeps: {},
-        cpu: {
-          getUsed: () => 2.5,
-        },
+        cpu: createTestCpu(2.5),
         getObjectById: () => null,
+        notify: () => undefined,
         rooms: {
           W1N1: {
             controller: undefined,
@@ -127,7 +133,9 @@ describe('compiled Screeps bundle', () => {
 
     commonjsExports.loop();
 
-    expect(consoleLines).toEqual(['[tick 99] cpu=2.50']);
+    expect(consoleLines).toEqual([
+      '[tick 99] cpu=2.50 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=0:spawnEnergy=0/0:construction=0:hostiles=0',
+    ]);
     expect(spawnRequests).toEqual([
       [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-99'],
     ]);

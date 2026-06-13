@@ -1,5 +1,7 @@
 {"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "Defines required CPU fields, low bucket rule, tests, and bounded scan constraints."}
 {"file": ".trellis/spec/runtime/diagnostics.md", "reason": "Defines console diagnostics and telemetry expectations."}
 {"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "Runtime owns Game.cpu, Game.notify, and action execution error boundaries."}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "Defines local official server e2e boundaries, runner registry, and default-check exclusion."}
+{"file": ".trellis/spec/tooling/package-manager.md", "reason": "Defines bounded package scripts and keeps test:screeps-server outside pnpm check."}
 {"file": ".trellis/spec/operations/live-verification.md", "reason": "Live check must distinguish readback from natural runtime evidence."}
 {"file": ".trellis/spec/documentation/game-state.md", "reason": "Live survival facts and blocked CPU facts must be recorded correctly."}

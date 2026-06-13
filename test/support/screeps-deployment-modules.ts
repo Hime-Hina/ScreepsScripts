@@ -140,6 +140,13 @@ export interface PtrRoomFoundingModule {
   foundPtrMainRoomFrom(workspacePath: string): Promise<void>;
 }
 
+export interface LiveSurvivalStatusModule {
+  checkLiveSurvivalStatusFrom(
+    workspacePath: string,
+    commandArguments: readonly string[],
+  ): Promise<void>;
+}
+
 export const loadConfigModule = async (): Promise<ConfigModule> => {
   const loadedModule = await loadDeploymentModule('scripts/screeps/config.mjs');
 
@@ -250,6 +257,16 @@ export const loadPtrRoomFoundingModule = async (): Promise<PtrRoomFoundingModule
   return loadedModule;
 };
 
+export const loadLiveSurvivalStatusModule = async (): Promise<LiveSurvivalStatusModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/live-survival-status.mjs');
+
+  if (!isLiveSurvivalStatusModule(loadedModule)) {
+    throw new Error('live-survival-status.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
 const loadDeploymentModule = async (relativePath: string): Promise<unknown> => {
   const loadedModule = (await import(pathToFileURL(resolve(relativePath)).href)) as unknown;
 
@@ -328,6 +345,11 @@ const isPtrRoomFoundingModule = (
   candidateModule: unknown,
 ): candidateModule is PtrRoomFoundingModule =>
   isRecord(candidateModule) && hasFunction(candidateModule, 'foundPtrMainRoomFrom');
+
+const isLiveSurvivalStatusModule = (
+  candidateModule: unknown,
+): candidateModule is LiveSurvivalStatusModule =>
+  isRecord(candidateModule) && hasFunction(candidateModule, 'checkLiveSurvivalStatusFrom');
 
 const isRecord = (candidateValue: unknown): candidateValue is Record<string, unknown> =>
   typeof candidateValue === 'object' && candidateValue !== null;

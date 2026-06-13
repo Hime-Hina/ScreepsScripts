@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  planBootstrapSurvivalWorkerSpawn,
   planBootstrapWorkerSpawn,
   type SpawnSnapshot,
   type SpawningWorldSnapshot,
@@ -30,6 +31,47 @@ const planWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
   const roomName = spawningWorld.spawns[0]?.roomName ?? 'W1N1';
 
   return planBootstrapWorkerSpawn({
+    bodyPartCosts: TEST_BODY_PART_COSTS,
+    constructionCosts: {
+      extension: 3000,
+    },
+    controllerStructureLimits: {
+      extension: {
+        2: 0,
+      },
+    },
+    rooms: [
+      {
+        constructionSites: [],
+        controllerLevel: 2,
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+          },
+        ],
+        roomName,
+        structures: [
+          {
+            structureType: 'spawn',
+          },
+        ],
+        ticksToDowngrade: 9000,
+        workerCreepCount: spawningWorld.workerCreepCount,
+      },
+    ],
+    ...spawningWorld,
+    spawns: spawningWorld.spawns.map((spawnSnapshot) => ({
+      roomName,
+      ...spawnSnapshot,
+    })),
+  });
+};
+
+const planSurvivalWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
+  const roomName = spawningWorld.spawns[0]?.roomName ?? 'W1N1';
+
+  return planBootstrapSurvivalWorkerSpawn({
     bodyPartCosts: TEST_BODY_PART_COSTS,
     constructionCosts: {
       extension: 3000,
@@ -296,6 +338,57 @@ describe('bootstrap worker spawn decision', () => {
           },
         ],
         workerCreepCount: 5,
+        spawns: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            isSpawning: false,
+            name: 'Spawn1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps survival-only spawning at the survival worker floor during construction backlog', () => {
+    expect(
+      planSurvivalWorkerSpawn({
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            2: 5,
+          },
+        },
+        gameTime: 47,
+        rooms: [
+          {
+            constructionSites: [
+              {
+                remainingWork: 3000,
+                structureType: 'extension',
+              },
+            ],
+            controllerLevel: 2,
+            energyStructures: [
+              {
+                availableEnergy: 300,
+                energyCapacity: 300,
+              },
+            ],
+            roomName: 'W1N1',
+            structures: [
+              {
+                structureType: 'spawn',
+              },
+            ],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 3,
+          },
+        ],
+        workerCreepCount: 3,
         spawns: [
           {
             availableEnergy: 300,

@@ -24,6 +24,7 @@ import {
   waitForDefenseSafeModeActivation,
   waitForPlayerHeartbeat,
   waitForPlayerMemory,
+  waitForRuntimeMonitorEvidence,
   waitForServerReady,
 } from './status-wait.mjs';
 import { reserveTcpPort } from './tcp-port-reservation.mjs';
@@ -122,6 +123,12 @@ export class ScreepsLocalServerHarness {
     );
   }
 
+  async waitForRuntimeMonitorEvidence() {
+    await this.measure('monitor', () =>
+      this.raceWithServerExit(waitForRuntimeMonitorEvidence(this.requirePreparedRun())),
+    );
+  }
+
   async waitForDefenseSafeModeActivation() {
     await this.measure('defense', () =>
       this.raceWithServerExit(waitForDefenseSafeModeActivation(this.requirePreparedRun())),
@@ -175,6 +182,7 @@ export class ScreepsLocalServerHarness {
       `ready=${formatDuration(this.timings.get('ready'))}`,
       `tick=${formatDuration(this.timings.get('tick'))}`,
       `memory=${formatDuration(this.timings.get('memory'))}`,
+      `monitor=${formatDuration(this.timings.get('monitor'))}`,
       `defense=${formatDuration(this.timings.get('defense'))}`,
       `teardown=${formatDuration(this.timings.get('teardown'))}`,
       `total=${formatDuration(totalDurationMs)}`,

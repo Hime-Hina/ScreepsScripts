@@ -24,6 +24,16 @@ export async function waitForPlayerHeartbeat(preparedRun) {
   );
 }
 
+export async function waitForRuntimeMonitorEvidence(preparedRun) {
+  return waitForStatusCondition(
+    preparedRun.runDirectory,
+    preparedRun.statusFilePath,
+    (statusRecords) => findRuntimeMonitorEvidence(statusRecords, preparedRun.playerRuntimeContract),
+    () => describeMissingRuntimeMonitorEvidence(preparedRun.playerRuntimeContract),
+    PLAYER_HEARTBEAT_WATCHDOG_MS,
+  );
+}
+
 export async function waitForPlayerMemory(preparedRun) {
   return waitForStatusCondition(
     preparedRun.runDirectory,
@@ -162,6 +172,36 @@ function findPlayerHeartbeat(statusRecords, playerRuntimeContract) {
 
 function describeMissingPlayerHeartbeat(playerRuntimeContract) {
   return `${playerRuntimeContract.username} heartbeat with Memory.${playerRuntimeContract.memoryRootKey}.schemaVersion = ${playerRuntimeContract.memorySchemaVersion}`;
+}
+
+const RUNTIME_MONITOR_HEARTBEAT_FRAGMENTS = Object.freeze([
+  'cpu=',
+  'bucket=',
+  'limit=',
+  'tickLimit=',
+  'budget=',
+  'rooms=',
+  'workers=',
+  'spawnEnergy=',
+  'construction=',
+  'hostiles=',
+]);
+
+function findRuntimeMonitorEvidence(statusRecords, playerRuntimeContract) {
+  return statusRecords.find(
+    (statusRecord) =>
+      statusRecord.event === 'player-heartbeat' &&
+      statusRecord.username === playerRuntimeContract.username &&
+      statusRecord.memorySchemaVersion === playerRuntimeContract.memorySchemaVersion &&
+      typeof statusRecord.line === 'string' &&
+      RUNTIME_MONITOR_HEARTBEAT_FRAGMENTS.every((heartbeatFragment) =>
+        statusRecord.line.includes(heartbeatFragment),
+      ),
+  );
+}
+
+function describeMissingRuntimeMonitorEvidence(playerRuntimeContract) {
+  return `${playerRuntimeContract.username} runtime monitor heartbeat with CPU snapshot and room survival summary`;
 }
 
 function findPlayerMemory(statusRecords, playerRuntimeContract) {

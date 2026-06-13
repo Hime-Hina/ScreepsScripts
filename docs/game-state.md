@@ -122,10 +122,10 @@ pnpm scout:screeps -- --shard shard3 --room W13S27 --room W12S28 --room W12S29 -
   - Result：`ok = 1`（`observed`，API readback）
   - Modules：`main`（`observed`，API readback）。
 - 远端 `main` 内容与当前本地 `dist/main.js` 一致（`derived`，API readback + 本地 hash）。
-- Module set SHA-256：`da64ae0bcfb5654642568b941e0aa6a578933fb0220ea417646979495865ae83`（`derived`）。
-- 本地 `dist/main.js` 文件 SHA-256：`f7a964cd20caa2e49c8c08629cc5263f57c7aab4befebdfff7a3ccb1c7523006`（`derived`）。
+- Module set SHA-256：`5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`（`derived`）。
+- 本地 `dist/main.js` 文件 SHA-256：`d547bdd264313a100d9e34da43d7455d83dfb7bfb4ca3ef84caa3c51e817a1b8`（`derived`）。
 - Rollback path：`pnpm rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并用 API readback 校验（`derived`，本地脚本契约；尚未执行 live rollback）。
-- Previous remote hash：`a1fa2e8221dbadc9741bb2e76e7bdfaa6054a1c73db4e23bc407c51f17dc158f`（`derived`，deploy snapshot hash）。
+- Previous remote hash：`1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`（`derived`，deploy snapshot hash）。
 - Live runtime verification：自然 tick heartbeat 已通过 console websocket 观察到（`observed`，websocket）。
 - 已保存行为：
 
@@ -170,6 +170,12 @@ require('main').loop();
 - 2026-06-13 P3 defense fallback live deploy：`pnpm deploy:screeps` 通过，先执行 `pnpm check` 和 build；branch `main`，remote modules `main`，module set hash `1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `1d4e199722571f10f987440d50b532c6a9e4903b574c21bd8bfbd7b3948795de`（`observed`，API write + readback + local snapshot）。
 - 2026-06-13 P3 defense fallback live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`；该脚本不验证自然 tick heartbeat（`observed`，API readback）。
 - 2026-06-13 P3 defense fallback room readback：首次组合读取 room/status/code endpoint 出现 `fetch failed`，随后单 endpoint 重试成功。两次 room-object 采样确认 `shard1 / W51N21` hostile creeps `0`、hostile spawns `0`、hostile towers `0`；controller RCL `2` progress `9412`，`downgradeTime` `71634002`，API room-object field `safeMode = 71622765`，safe mode available `1`；5 个 worker 存活；extension site `34,22` progress `45 -> 50`，`36,23` progress `1595 -> 1610`，说明部署后经济循环仍推进。当前无 hostile 可触发 natural `activateSafeMode`，safe mode charge 未消耗（`observed`，API room-objects；`blocked`，natural safe mode activation evidence）。
+- 2026-06-13 P4 runtime resilience local implementation：本地源码已让 runtime boundary 捕获 `Game.cpu.bucket`、`limit`、`tickLimit` 和 tick start `getUsed()`；kernel 在 bucket `< 2000` 时进入 survival-only budget，保留 defense、emergency spawn 和 controller upgrade，跳过非关键 construction/repair。runtime operation 按 critical/non-critical 分组隔离，critical failure 先 `Game.notify` 后抛出，non-critical failure 通过 `Game.notify` 报告后继续当前 tick。heartbeat 输出 CPU snapshot、budget decision 和每房间 workers/spawnEnergy/construction/hostiles 摘要（`derived`，本地源码 + focused tests）。
+- 2026-06-13 P4 runtime resilience local official server e2e：`node scripts/screeps-server/run-suite.mjs case runtime-resilience-monitoring` 通过。`AliceBot / W1N9 / Spawn1` 的自然 tick heartbeat 为 `[tick 2] cpu=3.51 bucket=0 limit=100 tickLimit=100 budget=survival-only rooms=W1N9:workers=0:spawnEnergy=300/300:construction=0:hostiles=0`，证明本地官方 `screeps@4.3.0` engine 中可观察 CPU snapshot、low-bucket survival-only decision 和房间生存摘要（`observed`，local official server e2e）。
+- 2026-06-13 P4 live survival status read-only：`pnpm status:live:screeps` 通过，只读输出 branch `main`、`shard1 / W51N21` status `normal`、module hash `1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`、controller RCL `2`、API `controllerDowngradeTime=71647863`、controller progress `9550`、workerCount `5`、spawnEnergy `300/300`、spawning `no`、constructionSites `5`、constructionProgress `4435/15000`、hostile creeps/spawns/towers 均为 `0`。该命令不部署 P4，不证明 P4 已在 live tick 执行（`observed`，API readback）。
+- 2026-06-13 P4 runtime resilience live deploy：`pnpm deploy:screeps` 通过，先执行 `pnpm check` 和 build；branch `main`，remote modules `main`，module set hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `1390d63ac0a329c9d0fb591d84b7670f04ce89a6b946cfc11b3a1d17512a335f`（`observed`，API write + readback + local snapshot）。
+- 2026-06-13 P4 runtime resilience live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`；该脚本不验证自然 tick heartbeat（`observed`，API readback）。
+- 2026-06-13 P4 runtime resilience live status：`pnpm status:live:screeps` 通过，只读输出 branch `main`、`shard1 / W51N21` status `normal`、module hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`、controller RCL `2`、API `controllerDowngradeTime=71648671`、controller progress `9558`、workerCount `5`、spawnEnergy `300/300`、spawning `no`、constructionSites `5`、constructionProgress `4495/15000`、hostile creeps/spawns/towers 均为 `0`。当前 readback 证明 P4 部署后远端 module hash 已更新且房间生存状态正常；自然 console heartbeat 未由该脚本验证（`observed`，API readback）。
 
 ## PTR 代码验证
 

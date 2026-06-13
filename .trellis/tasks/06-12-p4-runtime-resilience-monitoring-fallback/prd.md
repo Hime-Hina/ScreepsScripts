@@ -35,15 +35,22 @@
    - 不部署、不修改远端代码、不写 token。
    - live check 输出中的 structure/tower/defense 指标应使用 P2/P3 已接入的 official constants contract，不重新硬编码结构 hits、tower power 或 body power 数值。
 
+5. Local official server e2e
+   - P4 必须增加本地官方 Screeps server e2e 覆盖，通过自然 tick 观察 runtime resilience/monitoring 行为。
+   - 测试应扩展 `scripts/screeps-server/` runner case registry，不新增每个行为一个 package script。
+   - 本地 server e2e 不读取 live/PTR credentials，不部署，不修改官方服务，不纳入默认 `pnpm check`。
+   - 如果官方 standalone server 不能稳定构造低 bucket，低 bucket 决策仍由 unit/integration 测试覆盖；本地 server e2e 只记录真实 engine 边界可观察事实。
+
 ## Acceptance Criteria
 
-- [ ] Unit tests 覆盖 bucket degraded decision：critical work preserved, non-critical skipped。
-- [ ] Unit tests 覆盖 alert throttling。
-- [ ] Integration tests 覆盖 non-critical action failure is reported and tick continues。
-- [ ] Integration tests 覆盖 critical action failure is visible。
-- [ ] Live check 输出 room、controller downgrade、worker count、spawn energy、construction progress、hostile count。
-- [ ] Live check 覆盖 P1-P3 official constants 接入后的关键数值来源说明，避免重新引入本地硬编码表。
-- [ ] `pnpm check` 通过。
+- [x] Unit tests 覆盖 bucket degraded decision：critical work preserved, non-critical skipped。
+- [x] Unit tests 覆盖 alert throttling。
+- [x] Integration tests 覆盖 non-critical action failure is reported and tick continues。
+- [x] Integration tests 覆盖 critical action failure is visible。
+- [x] Local official server e2e 覆盖 P4 runtime monitor 在真实 engine 自然 tick 中产出可观察状态，且不依赖 live/PTR credentials。
+- [x] Live check 输出 room、controller downgrade、worker count、spawn energy、construction progress、hostile count。
+- [x] Live check 覆盖 P1-P3 official constants 接入后的关键数值来源说明，避免重新引入本地硬编码表。
+- [x] `pnpm check` 通过。
 
 ## Out of Scope
 

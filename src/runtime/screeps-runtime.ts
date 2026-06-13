@@ -32,17 +32,33 @@ import type {
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
 import type { SpawnDecision } from '../spawning/spawn-decision';
 
+export interface RuntimeCpuSnapshot {
+  readonly bucket: number;
+  readonly limit: number;
+  readonly tickLimit: number;
+  readonly usedAtTickStart: number;
+}
+
+export interface RuntimeAlertDecision {
+  readonly groupInterval: number;
+  readonly message: string;
+  readonly type: 'notify';
+}
+
 export interface ScreepsTickIO {
   executeConstructionDecisions(constructionDecisions: readonly ConstructionDecision[]): void;
   executeDefenseDecisions(defenseDecisions: readonly DefenseDecision[]): void;
   executeSpawnDecision(spawnDecision: SpawnDecision): void;
   executeWorkerActions(workerDecisions: readonly WorkerActionDecision[]): void;
   readonly gameTime: number;
-  readCpuUsed(): number;
+  readCpuSnapshot(): RuntimeCpuSnapshot;
   readConstructionWorld(): ConstructionWorldSnapshot;
   readDefenseWorld(): DefenseWorldSnapshot;
   readSpawningWorld(): SpawningWorldSnapshot;
+  readSurvivalSpawningWorld(): SpawningWorldSnapshot;
+  readSurvivalWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
   readWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
+  sendRuntimeAlert(alertDecision: RuntimeAlertDecision): void;
   writeConsoleLine(message: string): void;
 }
 
@@ -59,14 +75,25 @@ export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
   executeSpawnDecision,
   executeWorkerActions,
   gameTime: Game.time,
-  readCpuUsed: () => Game.cpu.getUsed(),
+  readCpuSnapshot: captureRuntimeCpuSnapshot,
   readConstructionWorld: captureConstructionWorld,
   readDefenseWorld: captureDefenseWorld,
   readMemoryState: () => readScreepsMemoryState(Memory),
   readSpawningWorld: captureSpawningWorld,
+  readSurvivalSpawningWorld: captureSurvivalSpawningWorld,
+  readSurvivalWorkerWorld: captureSurvivalWorkerWorld,
   readWorkerWorld: captureWorkerWorld,
+  sendRuntimeAlert: (alertDecision) =>
+    Game.notify(alertDecision.message, alertDecision.groupInterval),
   writeMemoryState: (memoryState) => writeScreepsMemoryState(Memory, memoryState),
   writeConsoleLine: (message) => console.log(message),
+});
+
+const captureRuntimeCpuSnapshot = (): RuntimeCpuSnapshot => ({
+  bucket: Game.cpu.bucket,
+  limit: Game.cpu.limit,
+  tickLimit: Game.cpu.tickLimit,
+  usedAtTickStart: Game.cpu.getUsed(),
 });
 
 const captureSpawningWorld = (): SpawningWorldSnapshot => ({
@@ -96,6 +123,37 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
     ticksToDowngrade: room.controller?.ticksToDowngrade ?? 0,
     workerCreepCount: Object.values(Game.creeps).filter((creep) => creep.room.name === room.name)
       .length,
+  })),
+  spawns: Object.values(Game.spawns).map((spawn) => ({
+    availableEnergy: spawn.store.getUsedCapacity(RESOURCE_ENERGY),
+    energyCapacity: readEnergyCapacity(spawn.store),
+    isSpawning: spawn.spawning !== null,
+    name: spawn.name,
+    roomName: spawn.pos.roomName,
+  })),
+});
+
+const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
+  bodyPartCosts: {
+    carry: BODYPART_COST.carry,
+    move: BODYPART_COST.move,
+    work: BODYPART_COST.work,
+  },
+  constructionCosts: {
+    extension: CONSTRUCTION_COST[STRUCTURE_EXTENSION],
+  },
+  controllerStructureLimits: {
+    extension: CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION],
+  },
+  gameTime: Game.time,
+  rooms: Object.values(Game.rooms).map((room) => ({
+    constructionSites: [],
+    controllerLevel: room.controller?.level ?? 0,
+    energyStructures: captureRoomEnergyStructures(room),
+    roomName: room.name,
+    structures: [],
+    ticksToDowngrade: room.controller?.ticksToDowngrade ?? 0,
+    workerCreepCount: countRoomWorkerCreeps(room.name),
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
     availableEnergy: spawn.store.getUsedCapacity(RESOURCE_ENERGY),
@@ -281,6 +339,84 @@ const captureWorkerWorld = (
       })),
   ),
   repairTargets: Object.values(Game.rooms).flatMap(captureRoomRepairTargets),
+  sources: Object.values(Game.rooms).flatMap((room) =>
+    room.find(FIND_SOURCES).map((source) => ({
+      id: source.id,
+      roomName: room.name,
+    })),
+  ),
+});
+
+const captureSurvivalWorkerWorld = (
+  roomDefenseStates: readonly RoomDefenseState[],
+): WorkerWorldSnapshot => ({
+  constructionEligibilities: Object.values(Game.rooms).map((room) => {
+    const roomEnergyStructures = captureRoomEnergyStructures(room);
+    const roomWorkerCreepCount = countRoomWorkerCreeps(room.name);
+
+    return selectRoomConstructionEligibility({
+      controllerDowngradeState: classifyBootstrapControllerDowngradeState({
+        roomName: room.name,
+        ticksToDowngrade: room.controller?.ticksToDowngrade ?? 0,
+      }),
+      energyState: classifySpawnExtensionEnergyState({
+        energyStructures: roomEnergyStructures,
+        roomName: room.name,
+      }),
+      roomDefenseState: readRoomDefenseState(roomDefenseStates, room.name),
+      roomName: room.name,
+      workerPopulationState: classifyBootstrapWorkerPopulation({
+        roomName: room.name,
+        workerCreepCount: roomWorkerCreepCount,
+      }),
+    });
+  }),
+  energyPickups: Object.values(Game.rooms).flatMap((room) =>
+    room
+      .find(FIND_DROPPED_RESOURCES)
+      .filter((resource) => resource.resourceType === RESOURCE_ENERGY)
+      .map((resource) => ({
+        amount: resource.amount,
+        id: resource.id,
+        roomName: resource.pos.roomName,
+      })),
+  ),
+  energyWithdrawals: Object.values(Game.rooms).flatMap(captureRoomEnergyWithdrawals),
+  constructionSites: [],
+  controllers: Object.values(Game.rooms).flatMap((room) => {
+    const roomController = room.controller;
+
+    if (roomController?.my !== true) {
+      return [];
+    }
+
+    return [
+      {
+        id: roomController.id,
+        level: roomController.level,
+        roomName: room.name,
+        ticksToDowngrade: roomController.ticksToDowngrade,
+      },
+    ];
+  }),
+  creeps: Object.values(Game.creeps).map((creep) => ({
+    energy: creep.store.getUsedCapacity(RESOURCE_ENERGY),
+    freeCapacity: creep.store.getFreeCapacity(RESOURCE_ENERGY),
+    name: creep.name,
+    roomName: creep.room.name,
+  })),
+  energyStructures: Object.values(Game.rooms).flatMap((room) =>
+    room
+      .find(FIND_MY_STRUCTURES)
+      .filter(isWorkerEnergyStructure)
+      .map((energyStructure) => ({
+        availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
+        energyCapacity: readEnergyCapacity(energyStructure.store),
+        id: energyStructure.id,
+        roomName: energyStructure.pos.roomName,
+      })),
+  ),
+  repairTargets: [],
   sources: Object.values(Game.rooms).flatMap((room) =>
     room.find(FIND_SOURCES).map((source) => ({
       id: source.id,
