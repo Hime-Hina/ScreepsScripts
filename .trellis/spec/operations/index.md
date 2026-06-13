@@ -18,6 +18,7 @@ These rules apply to deployment, live Screeps verification, rollback, and creden
 | [PTR CPU Shards](./ptr-cpu-shards.md) | Verifying or changing official PTR CPU shard allocation |
 | [Live Verification](./live-verification.md) | Confirming behavior in Screeps production or console |
 | [Room Scouting](./room-scouting.md) | Read-only live API room candidate scoring before spawn placement |
+| [Event-driven Monitoring](./event-driven-monitoring.md) | Console/websocket operations events, local bridge policy, and LLM wake-up boundaries |
 | [Rollback](./rollback.md) | Restoring the previous Screeps remote module set |
 | [Credentials](./credentials.md) | Screeps tokens, local deploy config, API calls, or secret handling |
 

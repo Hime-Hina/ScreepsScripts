@@ -9,28 +9,29 @@
 
 ## 命令
 
-| 命令                          | 用途                                                                              |
-| ----------------------------- | --------------------------------------------------------------------------------- |
-| `pnpm install`                | 安装依赖并生成 `pnpm-lock.yaml`                                                   |
-| `pnpm build`                  | 构建 `dist/main.js`                                                               |
-| `pnpm typecheck`              | 对源码、测试和配置文件做类型检查                                                  |
-| `pnpm lint`                   | 运行 ESLint flat config                                                           |
-| `pnpm format`                 | 检查 Prettier 格式                                                                |
-| `pnpm deploy:screeps`         | 本地完整验证、重新构建并部署到 Screeps live branch                                |
-| `pnpm deploy:ptr:screeps`     | 本地完整验证、重新构建并部署到 Screeps PTR branch                                 |
-| `pnpm found:ptr-room:screeps` | 通过 PTR API 尝试创建已记录的 PTR 主房间                                          |
-| `pnpm verify:live:screeps`    | 构建并通过 Screeps API readback 校验 live branch                                  |
-| `pnpm status:live:screeps`    | 只读读取 live room、owned room 和 recovery 状态，并验证 P4 自然 console heartbeat |
-| `pnpm verify:ptr:screeps`     | 构建并通过 Screeps PTR API readback 校验 PTR branch                               |
-| `pnpm rollback:screeps`       | 用本地 rollback snapshot 恢复上一份 Screeps 远端模块集                            |
-| `pnpm rollback:ptr:screeps`   | 用本地 PTR snapshot 恢复上一份 PTR 远端模块集                                     |
-| `pnpm scout:screeps`          | 只读读取 Screeps API 并按启发式排序起始房间候选                                   |
-| `pnpm test:unit`              | 运行单元测试                                                                      |
-| `pnpm test:integration`       | 运行集成测试                                                                      |
-| `pnpm test:system`            | 构建并运行系统测试                                                                |
-| `pnpm test:bundle`            | 构建并运行编译后 bundle smoke                                                     |
-| `pnpm test:screeps-server`    | 启动本地官方 standalone server 并运行 smoke e2e suite                             |
-| `pnpm check`                  | 运行完整本地验证流水线                                                            |
+| 命令                            | 用途                                                                              |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| `pnpm install`                  | 安装依赖并生成 `pnpm-lock.yaml`                                                   |
+| `pnpm build`                    | 构建 `dist/main.js`                                                               |
+| `pnpm typecheck`                | 对源码、测试和配置文件做类型检查                                                  |
+| `pnpm lint`                     | 运行 ESLint flat config                                                           |
+| `pnpm format`                   | 检查 Prettier 格式                                                                |
+| `pnpm deploy:screeps`           | 本地完整验证、重新构建并部署到 Screeps live branch                                |
+| `pnpm deploy:ptr:screeps`       | 本地完整验证、重新构建并部署到 Screeps PTR branch                                 |
+| `pnpm found:ptr-room:screeps`   | 通过 PTR API 尝试创建已记录的 PTR 主房间                                          |
+| `pnpm verify:live:screeps`      | 构建并通过 Screeps API readback 校验 live branch                                  |
+| `pnpm status:live:screeps`      | 只读读取 live room、owned room 和 recovery 状态，并验证 P4 自然 console heartbeat |
+| `pnpm verify:ptr:screeps`       | 构建并通过 Screeps PTR API readback 校验 PTR branch                               |
+| `pnpm rollback:screeps`         | 用本地 rollback snapshot 恢复上一份 Screeps 远端模块集                            |
+| `pnpm rollback:ptr:screeps`     | 用本地 PTR snapshot 恢复上一份 PTR 远端模块集                                     |
+| `pnpm scout:screeps`            | 只读读取 Screeps API 并按启发式排序起始房间候选                                   |
+| `pnpm ops:event-bridge:screeps` | 事件驱动运维桥 dry-run 入口：解析 `[HERMES_EVENT]`、写 JSONL、输出本地策略决策    |
+| `pnpm test:unit`                | 运行单元测试                                                                      |
+| `pnpm test:integration`         | 运行集成测试                                                                      |
+| `pnpm test:system`              | 构建并运行系统测试                                                                |
+| `pnpm test:bundle`              | 构建并运行编译后 bundle smoke                                                     |
+| `pnpm test:screeps-server`      | 启动本地官方 standalone server 并运行 smoke e2e suite                             |
+| `pnpm check`                    | 运行完整本地验证流水线                                                            |
 
 ## CI 和 Hooks
 
