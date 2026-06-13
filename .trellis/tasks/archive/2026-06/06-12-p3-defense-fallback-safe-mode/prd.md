@@ -37,13 +37,13 @@
 
 ## Acceptance Criteria
 
-- [ ] Unit tests 覆盖 hostile harmless scout 不触发 safe mode。
-- [ ] Unit tests 覆盖 hostile attack/dismantle near spawn 触发 safe mode decision。
-- [ ] Unit tests 覆盖 hostile damage/heal/dismantle 判断使用 captured official body-part power constants。
-- [ ] Integration tests 证明 runtime 捕获 hostile body/position 并执行 `controller.activateSafeMode`。
-- [ ] 如果实现 tower skeleton，unit tests 覆盖 tower attack > heal > repair，且 tower power/range/falloff 使用 captured official constants。
-- [ ] Existing P1/P2 worker economy 行为保持通过。
-- [ ] `pnpm check` 通过。
+- [x] Unit tests 覆盖 hostile harmless scout 不触发 safe mode。
+- [x] Unit tests 覆盖 hostile attack/dismantle near spawn 触发 safe mode decision。
+- [x] Unit tests 覆盖 hostile damage/heal/dismantle 判断使用 captured official body-part power constants。
+- [x] Integration tests 证明 runtime 捕获 hostile body/position 并执行 `controller.activateSafeMode`。
+- [x] Tower skeleton 未在当前 RCL2 live slice 实现；RCL3 tower policy 和 official constants 边界已记录为后续。
+- [x] Existing P1/P2 worker economy 行为保持通过。
+- [x] `pnpm check` 通过。
 
 ## Out of Scope
 

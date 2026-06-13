@@ -55,17 +55,17 @@
 
 ## Acceptance Criteria
 
-- [ ] Unit tests 覆盖 build paused when room economy is unsafe。
-- [ ] Unit/integration tests 覆盖 stale `Memory.creeps` cleanup：不存在于 `Game.creeps` 的 name 被删除，仍存在的 name 保留。
-- [ ] Unit/integration tests 覆盖 P1 经济/孵化/建造规则从 Screeps constants capture 派生，而不是维护第二份数字表。
-- [ ] Unit tests 覆盖 RCL2 bootstrap worker target `5`：`workerCreepCount < 5` 时继续 spawn，`>= 5` 时停止。
-- [ ] Unit tests 覆盖 worker population growth does not bypass controller downgrade safety/economic unsafe state。
-- [ ] Unit tests 覆盖 opportunistic energy target before source harvest。
-- [ ] Unit tests 覆盖 target reservation 避免同 tick 多 worker 抢同一小目标。
-- [ ] Integration tests 证明 runtime 捕获 dropped/tombstone/ruin/store energy 并只通过 boundary 执行 pickup/withdraw。
-- [ ] Existing refill/build/upgrade 行为仍通过。
-- [ ] `pnpm check` 通过。
-- [ ] 若部署，`docs/game-state.md` 记录 live readback：construction progress 不再牺牲 controller safety。
+- [x] Unit tests 覆盖 build paused when room economy is unsafe。
+- [x] Unit/integration tests 覆盖 stale `Memory.creeps` cleanup：不存在于 `Game.creeps` 的 name 被删除，仍存在的 name 保留。
+- [x] Unit/integration tests 覆盖 P1 经济/孵化/建造规则从 Screeps constants capture 派生，而不是维护第二份数字表。
+- [x] Unit tests 覆盖 RCL2 bootstrap worker target `5`：`workerCreepCount < 5` 时继续 spawn，`>= 5` 时停止。
+- [x] Unit tests 覆盖 worker population growth does not bypass controller downgrade safety/economic unsafe state。
+- [x] Unit tests 覆盖 opportunistic energy target before source harvest。
+- [x] Unit tests 覆盖 target reservation 避免同 tick 多 worker 抢同一小目标。
+- [x] Integration tests 证明 runtime 捕获 dropped/tombstone/ruin/store energy 并只通过 boundary 执行 pickup/withdraw。
+- [x] Existing refill/build/upgrade 行为仍通过。
+- [x] `pnpm check` 通过。
+- [x] 若部署，`docs/game-state.md` 记录 live readback：construction progress 不再牺牲 controller safety。
 
 ## Out of Scope
 

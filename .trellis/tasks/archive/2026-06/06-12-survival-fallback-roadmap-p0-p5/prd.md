@@ -70,12 +70,12 @@
 
 ## Acceptance Criteria
 
-- [ ] 6 个子任务均有 `prd.md`、`design.md`、`implement.md`。
-- [ ] 每个子任务都有明确前置条件、写入范围、验收标准和 out-of-scope。
-- [ ] 每个子任务能被独立代理读取后不偏离主线目标。
-- [ ] P1-P4 覆盖 official constants 接入边界：P1 economy/build/spawn，P2 structure hits/repair，P3 combat/tower，P4 live check/reporting。
-- [ ] 父任务记录 P0-P5 顺序与可并行/不可并行边界。
-- [ ] `task.py validate` 对父任务和 5 个子任务均通过。
+- [x] 6 个子任务均有 `prd.md`、`design.md`、`implement.md`。
+- [x] 每个子任务都有明确前置条件、写入范围、验收标准和 out-of-scope。
+- [x] 每个子任务能被独立代理读取后不偏离主线目标。
+- [x] P1-P4 覆盖 official constants 接入边界：P1 economy/build/spawn，P2 structure hits/repair，P3 combat/tower，P4 live check/reporting。
+- [x] 父任务记录 P0-P5 顺序与可并行/不可并行边界。
+- [x] `task.py validate` 对父任务和 5 个子任务均通过。
 
 ## Out of Scope
 

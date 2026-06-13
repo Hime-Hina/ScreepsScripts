@@ -33,13 +33,13 @@
 
 ## Acceptance Criteria
 
-- [ ] Unit tests 覆盖 critical spawn/extension repair before build。
-- [ ] Unit tests 覆盖 non-critical damaged road 不抢占 build/upgrade。
-- [ ] Unit tests 覆盖 unsupported wall/rampart 不进入 P2 repair target。
-- [ ] Unit tests 覆盖 repair critical threshold 使用 captured official structure constants 或 runtime `hitsMax`，不硬编码 spawn/extension/road hits。
-- [ ] Integration tests 证明 runtime 捕获 structure hits 并执行 `creep.repair`。
-- [ ] Existing refill/build/upgrade/P1 行为保持通过。
-- [ ] `pnpm check` 通过。
+- [x] Unit tests 覆盖 critical spawn/extension repair before build。
+- [x] Unit tests 覆盖 non-critical damaged road 不抢占 build/upgrade。
+- [x] Unit tests 覆盖 unsupported wall/rampart 不进入 P2 repair target。
+- [x] Unit tests 覆盖 repair critical threshold 使用 captured official structure constants 或 runtime `hitsMax`，不硬编码 spawn/extension/road hits。
+- [x] Integration tests 证明 runtime 捕获 structure hits 并执行 `creep.repair`。
+- [x] Existing refill/build/upgrade/P1 行为保持通过。
+- [x] `pnpm check` 通过。
 
 ## Out of Scope
 

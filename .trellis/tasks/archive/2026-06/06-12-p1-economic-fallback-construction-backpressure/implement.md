@@ -22,10 +22,10 @@
 - [x] Add `withdrawEnergy` decision and runtime execution.
 - [x] Add per-tick reservation tests for limited energy/build targets.
 - [x] Update integration and bundle tests for new Screeps constants.
-- [ ] Update docs/game-state if deployed.
+- [x] Update docs/game-state if deployed.
 - [x] Run focused unit/integration tests.
 - [x] Run `pnpm check`.
-- [ ] If approved, run `pnpm deploy:screeps` and `pnpm verify:live:screeps`.
+- [x] If approved, run `pnpm deploy:screeps` and `pnpm verify:live:screeps`.
 
 ## Validation Commands
 

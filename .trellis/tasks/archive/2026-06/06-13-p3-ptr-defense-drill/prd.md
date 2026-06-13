@@ -57,13 +57,13 @@
 
 ## Acceptance Criteria
 
-- [ ] `prd.md` 明确 PTR 可行性门槛、hostile 创建条件、safe mode charge 风险和禁止事项。
-- [ ] 当前 PTR account / shard / owned room / branch code 状态被重新验证，或记录网络/API 阻塞原因。
-- [ ] 若 PTR 无房间，先尝试复刻 `shard1 / W51N21` 的主线房间目标，并记录成功或 blocked 证据。
-- [ ] 若 PTR 具备条件，完成一次受控 hostile 演练，并记录 hostile 捕获、`roomUnsafe`、safe mode decision、runtime 执行结果。
-- [ ] 若 PTR 复刻或 hostile 创建不具备条件，进入本地 official screeps-server fallback，或以明确阻塞事实收口，不修改 live 行为。
-- [ ] `docs/game-state.md` 更新 PTR 演练或阻塞证据。
-- [ ] 不泄露或提交 token、cookie、PTR 私有配置。
+- [x] `prd.md` 明确 PTR 可行性门槛、hostile 创建条件、safe mode charge 风险和禁止事项。
+- [x] 当前 PTR account / shard / owned room / branch code 状态被重新验证，或记录网络/API 阻塞原因。
+- [x] 若 PTR 无房间，先尝试复刻 `shard1 / W51N21` 的主线房间目标，并记录成功或 blocked 证据。
+- [x] PTR hostile drill 当前 blocked：自然 tick 和授权 hostile 创建机制不具备，未伪造 PTR 成功。
+- [x] PTR hostile 创建不具备条件时已进入本地 official screeps-server fallback，且未修改 live 行为。
+- [x] `docs/game-state.md` 更新 PTR 演练或阻塞证据。
+- [x] 不泄露或提交 token、cookie、PTR 私有配置。
 
 ## Out of Scope
 

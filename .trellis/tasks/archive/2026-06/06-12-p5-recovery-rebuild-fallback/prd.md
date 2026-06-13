@@ -37,7 +37,7 @@
 
 - [x] Unit tests 覆盖 healthy/degraded/spawnMissing/creepLess/controllerLost/rebuildBlocked 状态分类。
 - [x] Unit tests 覆盖单房无 spawn 时不产出无法执行 action。
-- [ ] 如果实现 multi-room request contract，unit tests 覆盖支援房可用时生成 rebuild request。
+- [x] Multi-room request contract 未在当前单房阶段实现；未来生成 rebuild request 前必须补充支援房 unit tests。
 - [x] Integration tests 或 system tests 覆盖 live/read-only room recovery summary。
 - [x] Docs 记录当前单房 recovery blocker。
 - [x] `pnpm check` 通过。

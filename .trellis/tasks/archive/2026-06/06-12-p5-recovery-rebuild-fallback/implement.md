@@ -7,7 +7,7 @@
 - [x] Add `planRoomRecovery` pure operation.
 - [x] Capture room/spawn/controller/creep availability needed by classifier.
 - [x] Add no-support-room blocked recovery tests.
-- [ ] Optionally add `requestRebuildSupport` contract if support room snapshot exists.
+- [x] `requestRebuildSupport` contract 未实现；当前无 support room snapshot，保持诊断-only 边界。
 - [x] Add read-only recovery summary to live check docs/script if P4 created one.
 - [x] Update `docs/game-state.md` with current single-room recovery blockers.
 - [x] Run validation commands.
