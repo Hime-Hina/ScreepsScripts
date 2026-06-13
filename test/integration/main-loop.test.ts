@@ -25,6 +25,18 @@ const TEST_ATTACK_POWER = 30;
 const TEST_DISMANTLE_POWER = 50;
 const TEST_HEAL_POWER = 12;
 const TEST_RANGED_ATTACK_POWER = 10;
+const TEST_SPAWN_ENERGY_CAPACITY = 300;
+const TEST_EXTENSION_ENERGY_CAPACITY = {
+  0: 50,
+  1: 50,
+  2: 50,
+  3: 50,
+  4: 50,
+  5: 50,
+  6: 50,
+  7: 100,
+  8: 200,
+};
 const TEST_BODY_PART_COST = {
   carry: 50,
   move: 50,
@@ -75,6 +87,8 @@ describe('Screeps main loop', () => {
     vi.stubGlobal('STRUCTURE_ROAD', TEST_STRUCTURE_ROAD);
     vi.stubGlobal('STRUCTURE_SPAWN', TEST_STRUCTURE_SPAWN);
     vi.stubGlobal('STRUCTURE_WALL', TEST_STRUCTURE_WALL);
+    vi.stubGlobal('SPAWN_ENERGY_CAPACITY', TEST_SPAWN_ENERGY_CAPACITY);
+    vi.stubGlobal('EXTENSION_ENERGY_CAPACITY', TEST_EXTENSION_ENERGY_CAPACITY);
     vi.stubGlobal('WORK', TEST_WORK);
   });
 
@@ -137,6 +151,74 @@ describe('Screeps main loop', () => {
         schemaVersion: 1,
       },
     });
+  });
+
+  it('captures spawn and extension energy capacity when the store reports null capacity', async () => {
+    const consoleLines: string[] = [];
+    const spawnRequests: unknown[] = [];
+    const firstSpawn = {
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+      },
+      spawnCreep: (...spawnArguments: unknown[]) => spawnRequests.push(spawnArguments),
+      spawning: null,
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => null,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const firstExtension = {
+      id: 'extension-1',
+      pos: {
+        roomName: 'W1N1',
+      },
+      structureType: TEST_STRUCTURE_EXTENSION,
+      store: {
+        getCapacity: () => null,
+        getUsedCapacity: () => 0,
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.55),
+      getObjectById: () => null,
+      notify: () => undefined,
+      rooms: {
+        W1N1: {
+          controller: {
+            level: 2,
+            ticksToDowngrade: 9000,
+          },
+          find: (findType: number) =>
+            findType === TEST_FIND_MY_STRUCTURES ? [firstSpawn, firstExtension] : [],
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 27,
+    });
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: (message: string) => consoleLines.push(message),
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(consoleLines).toEqual([
+      '[tick 27] cpu=0.55 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=0:spawnEnergy=300/350:construction=0:hostiles=0',
+    ]);
+    expect(spawnRequests).toEqual([
+      [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-27'],
+    ]);
   });
 
   it('cleans dead top-level creep memory before writing project memory', async () => {

@@ -126,7 +126,7 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
     availableEnergy: spawn.store.getUsedCapacity(RESOURCE_ENERGY),
-    energyCapacity: readEnergyCapacity(spawn.store),
+    energyCapacity: SPAWN_ENERGY_CAPACITY,
     isSpawning: spawn.spawning !== null,
     name: spawn.name,
     roomName: spawn.pos.roomName,
@@ -157,7 +157,7 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
     availableEnergy: spawn.store.getUsedCapacity(RESOURCE_ENERGY),
-    energyCapacity: readEnergyCapacity(spawn.store),
+    energyCapacity: SPAWN_ENERGY_CAPACITY,
     isSpawning: spawn.spawning !== null,
     name: spawn.name,
     roomName: spawn.pos.roomName,
@@ -333,7 +333,7 @@ const captureWorkerWorld = (
       .filter(isWorkerEnergyStructure)
       .map((energyStructure) => ({
         availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
-        energyCapacity: readEnergyCapacity(energyStructure.store),
+        energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
         id: energyStructure.id,
         roomName: energyStructure.pos.roomName,
       })),
@@ -411,7 +411,7 @@ const captureSurvivalWorkerWorld = (
       .filter(isWorkerEnergyStructure)
       .map((energyStructure) => ({
         availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
-        energyCapacity: readEnergyCapacity(energyStructure.store),
+        energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
         id: energyStructure.id,
         roomName: energyStructure.pos.roomName,
       })),
@@ -471,7 +471,7 @@ const captureRoomEnergyStructures = (room: Room): readonly SpawnExtensionEnergyS
     .filter(isWorkerEnergyStructure)
     .map((energyStructure) => ({
       availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
-      energyCapacity: readEnergyCapacity(energyStructure.store),
+      energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
     }));
 
 const captureRoomRepairTargets = (room: Room): readonly WorkerRepairTargetSnapshot[] => {
@@ -777,20 +777,22 @@ const moveToActionTargetWhenOutOfRange = (
   }
 };
 
-const readEnergyCapacity = (store: StoreDefinition): number => {
-  const energyCapacity = store.getCapacity(RESOURCE_ENERGY);
-
-  if (energyCapacity === null) {
-    throw new Error('Screeps store did not report energy capacity.');
-  }
-
-  return energyCapacity;
-};
-
 const isWorkerEnergyStructure = (
   structure: AnyOwnedStructure,
 ): structure is StructureExtension | StructureSpawn =>
   structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN;
+
+const readSpawnExtensionEnergyCapacity = (
+  energyStructure: StructureExtension | StructureSpawn,
+  room: Room,
+): number => {
+  switch (energyStructure.structureType) {
+    case STRUCTURE_EXTENSION:
+      return EXTENSION_ENERGY_CAPACITY[room.controller?.level ?? 0];
+    case STRUCTURE_SPAWN:
+      return SPAWN_ENERGY_CAPACITY;
+  }
+};
 
 const toPositionSnapshot = (
   roomObject: RoomObject,

@@ -7,12 +7,12 @@
 - 账号：`Dragon_King`（`observed`，API / 既有 UI 记录）
 - 世界：Persistent World（`observed`，既有 UI 记录）
 - Account CPU shard 配置：`shard1 = 20`（`observed`，`/api/auth/me`）
-- P4 runtime heartbeat CPU snapshot：`cpu=0.10`、`bucket=10000`、`limit=20`、`tickLimit=500`、`budget=full`（`observed`，2026-06-13 `status:live:screeps` console websocket）。
-- P5 recovery read-only summary：`recoveryStates=W51N21:roomHealthy`、`recoveryBlockers=-`（`observed`，2026-06-13 `status:live:screeps`）。
+- Runtime heartbeat CPU snapshot：`cpu=0.09`、`bucket=10000`、`limit=20`、`tickLimit=500`、`budget=full`（`observed`，2026-06-13 `status:live:screeps` console websocket）。
+- Recovery read-only summary：`recoveryStates=W51N21:roomHealthy`、`recoveryBlockers=-`（`observed`，2026-06-13 `status:live:screeps`）。
 - `shards/info` 运行态 `cpuLimit` 仍显示旧值 `shard3 = 20`、`shard1 = 0`；实际执行以账号 `cpuShard` 配置和新房间 live 行为为准（`observed`，API）。
 - Active production room：`shard1 / W51N21`（`observed`，API）。
 - Spawn：`Spawn1`，位置 `35,23`，energy `300/300`，当前未 spawning（`observed`，API）。
-- Controller：位置 `26,7`，RCL `2`，progress `9608`，API room-object `downgradeTime = 71651193`，API room-object field `safeMode = 71622765`，safe mode available `1`（`observed`，API）。当前用户确认 room safe mode 已过期；API room-object 中 `safeModeCooldown = 60510881`、`upgradeBlocked = 58760194` 是 room-object 读回字段，不等同于 runtime sandbox 的 remaining-tick 字段（`observed`，API；`derived`，字段语义限制）。
+- Controller：位置 `26,7`，RCL `2`，progress `9626`，API room-object `downgradeTime = 71652741`，API room-object field `safeMode = 71622765`，safe mode available `1`（`observed`，API）。当前用户确认 room safe mode 已过期；API room-object 中 `safeModeCooldown = 60510881`、`upgradeBlocked = 58760194` 是 room-object 读回字段，不等同于 runtime sandbox 的 remaining-tick 字段（`observed`，API；`derived`，字段语义限制）。
 - Sources：两个 source 可读（`observed`，API）。
 - Creeps：
   - `Spawn1-worker-71623926`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `34,6`，carry energy `95`（`observed`，API）。
@@ -20,7 +20,8 @@
   - `Spawn1-worker-71624168`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `36,12`，carry energy `95`（`observed`，API）。
   - `Spawn1-worker-71624273`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `37,29`，carry energy `100`（`observed`，API）。
   - `Spawn1-worker-71624390`，body `[WORK, CARRY, CARRY, MOVE, MOVE]`，最后读回位置 `33,5`，carry energy `100`（`observed`，API）。
-- Extension construction sites：`5` 个，aggregate progress `5055/15000`（`observed`，API）。
+- Extension construction sites：`4` 个，aggregate progress `2345/12000`（`observed`，API）。
+- Runtime heartbeat room summary：`W51N21:workers=5:spawnEnergy=350/350:construction=4:hostiles=0`，证明首个 extension 完工后 runtime boundary 正确捕获 spawn + extension 总容量且自然 tick 未再出现 energy capacity 报错（`observed`，console websocket）。
 - 自持循环证据：controller 已升级到 RCL `2`，RCL2 planner 已创建 5 个 extension construction site，worker 已开始 build，spawn/extension 补能和后续升级路径由 runtime boundary 执行（`observed`，API + derived source behavior）。
 - Former production room `shard3 / W15S27` 当前无 spawn、无 creeps、controller owner `null`，`place-spawn` 返回 `room not available`（`observed`，API）。
 
@@ -175,6 +176,10 @@ require('main').loop();
 - 2026-06-13 P4 runtime resilience live status：`pnpm status:live:screeps` 通过，只读输出 branch `main`、`shard1 / W51N21` status `normal`、module hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`、controller RCL `2`、API `controllerDowngradeTime=71650085`、controller progress `9572`、workerCount `5`、spawnEnergy `269/300`、spawning `no`、constructionSites `5`、constructionProgress `4775/15000`、hostile creeps/spawns/towers 均为 `0`，并通过 live console websocket 观察到自然 P4 heartbeat：`naturalTickHeartbeat=verified`、tick `71640676`、CPU `0.10`、bucket `10000`、limit `20`、tickLimit `500`、budget `full`、room summary `W51N21:workers=5:spawnEnergy=269/300:construction=5:hostiles=0`。当前 readback 证明 P4 部署后远端 module hash、API room survival 状态和自然 runtime monitor heartbeat 均已验证；该命令未部署代码、未提交 console expression（`observed`，API readback + console websocket）。
 - 2026-06-13 P5 recovery diagnostic local implementation：本地源码已新增 `planRoomRecovery` 纯分类操作，覆盖 `roomHealthy`、`roomDegraded`、`spawnMissing`、`creepPopulationMissing`、`controllerLost` 和 `rebuildBlocked`；当前不生成 `requestRebuildSupport`，不做跨房 pathfinding，也不做 claim（`derived`，本地源码 + focused tests）。
 - 2026-06-13 P5 recovery status read-only：`pnpm status:live:screeps` 通过，只读输出 branch `main`、`shard1 / W51N21` status `normal`、module hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`、controller RCL `2`、API `controllerDowngradeTime=71651193`、controller progress `9608`、workerCount `5`、spawnEnergy `300/300`、spawning `no`、constructionSites `5`、constructionProgress `5055/15000`、hostile creeps/spawns/towers 均为 `0`、`recoveryStates=W51N21:roomHealthy`、`recoveryBlockers=-`，并通过 live console websocket 观察到自然 P4 heartbeat：tick `71642105`、CPU `0.10`、bucket `10000`、limit `20`、tickLimit `500`、budget `full`、room summary `W51N21:workers=5:spawnEnergy=300/300:construction=5:hostiles=0`。该命令未部署代码、未提交 console expression、未生成 rebuild action（`observed`，API readback + console websocket）。
+- 2026-06-13 energy capacity runtime fix local implementation：runtime boundary 不再用 `store.getCapacity(RESOURCE_ENERGY)` 建立 spawn/extension 容量不变量，改用 `SPAWN_ENERGY_CAPACITY` 和 `EXTENSION_ENERGY_CAPACITY[room.controller?.level ?? 0]`；新增 integration regression 覆盖 spawn + extension store capacity 返回 `null` 时 `loop()` 仍输出 `spawnEnergy=300/350`。`pnpm check` 已通过（`derived`，本地源码 + focused tests）。
+- 2026-06-13 energy capacity runtime fix live deploy：`pnpm deploy:screeps` 通过，先执行 `pnpm check` 和 build；branch `main`，remote modules `main`，module set hash `a54c183ed600a41dcd8fb427bdc132f18985b00463e355c59cd17dd29f0bb93c`；rollback snapshot `.screeps/rollback/latest.json` 已保存上一份远端 module set，previous hash `5767d8ab577eba0e8279069695591ef85ba61128c84508faaf22537f75bd1748`（`observed`，API write + readback + local snapshot）。
+- 2026-06-13 energy capacity runtime fix live verify：`pnpm verify:live:screeps` 返回 `apiReadback=main-matched`，branch `main`，localModules `main`，remoteModules `main`，hash `a54c183ed600a41dcd8fb427bdc132f18985b00463e355c59cd17dd29f0bb93c`；该脚本不验证自然 tick heartbeat（`observed`，API readback）。
+- 2026-06-13 energy capacity runtime fix live status：`pnpm status:live:screeps` 通过，只读输出 branch `main`、`shard1 / W51N21` status `normal`、module hash `a54c183ed600a41dcd8fb427bdc132f18985b00463e355c59cd17dd29f0bb93c`、controller RCL `2`、API `controllerDowngradeTime=71652741`、controller progress `9626`、workerCount `5`、spawnEnergy `300/300`、spawning `no`、constructionSites `4`、constructionProgress `2345/12000`、hostile creeps/spawns/towers 均为 `0`、`recoveryStates=W51N21:roomHealthy`、`recoveryBlockers=-`，并通过 live console websocket 观察到自然 heartbeat：tick `71643589`、CPU `0.09`、bucket `10000`、limit `20`、tickLimit `500`、budget `full`、room summary `W51N21:workers=5:spawnEnergy=350/350:construction=4:hostiles=0`。当前 readback 证明修复部署后远端 module hash、API room survival 状态、extension 完工后的 350 总容量 heartbeat 和自然 runtime tick 均已验证（`observed`，API readback + console websocket）。
 
 ## PTR 代码验证
 

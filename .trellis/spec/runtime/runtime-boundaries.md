@@ -35,6 +35,24 @@ Validate external inputs once at the boundary:
 
 After the boundary establishes an invariant, internal modules trust it. Repeated null, type, or state checks inside `src/kernel/` or strategy modules indicate the boundary is wrong.
 
+### Spawn / Extension Energy Capacity
+
+Spawn and extension energy capacity snapshots are structure-level invariants owned by the runtime boundary.
+
+Use Screeps capacity constants when building `SpawnExtensionEnergySnapshot` and spawn snapshots:
+
+```typescript
+const spawnCapacity = SPAWN_ENERGY_CAPACITY;
+const extensionCapacity = EXTENSION_ENERGY_CAPACITY[room.controller?.level ?? 0];
+```
+
+Do not use `store.getCapacity(RESOURCE_ENERGY)` to establish these invariants for `StructureSpawn` or `StructureExtension`. Live Screeps can report `null` from the store call while a newly completed extension enters the room snapshot, but the structure type and controller level still define the capacity the kernel needs.
+
+Required regression coverage:
+
+- Integration test through `loop()` with a spawn and extension whose stores return `null` capacity.
+- Assertion that the heartbeat still reports combined room capacity, for example `spawnEnergy=300/350` at RCL2.
+
 ## Ownership
 
 Put complexity where the decision is owned:
