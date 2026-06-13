@@ -361,3 +361,36 @@ Implemented PTR room founding tooling, documented PTR CPU shard blocked state, a
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: P3 local defense drill completion
+
+**Date**: 2026-06-13
+**Task**: P3 local defense drill completion
+**Branch**: `codex/p3-local-defense-drill-completion`
+
+### Summary
+
+Completed local official Screeps server P3 defense drill coverage for core threat safe mode, harmless scout no-safe-mode construction progress, and distant threat construction deferral; updated docs and testing specs.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `11af49a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

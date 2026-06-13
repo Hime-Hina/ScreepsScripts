@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 10
+- **Total Sessions**: 11
 - **Last Active**: 2026-06-13
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~363 | Active |
+| `journal-1.md` | ~396 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-06-13 | P3 local defense drill completion | `11af49a` | `codex/p3-local-defense-drill-completion` |
 | 10 | 2026-06-13 | P3 PTR defense drill | `9244ba2` | `codex/p3-ptr-defense-drill` |
 | 9 | 2026-06-13 | P3 defense fallback | `9e59990` | `master` |
 | 8 | 2026-06-13 | P2 structure repair fallback | `6801802`, `ab71454` | `master` |
