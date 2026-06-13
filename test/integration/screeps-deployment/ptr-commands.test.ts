@@ -138,7 +138,7 @@ describe('Screeps PTR commands', () => {
         },
       });
       expect(joinedLogLines(logSpy)).toContain(
-        '[deploy:ptr:screeps] rollbackSnapshot=.screeps\\ptr\\latest.json',
+        `[deploy:ptr:screeps] rollbackSnapshot=${join('.screeps', 'ptr', 'latest.json')}`,
       );
       expect(joinedLogLines(logSpy)).toContain(
         '[deploy:ptr:screeps] naturalTickHeartbeat=not-verified-by-this-script',
