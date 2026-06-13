@@ -394,3 +394,36 @@ Completed local official Screeps server P3 defense drill coverage for core threa
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: P4 runtime resilience monitoring
+
+**Date**: 2026-06-13
+**Task**: P4 runtime resilience monitoring
+**Branch**: `codex/p3-local-defense-drill-completion`
+
+### Summary
+
+Implemented CPU budget fallback, runtime alerting, error isolation, live survival status, local server monitor e2e, deployed live and verified readback/status.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dff4086` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
