@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "natural console heartbeat is the live runtime evidence boundary"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "live token handling and websocket auth must not leak secrets"}
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "red-green behavior slices before implementation"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "live smoke is explicit and mocked tests cover network boundaries"}
+{"file": ".trellis/spec/documentation/project-docs.md", "reason": "command behavior and live evidence docs must stay synchronized"}
+{"file": ".trellis/spec/documentation/game-state.md", "reason": "production facts and blocked heartbeat evidence destination"}
+{"file": "docs/development.md", "reason": "current command semantics for status:live:screeps"}
+{"file": "docs/game-state.md", "reason": "current P4 live readback gap and evidence wording"}
+{"url": "https://docs.screeps.com/auth-tokens.html", "reason": "official token usage and websocket event scope context"}
+{"url": "https://github.com/daboross/rust-screeps-api/blob/master/protocol-docs/websocket.md", "reason": "community-documented Screeps websocket frame/channel contract to verify against tests"}

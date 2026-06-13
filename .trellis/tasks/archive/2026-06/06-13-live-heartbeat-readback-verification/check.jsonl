@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "final quality and documentation completion gate"}
+{"file": ".trellis/spec/operations/live-verification.md", "reason": "verify live heartbeat evidence is recorded correctly"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "check no credentials or tokens are committed or printed"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "ensure mocked integration tests and live smoke boundaries remain separate"}
+{"file": ".trellis/spec/documentation/game-state.md", "reason": "ensure production observation or blocked reason is recorded"}
+{"file": "scripts/screeps/live-survival-status.mjs", "reason": "read-only command and fail-closed heartbeat verification"}
+{"file": "scripts/screeps/screeps-api.mjs", "reason": "live API decode and retry behavior"}
+{"file": "test/integration/screeps-deployment/live-survival-status.test.ts", "reason": "console heartbeat readback regression coverage"}
+{"file": "test/integration/screeps-deployment/screeps-api.test.ts", "reason": "auth/me API boundary coverage"}
+{"file": "docs/development.md", "reason": "command semantics documentation"}
+{"file": "docs/game-state.md", "reason": "live evidence and blocked facts documentation"}
