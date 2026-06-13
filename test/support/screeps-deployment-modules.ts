@@ -71,6 +71,9 @@ export interface PtrRollbackSnapshotModule {
 }
 
 export interface ScreepsApiModule {
+  readLiveAccountIdentity(
+    screepsConfig: ScreepsConfig,
+  ): Promise<{ readonly accountId: string; readonly username?: string }>;
   readRoomObjects(
     screepsConfig: ScreepsConfig,
     shardName: string,
@@ -145,6 +148,10 @@ export interface LiveSurvivalStatusModule {
     workspacePath: string,
     commandArguments: readonly string[],
   ): Promise<void>;
+  parseLiveSurvivalStatusRequest(commandArguments: readonly string[]): {
+    readonly roomName: string;
+    readonly shardName: string;
+  };
 }
 
 export const loadConfigModule = async (): Promise<ConfigModule> => {
@@ -315,6 +322,7 @@ const isPtrRollbackSnapshotModule = (
 
 const isScreepsApiModule = (candidateModule: unknown): candidateModule is ScreepsApiModule =>
   isRecord(candidateModule) &&
+  hasFunction(candidateModule, 'readLiveAccountIdentity') &&
   hasFunction(candidateModule, 'readRoomObjects') &&
   hasFunction(candidateModule, 'readRoomStatus') &&
   hasFunction(candidateModule, 'readRoomTerrainText') &&
@@ -349,7 +357,9 @@ const isPtrRoomFoundingModule = (
 const isLiveSurvivalStatusModule = (
   candidateModule: unknown,
 ): candidateModule is LiveSurvivalStatusModule =>
-  isRecord(candidateModule) && hasFunction(candidateModule, 'checkLiveSurvivalStatusFrom');
+  isRecord(candidateModule) &&
+  hasFunction(candidateModule, 'checkLiveSurvivalStatusFrom') &&
+  hasFunction(candidateModule, 'parseLiveSurvivalStatusRequest');
 
 const isRecord = (candidateValue: unknown): candidateValue is Record<string, unknown> =>
   typeof candidateValue === 'object' && candidateValue !== null;

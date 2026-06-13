@@ -51,6 +51,52 @@ describe('Screeps API deployment boundary', () => {
     });
   });
 
+  it('reads live account identity from auth/me with X-Token authentication', async () => {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrl = requestInput.toString();
+      capturedInit = requestInit;
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ _id: 'alice-user', ok: 1, username: 'Alice' }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(screepsApiModule.readLiveAccountIdentity(screepsConfig)).resolves.toEqual({
+      accountId: 'alice-user',
+      username: 'Alice',
+    });
+    expect(capturedUrl).toBe('http://127.0.0.1:21025/api/auth/me');
+    expect(capturedUrl).not.toContain('secret-token');
+    expect(capturedInit?.headers).toEqual({
+      'X-Token': 'secret-token',
+    });
+  });
+
+  it('rejects live account identity payloads without an account id', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: 1, username: 'Alice' }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(screepsApiModule.readLiveAccountIdentity(screepsConfig)).rejects.toThrow(
+      'Screeps API auth/me response did not include account id.',
+    );
+  });
+
   it('uploads a complete branch module set without putting the token in the URL', async () => {
     let capturedUrl = '';
     let capturedInit: RequestInit | undefined;

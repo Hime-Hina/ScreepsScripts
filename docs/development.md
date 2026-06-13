@@ -9,28 +9,28 @@
 
 ## 命令
 
-| 命令                          | 用途                                                   |
-| ----------------------------- | ------------------------------------------------------ |
-| `pnpm install`                | 安装依赖并生成 `pnpm-lock.yaml`                        |
-| `pnpm build`                  | 构建 `dist/main.js`                                    |
-| `pnpm typecheck`              | 对源码、测试和配置文件做类型检查                       |
-| `pnpm lint`                   | 运行 ESLint flat config                                |
-| `pnpm format`                 | 检查 Prettier 格式                                     |
-| `pnpm deploy:screeps`         | 本地完整验证、重新构建并部署到 Screeps live branch     |
-| `pnpm deploy:ptr:screeps`     | 本地完整验证、重新构建并部署到 Screeps PTR branch      |
-| `pnpm found:ptr-room:screeps` | 通过 PTR API 尝试创建已记录的 PTR 主房间               |
-| `pnpm verify:live:screeps`    | 构建并通过 Screeps API readback 校验 live branch       |
-| `pnpm status:live:screeps`    | 只读读取 live room 生存状态、远端 module hash 和敌情   |
-| `pnpm verify:ptr:screeps`     | 构建并通过 Screeps PTR API readback 校验 PTR branch    |
-| `pnpm rollback:screeps`       | 用本地 rollback snapshot 恢复上一份 Screeps 远端模块集 |
-| `pnpm rollback:ptr:screeps`   | 用本地 PTR snapshot 恢复上一份 PTR 远端模块集          |
-| `pnpm scout:screeps`          | 只读读取 Screeps API 并按启发式排序起始房间候选        |
-| `pnpm test:unit`              | 运行单元测试                                           |
-| `pnpm test:integration`       | 运行集成测试                                           |
-| `pnpm test:system`            | 构建并运行系统测试                                     |
-| `pnpm test:bundle`            | 构建并运行编译后 bundle smoke                          |
-| `pnpm test:screeps-server`    | 启动本地官方 standalone server 并运行 smoke e2e suite  |
-| `pnpm check`                  | 运行完整本地验证流水线                                 |
+| 命令                          | 用途                                                    |
+| ----------------------------- | ------------------------------------------------------- |
+| `pnpm install`                | 安装依赖并生成 `pnpm-lock.yaml`                         |
+| `pnpm build`                  | 构建 `dist/main.js`                                     |
+| `pnpm typecheck`              | 对源码、测试和配置文件做类型检查                        |
+| `pnpm lint`                   | 运行 ESLint flat config                                 |
+| `pnpm format`                 | 检查 Prettier 格式                                      |
+| `pnpm deploy:screeps`         | 本地完整验证、重新构建并部署到 Screeps live branch      |
+| `pnpm deploy:ptr:screeps`     | 本地完整验证、重新构建并部署到 Screeps PTR branch       |
+| `pnpm found:ptr-room:screeps` | 通过 PTR API 尝试创建已记录的 PTR 主房间                |
+| `pnpm verify:live:screeps`    | 构建并通过 Screeps API readback 校验 live branch        |
+| `pnpm status:live:screeps`    | 只读读取 live room 状态并验证 P4 自然 console heartbeat |
+| `pnpm verify:ptr:screeps`     | 构建并通过 Screeps PTR API readback 校验 PTR branch     |
+| `pnpm rollback:screeps`       | 用本地 rollback snapshot 恢复上一份 Screeps 远端模块集  |
+| `pnpm rollback:ptr:screeps`   | 用本地 PTR snapshot 恢复上一份 PTR 远端模块集           |
+| `pnpm scout:screeps`          | 只读读取 Screeps API 并按启发式排序起始房间候选         |
+| `pnpm test:unit`              | 运行单元测试                                            |
+| `pnpm test:integration`       | 运行集成测试                                            |
+| `pnpm test:system`            | 构建并运行系统测试                                      |
+| `pnpm test:bundle`            | 构建并运行编译后 bundle smoke                           |
+| `pnpm test:screeps-server`    | 启动本地官方 standalone server 并运行 smoke e2e suite   |
+| `pnpm check`                  | 运行完整本地验证流水线                                  |
 
 ## CI 和 Hooks
 
@@ -84,7 +84,7 @@ https://screeps.com/a/#!/account/auth-tokens
 
 `verify:live:screeps` 只校验 Screeps API readback 中的 `main` module 与本地 `dist/main.js` 一致，并报告远端 module 列表。它不证明自然生产 tick 已执行。
 
-`status:live:screeps` 只读读取 `screeps.json` 指向的 live branch、`shard1 / W51N21` room status、room objects 和远端 module set，输出 controller level/progress、API room-object `downgradeTime` 绝对 tick、worker 数、spawn energy、spawning 状态、construction progress 和 hostile 计数。它使用 `X-Token` 请求头，不部署代码、不输出 token、不输出远端 module source，也不证明本地未部署代码已经在 live tick 中执行。
+`status:live:screeps` 只读读取 `screeps.json` 指向的 live branch、live account id、`shard1 / W51N21` room status、room objects 和远端 module set，输出 controller level/progress、API room-object `downgradeTime` 绝对 tick、worker 数、spawn energy、spawning 状态、construction progress、hostile 计数和远端 module hash。随后它通过 Screeps live console websocket 订阅 `user:<accountId>/console`，只接受目标 shard 的自然 tick P4 runtime monitor heartbeat 作为 runtime 证据，成功时输出 `naturalTickHeartbeat=verified`、tick、shard、room、CPU used、bucket、limit、tickLimit、budget 和 room survival 摘要。它使用 `X-Token` 请求头和 websocket auth message，不部署代码、不输出 token、不输出远端 module source、不提交 console expression，也不证明本地未部署代码已经在 live tick 中执行。
 
 `rollback:screeps` 从 `.screeps/rollback/latest.json` 恢复同一 branch 的上一份远端 module set，并再次 readback 校验。没有 snapshot 或 snapshot branch 与 `screeps.json` 不一致时，脚本会停止。
 

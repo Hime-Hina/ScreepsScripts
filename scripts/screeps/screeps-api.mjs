@@ -9,6 +9,14 @@ export class ScreepsApiError extends Error {
   }
 }
 
+export const readLiveAccountIdentity = async (screepsConfig) => {
+  const apiPayload = await readScreepsJsonPayloadWithRetry(buildAuthMeUrl(screepsConfig), {
+    headers: buildAuthHeaders(screepsConfig),
+  });
+
+  return decodeLiveAccountIdentityResponse(apiPayload);
+};
+
 export const readRemoteModuleSet = async (screepsConfig) => {
   const apiPayload = await readScreepsJsonPayloadWithRetry(buildReadUserCodeUrl(screepsConfig), {
     headers: buildAuthHeaders(screepsConfig),
@@ -96,6 +104,9 @@ export const buildReadUserCodeUrl = (screepsConfig) => {
 export const buildWriteUserCodeUrl = (screepsConfig) =>
   new URL('/api/user/code', `${screepsConfig.protocol}://${screepsConfig.server}`);
 
+export const buildAuthMeUrl = (screepsConfig) =>
+  new URL('/api/auth/me', `${screepsConfig.protocol}://${screepsConfig.server}`);
+
 export const buildRoomObjectsUrl = (screepsConfig, shardName, roomName) =>
   buildGameRoomUrl(screepsConfig, '/api/game/room-objects', shardName, roomName);
 
@@ -146,6 +157,25 @@ const decodeCodeResponse = (apiPayload) => {
   }
 
   return decodeRemoteModuleSet(apiPayload.modules);
+};
+
+const decodeLiveAccountIdentityResponse = (apiPayload) => {
+  if (typeof apiPayload._id !== 'string' || apiPayload._id.trim() === '') {
+    throw new ScreepsApiError('Screeps API auth/me response did not include account id.');
+  }
+
+  const accountIdentity = {
+    accountId: apiPayload._id.trim(),
+  };
+
+  if (typeof apiPayload.username === 'string' && apiPayload.username.trim() !== '') {
+    return {
+      ...accountIdentity,
+      username: apiPayload.username.trim(),
+    };
+  }
+
+  return accountIdentity;
 };
 
 const decodeRoomObjectsResponse = (apiPayload) => {

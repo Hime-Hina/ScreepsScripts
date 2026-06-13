@@ -5,7 +5,15 @@ import { pathToFileURL } from 'node:url';
 import { reportCommandFailure } from './command-failure.mjs';
 import { readMainScreepsConfig, readMainScreepsConfigFrom } from './config.mjs';
 import { hashModuleSet } from './module-set.mjs';
-import { readRemoteModuleSet, readRoomObjects, readRoomStatus } from './screeps-api.mjs';
+import {
+  readLiveAccountIdentity,
+  readRemoteModuleSet,
+  readRoomObjects,
+  readRoomStatus,
+} from './screeps-api.mjs';
+
+const CONSOLE_HEARTBEAT_TIMEOUT_MS = 30000;
+const SOCKJS_SESSION_ALPHABET = 'abcdefghijklmnopqrstuvwxyz012345';
 
 export class LiveSurvivalStatusError extends Error {
   constructor(message) {
@@ -69,6 +77,7 @@ export const parseLiveSurvivalStatusRequest = (commandArguments) => {
 };
 
 const printLiveSurvivalStatus = async (screepsConfig, statusRequest) => {
+  const accountIdentity = await readLiveAccountIdentity(screepsConfig);
   const roomStatus = await readRoomStatus(
     screepsConfig,
     statusRequest.shardName,
@@ -81,6 +90,11 @@ const printLiveSurvivalStatus = async (screepsConfig, statusRequest) => {
   );
   const remoteModules = await readRemoteModuleSet(screepsConfig);
   const survivalSummary = summarizeLiveRoomSurvival(roomObjects);
+  const naturalHeartbeat = await readNaturalConsoleHeartbeat(
+    screepsConfig,
+    accountIdentity.accountId,
+    statusRequest,
+  );
 
   console.log(
     [
@@ -101,9 +115,364 @@ const printLiveSurvivalStatus = async (screepsConfig, statusRequest) => {
       `hostileCreeps=${survivalSummary.hostileCreepCount}`,
       `hostileSpawns=${survivalSummary.hostileSpawnCount}`,
       `hostileTowers=${survivalSummary.hostileTowerCount}`,
+      'naturalTickHeartbeat=verified',
+      `tick=${naturalHeartbeat.tick}`,
+      `heartbeatShard=${naturalHeartbeat.shardName}`,
+      `heartbeatRoom=${naturalHeartbeat.roomName}`,
+      `heartbeatCpu=${naturalHeartbeat.cpu}`,
+      `heartbeatBucket=${naturalHeartbeat.bucket}`,
+      `heartbeatLimit=${naturalHeartbeat.limit}`,
+      `heartbeatTickLimit=${naturalHeartbeat.tickLimit}`,
+      `heartbeatBudget=${naturalHeartbeat.budget}`,
+      `heartbeatWorkers=${naturalHeartbeat.workerCount}`,
+      `heartbeatSpawnEnergy=${naturalHeartbeat.spawnEnergy}`,
+      `heartbeatConstruction=${naturalHeartbeat.constructionSiteCount}`,
+      `heartbeatHostiles=${naturalHeartbeat.hostileCount}`,
       'constants=official-runtime-capture',
     ].join(' '),
   );
+};
+
+const readNaturalConsoleHeartbeat = (screepsConfig, accountId, statusRequest) =>
+  new Promise((resolve, reject) => {
+    const WebSocketConstructor = globalThis.WebSocket;
+
+    if (typeof WebSocketConstructor !== 'function') {
+      reject(new LiveSurvivalStatusError('WebSocket is not available in this Node runtime.'));
+      return;
+    }
+
+    let heartbeatSocket;
+    let settled = false;
+
+    const heartbeatWatchdog = setTimeout(() => {
+      settleWithError(
+        new LiveSurvivalStatusError(
+          `Timed out waiting for P4 natural console heartbeat on ${statusRequest.shardName}/${statusRequest.roomName}.`,
+        ),
+      );
+    }, CONSOLE_HEARTBEAT_TIMEOUT_MS);
+
+    const settleWithHeartbeat = (heartbeatEvidence) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(heartbeatWatchdog);
+      heartbeatSocket?.close();
+      resolve(heartbeatEvidence);
+    };
+
+    function settleWithError(statusError) {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(heartbeatWatchdog);
+      heartbeatSocket?.close();
+      reject(statusError);
+    }
+
+    try {
+      heartbeatSocket = new WebSocketConstructor(
+        buildConsoleWebSocketUrl(screepsConfig).toString(),
+      );
+    } catch (caughtError) {
+      settleWithError(
+        new LiveSurvivalStatusError(
+          `Failed to open Screeps console websocket: ${readCaughtErrorMessage(caughtError)}`,
+        ),
+      );
+      return;
+    }
+
+    heartbeatSocket.onmessage = (messageEvent) => {
+      const frameText =
+        typeof messageEvent.data === 'string' ? messageEvent.data : String(messageEvent.data);
+
+      let sockJsFrame;
+
+      try {
+        sockJsFrame = decodeSockJsFrame(frameText);
+      } catch (caughtError) {
+        settleWithError(
+          new LiveSurvivalStatusError(
+            `Screeps console websocket returned malformed frame: ${readCaughtErrorMessage(
+              caughtError,
+            )}`,
+          ),
+        );
+        return;
+      }
+
+      if (sockJsFrame.type === 'open') {
+        heartbeatSocket.send(JSON.stringify([`auth ${screepsConfig.token}`]));
+        return;
+      }
+
+      if (sockJsFrame.type === 'close') {
+        settleWithError(
+          new LiveSurvivalStatusError(
+            'Screeps console websocket closed before P4 heartbeat was observed.',
+          ),
+        );
+        return;
+      }
+
+      for (const messageText of sockJsFrame.messages) {
+        if (messageText === 'auth failed') {
+          settleWithError(
+            new LiveSurvivalStatusError('Screeps console websocket authentication failed.'),
+          );
+          return;
+        }
+
+        if (messageText.startsWith('auth ok')) {
+          heartbeatSocket.send(JSON.stringify([`subscribe user:${accountId}/console`]));
+          continue;
+        }
+
+        let heartbeatEvidence;
+
+        try {
+          heartbeatEvidence = readConsoleHeartbeatMessage(messageText, accountId, statusRequest);
+        } catch (caughtError) {
+          settleWithError(
+            caughtError instanceof LiveSurvivalStatusError
+              ? caughtError
+              : new LiveSurvivalStatusError(
+                  `Failed to decode Screeps console heartbeat: ${readCaughtErrorMessage(
+                    caughtError,
+                  )}`,
+                ),
+          );
+          return;
+        }
+
+        if (heartbeatEvidence !== null) {
+          settleWithHeartbeat(heartbeatEvidence);
+          return;
+        }
+      }
+    };
+
+    heartbeatSocket.onerror = () => {
+      settleWithError(
+        new LiveSurvivalStatusError(
+          'Screeps console websocket error before P4 heartbeat was observed.',
+        ),
+      );
+    };
+
+    heartbeatSocket.onclose = () => {
+      settleWithError(
+        new LiveSurvivalStatusError(
+          'Screeps console websocket closed before P4 heartbeat was observed.',
+        ),
+      );
+    };
+  });
+
+const buildConsoleWebSocketUrl = (screepsConfig) => {
+  const socketProtocol = screepsConfig.protocol === 'https' ? 'wss' : 'ws';
+  const socketUrl = new URL('/socket/', `${socketProtocol}://${screepsConfig.server}`);
+
+  socketUrl.pathname = `/socket/${createSockJsServerId()}/${createSockJsSessionId()}/websocket`;
+
+  return socketUrl;
+};
+
+const createSockJsServerId = () =>
+  Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, '0');
+
+const createSockJsSessionId = () =>
+  Array.from(
+    { length: 8 },
+    () => SOCKJS_SESSION_ALPHABET[Math.floor(Math.random() * SOCKJS_SESSION_ALPHABET.length)],
+  ).join('');
+
+const decodeSockJsFrame = (frameText) => {
+  if (frameText === 'o') {
+    return { messages: [], type: 'open' };
+  }
+
+  if (frameText === 'h') {
+    return { messages: [], type: 'heartbeat' };
+  }
+
+  if (frameText.startsWith('a')) {
+    const messageTexts = JSON.parse(frameText.slice(1));
+
+    if (
+      !Array.isArray(messageTexts) ||
+      !messageTexts.every((messageText) => typeof messageText === 'string')
+    ) {
+      throw new Error('SockJS message array did not contain only strings.');
+    }
+
+    return { messages: messageTexts, type: 'messages' };
+  }
+
+  if (frameText.startsWith('m')) {
+    const messageText = JSON.parse(frameText.slice(1));
+
+    if (typeof messageText !== 'string') {
+      throw new Error('SockJS single message was not a string.');
+    }
+
+    return { messages: [messageText], type: 'messages' };
+  }
+
+  if (frameText.startsWith('c')) {
+    return { messages: [], type: 'close' };
+  }
+
+  return { messages: [], type: 'unknown' };
+};
+
+const readConsoleHeartbeatMessage = (messageText, accountId, statusRequest) => {
+  let channelUpdate;
+
+  try {
+    channelUpdate = JSON.parse(messageText);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(channelUpdate) || channelUpdate.length !== 2) {
+    return null;
+  }
+
+  const [channelName, consoleUpdate] = channelUpdate;
+  const consoleChannelName = `user:${accountId}/console`;
+
+  if (channelName !== consoleChannelName || !isPlainObject(consoleUpdate)) {
+    return null;
+  }
+
+  if (readStringField(consoleUpdate, 'shard') !== statusRequest.shardName) {
+    return null;
+  }
+
+  const messages = consoleUpdate.messages;
+
+  if (!isPlainObject(messages) || !Array.isArray(messages.log)) {
+    return null;
+  }
+
+  for (const consoleLine of messages.log) {
+    if (typeof consoleLine !== 'string' || !consoleLine.startsWith('[tick ')) {
+      continue;
+    }
+
+    return parseRuntimeMonitorHeartbeat(consoleLine, statusRequest);
+  }
+
+  return null;
+};
+
+const parseRuntimeMonitorHeartbeat = (consoleLine, statusRequest) => {
+  const heartbeatMatch =
+    /^\[tick (?<tick>\d+)\] cpu=(?<cpu>\d+(?:\.\d+)?) bucket=(?<bucket>\d+) limit=(?<limit>\d+) tickLimit=(?<tickLimit>\d+) budget=(?<budget>[A-Za-z0-9-]+) rooms=(?<roomSummaries>.+)$/u.exec(
+      consoleLine,
+    );
+
+  if (heartbeatMatch?.groups === undefined) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat on ${statusRequest.shardName} is missing required CPU or budget fields.`,
+    );
+  }
+
+  const roomSummary = readHeartbeatRoomSummary(
+    heartbeatMatch.groups.roomSummaries,
+    statusRequest.roomName,
+    statusRequest.shardName,
+  );
+
+  return {
+    bucket: heartbeatMatch.groups.bucket,
+    budget: heartbeatMatch.groups.budget,
+    constructionSiteCount: roomSummary.constructionSiteCount,
+    cpu: heartbeatMatch.groups.cpu,
+    hostileCount: roomSummary.hostileCount,
+    limit: heartbeatMatch.groups.limit,
+    roomName: statusRequest.roomName,
+    shardName: statusRequest.shardName,
+    spawnEnergy: roomSummary.spawnEnergy,
+    tick: heartbeatMatch.groups.tick,
+    tickLimit: heartbeatMatch.groups.tickLimit,
+    workerCount: roomSummary.workerCount,
+  };
+};
+
+const readHeartbeatRoomSummary = (roomSummariesText, targetRoomName, shardName) => {
+  const roomSummaryTexts = roomSummariesText.split(',');
+  const matchingRoomSummaryText = roomSummaryTexts.find(
+    (roomSummaryText) => roomSummaryText.split(':')[0] === targetRoomName,
+  );
+
+  if (matchingRoomSummaryText === undefined) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat on ${shardName} did not include target room ${targetRoomName}.`,
+    );
+  }
+
+  const roomSummaryParts = matchingRoomSummaryText.split(':');
+  const roomFields = new Map(
+    roomSummaryParts.slice(1).map((roomSummaryPart) => {
+      const separatorIndex = roomSummaryPart.indexOf('=');
+
+      if (separatorIndex === -1) {
+        return [roomSummaryPart, ''];
+      }
+
+      return [roomSummaryPart.slice(0, separatorIndex), roomSummaryPart.slice(separatorIndex + 1)];
+    }),
+  );
+
+  const workerCount = readRequiredRoomSummaryNumber(roomFields, 'workers', targetRoomName);
+  const spawnEnergy = readRequiredRoomSummaryEnergy(roomFields, targetRoomName);
+  const constructionSiteCount = readRequiredRoomSummaryNumber(
+    roomFields,
+    'construction',
+    targetRoomName,
+  );
+  const hostileCount = readRequiredRoomSummaryNumber(roomFields, 'hostiles', targetRoomName);
+
+  return {
+    constructionSiteCount,
+    hostileCount,
+    spawnEnergy,
+    workerCount,
+  };
+};
+
+const readRequiredRoomSummaryNumber = (roomFields, fieldName, roomName) => {
+  const fieldValue = roomFields.get(fieldName);
+
+  if (fieldValue === undefined || !/^\d+$/u.test(fieldValue)) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat room ${roomName} is missing ${fieldName} summary.`,
+    );
+  }
+
+  return fieldValue;
+};
+
+const readRequiredRoomSummaryEnergy = (roomFields, roomName) => {
+  const spawnEnergy = roomFields.get('spawnEnergy');
+
+  if (spawnEnergy === undefined || !/^\d+\/\d+$/u.test(spawnEnergy)) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat room ${roomName} is missing spawnEnergy summary.`,
+    );
+  }
+
+  return spawnEnergy;
 };
 
 const summarizeLiveRoomSurvival = (roomObjects) => {
@@ -251,6 +620,14 @@ const readFollowingArgument = (commandArguments, argumentIndex, argumentName) =>
   }
 
   return argumentText;
+};
+
+const readCaughtErrorMessage = (caughtError) => {
+  if (caughtError instanceof Error) {
+    return caughtError.message;
+  }
+
+  return String(caughtError);
 };
 
 const isPlainObject = (candidateValue) =>
