@@ -460,3 +460,36 @@ Implemented read-only live console heartbeat readback for status:live:screeps, v
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: P5 recovery diagnostics
+
+**Date**: 2026-06-13
+**Task**: P5 recovery diagnostics
+**Branch**: `codex/live-heartbeat-readback-verification`
+
+### Summary
+
+Implemented pure room recovery classification, live read-only recovery status output, docs/spec updates, and validation for P5 recovery fallback.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a1125f4` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
