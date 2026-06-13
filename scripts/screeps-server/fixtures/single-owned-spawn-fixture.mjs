@@ -7,6 +7,8 @@ import { writeDefenseStatusMod, writeStatusMod } from '../observability/status-m
 
 export const SINGLE_OWNED_SPAWN_FIXTURE_NAME = 'single-owned-spawn';
 export const DEFENSE_CORE_THREAT_FIXTURE_NAME = 'defense-core-threat';
+export const DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME = 'defense-harmless-scout';
+export const DEFENSE_DISTANT_THREAT_FIXTURE_NAME = 'defense-distant-threat';
 
 export const SINGLE_OWNED_SPAWN_ACTIVE_BOT = Object.freeze({
   memoryRootKey: 'screepsScripts',
@@ -30,7 +32,58 @@ export const DEFENSE_CORE_THREAT_HOSTILE_CREEP = Object.freeze({
   y: 5,
 });
 
+export const DEFENSE_HARMLESS_SCOUT_HOSTILE_CREEP = Object.freeze({
+  id: 'defense-harmless-scout-hostile',
+  name: 'MichaelBot-harmless-scout',
+  room: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+  x: 35,
+  y: 5,
+});
+
+export const DEFENSE_DISTANT_THREAT_HOSTILE_CREEP = Object.freeze({
+  id: 'defense-distant-threat-hostile',
+  name: 'MichaelBot-distant-threat',
+  room: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+  x: 15,
+  y: 40,
+});
+
+export const DEFENSE_DRILL_CONSTRUCTION_SITE = Object.freeze({
+  id: '000-defense-drill-extension-site',
+  initialProgress: 0,
+  progressTotal: 3000,
+  room: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+  structureType: 'extension',
+  x: 33,
+  y: 5,
+});
+
 export const DEFENSE_CORE_THREAT_CONTROLLER_ID = 'a87b0774c89f868';
+export const DEFENSE_DRILL_CONTROLLER_INITIAL_PROGRESS = 0;
+
+const DEFENSE_DRILL_WORKER_CREEPS = Object.freeze([
+  Object.freeze({
+    id: 'defense-drill-worker-1',
+    name: 'AliceBot-defense-worker-1',
+    room: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+    x: 31,
+    y: 5,
+  }),
+  Object.freeze({
+    id: 'defense-drill-worker-2',
+    name: 'AliceBot-defense-worker-2',
+    room: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+    x: 32,
+    y: 5,
+  }),
+  Object.freeze({
+    id: 'defense-drill-worker-3',
+    name: 'AliceBot-defense-worker-3',
+    room: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+    x: 33,
+    y: 4,
+  }),
+]);
 
 export async function prepareSingleOwnedSpawnRun() {
   const runPaths = await createFixtureRunPaths(SINGLE_OWNED_SPAWN_FIXTURE_NAME);
@@ -48,12 +101,12 @@ export async function prepareSingleOwnedSpawnRun() {
 
 export async function prepareDefenseCoreThreatRun() {
   const runPaths = await createFixtureRunPaths(DEFENSE_CORE_THREAT_FIXTURE_NAME);
-  const defenseRuntimeContract = {
-    controllerId: DEFENSE_CORE_THREAT_CONTROLLER_ID,
-    hostileCreepId: DEFENSE_CORE_THREAT_HOSTILE_CREEP.id,
-    roomName: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
-    userId: SINGLE_OWNED_SPAWN_ACTIVE_BOT.userId,
-  };
+  const defenseRuntimeContract = createDefenseRuntimeContract(DEFENSE_CORE_THREAT_HOSTILE_CREEP, [
+    'move',
+    'attack',
+    'work',
+    'move',
+  ]);
 
   await rewriteDbForDefenseCoreThreat(runPaths.dbPath);
   await writeDefenseStatusMod(
@@ -67,6 +120,71 @@ export async function prepareDefenseCoreThreatRun() {
   return {
     ...createPreparedRun(runPaths),
     defenseRuntimeContract,
+  };
+}
+
+export async function prepareDefenseHarmlessScoutRun() {
+  const runPaths = await createFixtureRunPaths(DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME);
+  const defenseRuntimeContract = createDefenseConstructionRuntimeContract(
+    DEFENSE_HARMLESS_SCOUT_HOSTILE_CREEP,
+    ['move'],
+  );
+
+  await rewriteDbForDefenseHarmlessScout(runPaths.dbPath);
+  await writeDefenseStatusMod(
+    path.join(runPaths.runDirectory, 'status-mod.cjs'),
+    runPaths.statusFilePath,
+    SINGLE_OWNED_SPAWN_ACTIVE_BOT,
+    defenseRuntimeContract,
+  );
+  await writeFixtureModsFile(runPaths.runDirectory);
+
+  return {
+    ...createPreparedRun(runPaths),
+    defenseRuntimeContract,
+  };
+}
+
+export async function prepareDefenseDistantThreatRun() {
+  const runPaths = await createFixtureRunPaths(DEFENSE_DISTANT_THREAT_FIXTURE_NAME);
+  const defenseRuntimeContract = createDefenseConstructionRuntimeContract(
+    DEFENSE_DISTANT_THREAT_HOSTILE_CREEP,
+    ['move', 'attack', 'work', 'move'],
+  );
+
+  await rewriteDbForDefenseDistantThreat(runPaths.dbPath);
+  await writeDefenseStatusMod(
+    path.join(runPaths.runDirectory, 'status-mod.cjs'),
+    runPaths.statusFilePath,
+    SINGLE_OWNED_SPAWN_ACTIVE_BOT,
+    defenseRuntimeContract,
+  );
+  await writeFixtureModsFile(runPaths.runDirectory);
+
+  return {
+    ...createPreparedRun(runPaths),
+    defenseRuntimeContract,
+  };
+}
+
+function createDefenseRuntimeContract(hostileCreep, hostileBodyPartTypes) {
+  return {
+    controllerId: DEFENSE_CORE_THREAT_CONTROLLER_ID,
+    hostileBodyPartTypes,
+    hostileCreepId: hostileCreep.id,
+    hostileX: hostileCreep.x,
+    hostileY: hostileCreep.y,
+    roomName: SINGLE_OWNED_SPAWN_ACTIVE_BOT.room,
+    userId: SINGLE_OWNED_SPAWN_ACTIVE_BOT.userId,
+  };
+}
+
+function createDefenseConstructionRuntimeContract(hostileCreep, hostileBodyPartTypes) {
+  return {
+    ...createDefenseRuntimeContract(hostileCreep, hostileBodyPartTypes),
+    constructionSiteId: DEFENSE_DRILL_CONSTRUCTION_SITE.id,
+    initialConstructionProgress: DEFENSE_DRILL_CONSTRUCTION_SITE.initialProgress,
+    initialControllerProgress: DEFENSE_DRILL_CONTROLLER_INITIAL_PROGRESS,
   };
 }
 
@@ -207,48 +325,176 @@ async function rewriteDbForDefenseCoreThreat(dbPath) {
   controller.upgradeBlocked = null;
   controller.downgradeTime = 20_000;
 
-  addDefenseCoreThreatHostile(roomObjectsCollection);
+  addFixtureCreep(
+    roomObjectsCollection,
+    DEFENSE_CORE_THREAT_HOSTILE_CREEP,
+    DEFENSE_CORE_THREAT_HOSTILE_BOT.userId,
+    [
+      { hits: 100, type: 'move' },
+      { hits: 100, type: 'attack' },
+      { hits: 100, type: 'work' },
+      { hits: 100, type: 'move' },
+    ],
+  );
 
   await fs.writeFile(dbPath, JSON.stringify(lokiDatabase), 'utf8');
 }
 
-function addDefenseCoreThreatHostile(roomObjectsCollection) {
-  const hostileBody = [
-    { hits: 100, type: 'move' },
-    { hits: 100, type: 'attack' },
+async function rewriteDbForDefenseHarmlessScout(dbPath) {
+  await rewriteDbForDefenseConstructionDrill(dbPath);
+
+  const lokiDatabase = JSON.parse(await fs.readFile(dbPath, 'utf8'));
+  const roomObjectsCollection = readLokiCollection(lokiDatabase, 'rooms.objects');
+
+  addFixtureCreep(
+    roomObjectsCollection,
+    DEFENSE_HARMLESS_SCOUT_HOSTILE_CREEP,
+    DEFENSE_CORE_THREAT_HOSTILE_BOT.userId,
+    [{ hits: 100, type: 'move' }],
+  );
+
+  await fs.writeFile(dbPath, JSON.stringify(lokiDatabase), 'utf8');
+}
+
+async function rewriteDbForDefenseDistantThreat(dbPath) {
+  await rewriteDbForDefenseConstructionDrill(dbPath);
+
+  const lokiDatabase = JSON.parse(await fs.readFile(dbPath, 'utf8'));
+  const roomObjectsCollection = readLokiCollection(lokiDatabase, 'rooms.objects');
+
+  addFixtureCreep(
+    roomObjectsCollection,
+    DEFENSE_DISTANT_THREAT_HOSTILE_CREEP,
+    DEFENSE_CORE_THREAT_HOSTILE_BOT.userId,
+    [
+      { hits: 100, type: 'move' },
+      { hits: 100, type: 'attack' },
+      { hits: 100, type: 'work' },
+      { hits: 100, type: 'move' },
+    ],
+  );
+
+  await fs.writeFile(dbPath, JSON.stringify(lokiDatabase), 'utf8');
+}
+
+async function rewriteDbForDefenseConstructionDrill(dbPath) {
+  await rewriteDbForSingleOwnedSpawn(dbPath);
+
+  const lokiDatabase = JSON.parse(await fs.readFile(dbPath, 'utf8'));
+  const roomObjectsCollection = readLokiCollection(lokiDatabase, 'rooms.objects');
+  const usersCollection = readLokiCollection(lokiDatabase, 'users');
+  const controller = roomObjectsCollection.data.find(
+    (roomObject) => roomObject._id === DEFENSE_CORE_THREAT_CONTROLLER_ID,
+  );
+  const hostileBotUser = usersCollection.data.find(
+    (user) => user._id === DEFENSE_CORE_THREAT_HOSTILE_BOT.userId,
+  );
+
+  if (!controller || controller.type !== 'controller') {
+    throw new Error('Official seed data does not contain the expected W1N9 controller.');
+  }
+  if (!hostileBotUser || hostileBotUser.username !== DEFENSE_CORE_THREAT_HOSTILE_BOT.username) {
+    throw new Error('Official seed data does not contain the expected hostile bot user.');
+  }
+
+  controller.level = 2;
+  controller.progress = DEFENSE_DRILL_CONTROLLER_INITIAL_PROGRESS;
+  controller.safeMode = null;
+  controller.safeModeAvailable = 1;
+  controller.safeModeCooldown = null;
+  controller.upgradeBlocked = null;
+  controller.downgradeTime = 20_000;
+
+  addDefenseDrillConstructionSite(roomObjectsCollection);
+  addDefenseDrillWorkers(roomObjectsCollection);
+
+  await fs.writeFile(dbPath, JSON.stringify(lokiDatabase), 'utf8');
+}
+
+function addDefenseDrillConstructionSite(roomObjectsCollection) {
+  insertFixtureRoomObject(roomObjectsCollection, DEFENSE_DRILL_CONSTRUCTION_SITE.id, {
+    progress: DEFENSE_DRILL_CONSTRUCTION_SITE.initialProgress,
+    progressTotal: DEFENSE_DRILL_CONSTRUCTION_SITE.progressTotal,
+    room: DEFENSE_DRILL_CONSTRUCTION_SITE.room,
+    structureType: DEFENSE_DRILL_CONSTRUCTION_SITE.structureType,
+    type: 'constructionSite',
+    user: SINGLE_OWNED_SPAWN_ACTIVE_BOT.userId,
+    x: DEFENSE_DRILL_CONSTRUCTION_SITE.x,
+    y: DEFENSE_DRILL_CONSTRUCTION_SITE.y,
+  });
+}
+
+function addDefenseDrillWorkers(roomObjectsCollection) {
+  const workerBody = [
     { hits: 100, type: 'work' },
+    { hits: 100, type: 'carry' },
     { hits: 100, type: 'move' },
   ];
+
+  for (const workerCreep of DEFENSE_DRILL_WORKER_CREEPS) {
+    addFixtureCreep(
+      roomObjectsCollection,
+      workerCreep,
+      SINGLE_OWNED_SPAWN_ACTIVE_BOT.userId,
+      workerBody,
+      { energy: 50 },
+    );
+  }
+}
+
+function addFixtureCreep(roomObjectsCollection, creepIdentity, userId, body, store = {}) {
+  const creepEnergyCapacity = body.filter((bodyPart) => bodyPart.type === 'carry').length * 50;
+
+  insertFixtureRoomObject(roomObjectsCollection, creepIdentity.id, {
+    body,
+    fatigue: 0,
+    hits: body.length * 100,
+    hitsMax: body.length * 100,
+    name: creepIdentity.name,
+    notifyWhenAttacked: false,
+    room: creepIdentity.room,
+    spawning: false,
+    store,
+    storeCapacity: creepEnergyCapacity,
+    type: 'creep',
+    user: userId,
+    x: creepIdentity.x,
+    y: creepIdentity.y,
+  });
+}
+
+function insertFixtureRoomObject(roomObjectsCollection, objectId, roomObject) {
+  removeFixtureRoomObject(roomObjectsCollection, objectId);
+
   const nextLokiId = roomObjectsCollection.maxId + 1;
 
-  roomObjectsCollection.data = roomObjectsCollection.data.filter(
-    (roomObject) => roomObject._id !== DEFENSE_CORE_THREAT_HOSTILE_CREEP.id,
-  );
   roomObjectsCollection.data.push({
     $loki: nextLokiId,
-    _id: DEFENSE_CORE_THREAT_HOSTILE_CREEP.id,
-    body: hostileBody,
-    fatigue: 0,
-    hits: hostileBody.length * 100,
-    hitsMax: hostileBody.length * 100,
+    _id: objectId,
     meta: {
       created: Date.now(),
       revision: 0,
       version: 0,
     },
-    name: DEFENSE_CORE_THREAT_HOSTILE_CREEP.name,
-    notifyWhenAttacked: false,
-    room: DEFENSE_CORE_THREAT_HOSTILE_CREEP.room,
-    spawning: false,
-    store: {},
-    storeCapacity: 0,
-    type: 'creep',
-    user: DEFENSE_CORE_THREAT_HOSTILE_BOT.userId,
-    x: DEFENSE_CORE_THREAT_HOSTILE_CREEP.x,
-    y: DEFENSE_CORE_THREAT_HOSTILE_CREEP.y,
+    ...roomObject,
   });
   roomObjectsCollection.idIndex.push(nextLokiId);
   roomObjectsCollection.maxId = nextLokiId;
+}
+
+function removeFixtureRoomObject(roomObjectsCollection, objectId) {
+  const removedLokiIds = new Set(
+    roomObjectsCollection.data
+      .filter((roomObject) => roomObject._id === objectId)
+      .map((roomObject) => roomObject.$loki),
+  );
+
+  roomObjectsCollection.data = roomObjectsCollection.data.filter(
+    (roomObject) => roomObject._id !== objectId,
+  );
+  roomObjectsCollection.idIndex = roomObjectsCollection.idIndex.filter(
+    (lokiId) => !removedLokiIds.has(lokiId),
+  );
 }
 
 function readLokiCollection(lokiDatabase, collectionName) {
@@ -280,4 +526,12 @@ export function describeSingleOwnedSpawnFixture() {
 
 export function describeDefenseCoreThreatFixture() {
   return `fixture=${DEFENSE_CORE_THREAT_FIXTURE_NAME} user=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.username} room=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.room} spawn=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.spawnName} hostile=${DEFENSE_CORE_THREAT_HOSTILE_CREEP.name}`;
+}
+
+export function describeDefenseHarmlessScoutFixture() {
+  return `fixture=${DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME} user=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.username} room=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.room} spawn=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.spawnName} hostile=${DEFENSE_HARMLESS_SCOUT_HOSTILE_CREEP.name} site=${DEFENSE_DRILL_CONSTRUCTION_SITE.id}`;
+}
+
+export function describeDefenseDistantThreatFixture() {
+  return `fixture=${DEFENSE_DISTANT_THREAT_FIXTURE_NAME} user=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.username} room=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.room} spawn=${SINGLE_OWNED_SPAWN_ACTIVE_BOT.spawnName} hostile=${DEFENSE_DISTANT_THREAT_HOSTILE_CREEP.name} site=${DEFENSE_DRILL_CONSTRUCTION_SITE.id}`;
 }

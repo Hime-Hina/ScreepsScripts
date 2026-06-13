@@ -3,6 +3,8 @@ import { performance } from 'node:perf_hooks';
 
 import {
   prepareDefenseCoreThreatRun,
+  prepareDefenseDistantThreatRun,
+  prepareDefenseHarmlessScoutRun,
   prepareSingleOwnedSpawnRun,
 } from '../fixtures/single-owned-spawn-fixture.mjs';
 import { runCommand } from './command-execution.mjs';
@@ -15,6 +17,10 @@ import { createOfficialServerRequire, ensureOfficialServerPackage } from './offi
 import { raceWithServerExit, stopServerChildren } from './process-control.mjs';
 import { ScreepsServerOutput } from './server-output.mjs';
 import {
+  waitForDefenseConstructionContinues,
+  waitForDefenseConstructionDeferred,
+  waitForDefenseHostileObserved,
+  waitForDefenseNoSafeMode,
   waitForDefenseSafeModeActivation,
   waitForPlayerHeartbeat,
   waitForPlayerMemory,
@@ -41,6 +47,18 @@ export class ScreepsLocalServerHarness {
   async prepareDefenseCoreThreatFixture() {
     await this.measure('install', () => ensureOfficialServerPackage());
     this.preparedRun = await this.measure('fixture', () => prepareDefenseCoreThreatRun());
+    this.isStopping = false;
+  }
+
+  async prepareDefenseHarmlessScoutFixture() {
+    await this.measure('install', () => ensureOfficialServerPackage());
+    this.preparedRun = await this.measure('fixture', () => prepareDefenseHarmlessScoutRun());
+    this.isStopping = false;
+  }
+
+  async prepareDefenseDistantThreatFixture() {
+    await this.measure('install', () => ensureOfficialServerPackage());
+    this.preparedRun = await this.measure('fixture', () => prepareDefenseDistantThreatRun());
     this.isStopping = false;
   }
 
@@ -107,6 +125,30 @@ export class ScreepsLocalServerHarness {
   async waitForDefenseSafeModeActivation() {
     await this.measure('defense', () =>
       this.raceWithServerExit(waitForDefenseSafeModeActivation(this.requirePreparedRun())),
+    );
+  }
+
+  async waitForDefenseHostileObserved() {
+    await this.measure('defense', () =>
+      this.raceWithServerExit(waitForDefenseHostileObserved(this.requirePreparedRun())),
+    );
+  }
+
+  async waitForDefenseNoSafeMode() {
+    await this.measure('defense', () =>
+      this.raceWithServerExit(waitForDefenseNoSafeMode(this.requirePreparedRun())),
+    );
+  }
+
+  async waitForDefenseConstructionContinues() {
+    await this.measure('defense', () =>
+      this.raceWithServerExit(waitForDefenseConstructionContinues(this.requirePreparedRun())),
+    );
+  }
+
+  async waitForDefenseConstructionDeferred() {
+    await this.measure('defense', () =>
+      this.raceWithServerExit(waitForDefenseConstructionDeferred(this.requirePreparedRun())),
     );
   }
 

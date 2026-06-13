@@ -46,6 +46,59 @@ export async function waitForDefenseSafeModeActivation(preparedRun) {
   );
 }
 
+export async function waitForDefenseHostileObserved(preparedRun) {
+  const defenseRuntimeContract = readDefenseRuntimeContract(preparedRun);
+
+  return waitForStatusCondition(
+    preparedRun.runDirectory,
+    preparedRun.statusFilePath,
+    (statusRecords) => findDefenseHostileObserved(statusRecords, defenseRuntimeContract),
+    () => describeMissingDefenseHostileObserved(defenseRuntimeContract),
+    PLAYER_HEARTBEAT_WATCHDOG_MS,
+  );
+}
+
+export async function waitForDefenseNoSafeMode(preparedRun) {
+  const defenseRuntimeContract = readDefenseRuntimeContract(preparedRun);
+
+  return waitForStatusCondition(
+    preparedRun.runDirectory,
+    preparedRun.statusFilePath,
+    (statusRecords) =>
+      findDefenseNoSafeMode(
+        statusRecords,
+        preparedRun.playerRuntimeContract,
+        defenseRuntimeContract,
+      ),
+    () => describeMissingDefenseNoSafeMode(defenseRuntimeContract),
+    PLAYER_HEARTBEAT_WATCHDOG_MS,
+  );
+}
+
+export async function waitForDefenseConstructionContinues(preparedRun) {
+  const defenseRuntimeContract = readDefenseRuntimeContract(preparedRun);
+
+  return waitForStatusCondition(
+    preparedRun.runDirectory,
+    preparedRun.statusFilePath,
+    (statusRecords) => findDefenseConstructionProgress(statusRecords, defenseRuntimeContract),
+    () => describeMissingDefenseConstructionProgress(defenseRuntimeContract),
+    PLAYER_HEARTBEAT_WATCHDOG_MS,
+  );
+}
+
+export async function waitForDefenseConstructionDeferred(preparedRun) {
+  const defenseRuntimeContract = readDefenseRuntimeContract(preparedRun);
+
+  return waitForStatusCondition(
+    preparedRun.runDirectory,
+    preparedRun.statusFilePath,
+    (statusRecords) => findDefenseConstructionDeferred(statusRecords, defenseRuntimeContract),
+    () => describeMissingDefenseConstructionDeferred(defenseRuntimeContract),
+    PLAYER_HEARTBEAT_WATCHDOG_MS,
+  );
+}
+
 async function waitForStatusCondition(
   runDirectory,
   statusFilePath,
@@ -144,8 +197,144 @@ function findDefenseSafeModeActivation(statusRecords, defenseRuntimeContract) {
   );
 }
 
+function findDefenseHostileObserved(statusRecords, defenseRuntimeContract) {
+  return statusRecords.find(
+    (statusRecord) =>
+      statusRecord.event === 'defense-hostile-observed' &&
+      statusRecord.roomName === defenseRuntimeContract.roomName &&
+      matchesDefenseHostile(statusRecord.hostile, defenseRuntimeContract),
+  );
+}
+
+function findDefenseNoSafeMode(statusRecords, playerRuntimeContract, defenseRuntimeContract) {
+  throwIfDefenseSafeModeActive(statusRecords, defenseRuntimeContract);
+
+  const playerHeartbeat = findPlayerHeartbeat(statusRecords, playerRuntimeContract);
+
+  if (!playerHeartbeat) {
+    return undefined;
+  }
+
+  return statusRecords.find(
+    (statusRecord) =>
+      statusRecord.event === 'defense-no-safe-mode' &&
+      statusRecord.gameTime >= readPlayerHeartbeatGameTime(playerHeartbeat) &&
+      statusRecord.controllerId === defenseRuntimeContract.controllerId &&
+      statusRecord.roomName === defenseRuntimeContract.roomName &&
+      statusRecord.safeModeActive === false &&
+      matchesDefenseHostile(statusRecord.hostile, defenseRuntimeContract),
+  );
+}
+
+function findDefenseConstructionProgress(statusRecords, defenseRuntimeContract) {
+  throwIfDefenseSafeModeActive(statusRecords, defenseRuntimeContract);
+  readDefenseConstructionSiteId(defenseRuntimeContract);
+
+  return statusRecords.find(
+    (statusRecord) =>
+      statusRecord.event === 'defense-construction-progress' &&
+      statusRecord.controllerId === defenseRuntimeContract.controllerId &&
+      statusRecord.roomName === defenseRuntimeContract.roomName &&
+      statusRecord.safeModeActive === false &&
+      statusRecord.constructionSite &&
+      statusRecord.constructionSite.id === defenseRuntimeContract.constructionSiteId &&
+      statusRecord.constructionSite.progress > defenseRuntimeContract.initialConstructionProgress &&
+      matchesDefenseHostile(statusRecord.hostile, defenseRuntimeContract),
+  );
+}
+
+function findDefenseConstructionDeferred(statusRecords, defenseRuntimeContract) {
+  throwIfDefenseSafeModeActive(statusRecords, defenseRuntimeContract);
+  readDefenseConstructionSiteId(defenseRuntimeContract);
+
+  return statusRecords.find(
+    (statusRecord) =>
+      statusRecord.event === 'defense-construction-deferred' &&
+      statusRecord.controllerId === defenseRuntimeContract.controllerId &&
+      statusRecord.roomName === defenseRuntimeContract.roomName &&
+      statusRecord.safeModeActive === false &&
+      statusRecord.constructionSite &&
+      statusRecord.constructionSite.id === defenseRuntimeContract.constructionSiteId &&
+      statusRecord.constructionSite.progress ===
+        defenseRuntimeContract.initialConstructionProgress &&
+      statusRecord.controllerProgress > defenseRuntimeContract.initialControllerProgress &&
+      matchesDefenseHostile(statusRecord.hostile, defenseRuntimeContract),
+  );
+}
+
+function throwIfDefenseSafeModeActive(statusRecords, defenseRuntimeContract) {
+  const safeModeActivation = findDefenseSafeModeActivation(statusRecords, defenseRuntimeContract);
+
+  if (safeModeActivation) {
+    throw new Error(
+      `Unexpected safe-mode-active for controller ${defenseRuntimeContract.controllerId} and hostile ${defenseRuntimeContract.hostileCreepId}.`,
+    );
+  }
+}
+
+function matchesDefenseHostile(hostileStatus, defenseRuntimeContract) {
+  if (
+    !hostileStatus ||
+    hostileStatus.id !== defenseRuntimeContract.hostileCreepId ||
+    hostileStatus.x !== defenseRuntimeContract.hostileX ||
+    hostileStatus.y !== defenseRuntimeContract.hostileY
+  ) {
+    return false;
+  }
+
+  if (!Array.isArray(defenseRuntimeContract.hostileBodyPartTypes)) {
+    return true;
+  }
+
+  const statusBodyPartTypes = Array.isArray(hostileStatus.bodyParts)
+    ? hostileStatus.bodyParts.map((bodyPart) => bodyPart.type)
+    : [];
+
+  return (
+    statusBodyPartTypes.length === defenseRuntimeContract.hostileBodyPartTypes.length &&
+    statusBodyPartTypes.every(
+      (bodyPartType, bodyPartIndex) =>
+        bodyPartType === defenseRuntimeContract.hostileBodyPartTypes[bodyPartIndex],
+    )
+  );
+}
+
 function describeMissingDefenseSafeModeActivation(defenseRuntimeContract) {
   return `safe-mode-active for controller ${defenseRuntimeContract.controllerId} and hostile ${defenseRuntimeContract.hostileCreepId}`;
+}
+
+function describeMissingDefenseHostileObserved(defenseRuntimeContract) {
+  return `defense-hostile-observed for hostile ${defenseRuntimeContract.hostileCreepId} at ${defenseRuntimeContract.hostileX},${defenseRuntimeContract.hostileY}`;
+}
+
+function describeMissingDefenseNoSafeMode(defenseRuntimeContract) {
+  return `defense-no-safe-mode for controller ${defenseRuntimeContract.controllerId} and hostile ${defenseRuntimeContract.hostileCreepId}`;
+}
+
+function describeMissingDefenseConstructionProgress(defenseRuntimeContract) {
+  return `construction progress for site ${readDefenseConstructionSiteId(defenseRuntimeContract)}`;
+}
+
+function describeMissingDefenseConstructionDeferred(defenseRuntimeContract) {
+  return `construction deferred with controller upgrade fallback for site ${readDefenseConstructionSiteId(defenseRuntimeContract)}`;
+}
+
+function readDefenseConstructionSiteId(defenseRuntimeContract) {
+  if (!defenseRuntimeContract.constructionSiteId) {
+    throw new Error('Screeps server fixture does not expose a defense construction site.');
+  }
+
+  return defenseRuntimeContract.constructionSiteId;
+}
+
+function readPlayerHeartbeatGameTime(playerHeartbeat) {
+  const lineMatch = /^\[tick (?<gameTime>\d+)\]/u.exec(playerHeartbeat.line);
+
+  if (!lineMatch || !lineMatch.groups) {
+    throw new Error(`Player heartbeat does not include a tick line: ${playerHeartbeat.line}`);
+  }
+
+  return Number.parseInt(lineMatch.groups.gameTime, 10);
 }
 
 async function waitForFileCondition(

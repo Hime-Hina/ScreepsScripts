@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/testing/tdd-workflow.md", "reason": "red-green-refactor workflow before local server case implementation"}
+{"file": ".trellis/spec/testing/behavior-slices.md", "reason": "observable behavior slice definition for local server cases"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "local official server e2e suite/case/fixture boundary"}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "P3 defense fallback contracts and forbidden behavior expansion"}
+{"file": ".trellis/spec/runtime/runtime-boundaries.md", "reason": "runtime owns Screeps globals and defense action execution"}
+{"file": "docs/development.md", "reason": "current local official server command and default check boundaries"}
+{"file": "docs/game-state.md", "reason": "current PTR blocked facts and local evidence destination"}
+{"file": ".trellis/tasks/archive/2026-06/06-13-p3-ptr-defense-drill/design.md", "reason": "existing local fallback design and current defense-core-threat case"}

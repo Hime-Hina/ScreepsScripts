@@ -45,7 +45,7 @@
 
 `.screeps/server/` 是生成状态并被 Git 忽略。首次运行需要通过 `node-gyp` 编译官方 server native 依赖，耗时明显高于 warm cache；该命令不属于默认 `pnpm check`。
 
-当前 smoke suite 由 runner registry 编排，包含 `basic-runtime-heartbeat` 和 `memory-schema-write` 两个 case，用于观察 `AliceBot / W1N9 / Spawn1` 的自然 tick heartbeat 和 `Memory.screepsScripts.schemaVersion = 1`。P3 defense fallback 的本地 engine 演练通过显式 case 运行：`node scripts/screeps-server/run-suite.mjs case defense-core-threat-safe-mode`，它使用独立 `defense-core-threat` fixture，并验证 near-core hostile creep 触发 controller safe mode。以后本地 server e2e 扩展时，`package.json` 只保留少量稳定套件入口，例如 smoke/full；具体行为 case 和 fixture 继续由 runner 内部 registry 管理。case selection 只允许用于同一个本地官方 server e2e 边界内的调试，不能通过 flag/mode 切换到 PTR、live、deploy、rollback 或任何读取凭据、修改官方服务的操作。
+当前 smoke suite 由 runner registry 编排，包含 `basic-runtime-heartbeat` 和 `memory-schema-write` 两个 case，用于观察 `AliceBot / W1N9 / Spawn1` 的自然 tick heartbeat 和 `Memory.screepsScripts.schemaVersion = 1`。P3 defense fallback 的本地 engine 演练通过显式 case 运行：`defense-core-threat-safe-mode` 验证 near-core dangerous hostile 触发 controller safe mode，`defense-harmless-scout-continues` 验证 near-core MOVE-only hostile 不触发 safe mode 且 construction site 继续推进，`defense-distant-threat-defers-build` 验证 distant dangerous hostile 不触发 safe mode 且非关键 build 暂停。以后本地 server e2e 扩展时，`package.json` 只保留少量稳定套件入口，例如 smoke/full；具体行为 case 和 fixture 继续由 runner 内部 registry 管理。case selection 只允许用于同一个本地官方 server e2e 边界内的调试，不能通过 flag/mode 切换到 PTR、live、deploy、rollback 或任何读取凭据、修改官方服务的操作。
 
 `scripts/screeps-server/run-suite.mjs` 是稳定入口。`cases/` 保存 suite/case registry 和 case assertions，`fixtures/` 保存 `single-owned-spawn` world seeding，`framework/` 保存官方 package 缓存、harness 生命周期、进程控制、命令执行、端口保留、server output 和 status waiting，`observability/` 保存 run-scoped status mod 生成。
 

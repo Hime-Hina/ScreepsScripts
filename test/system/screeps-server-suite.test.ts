@@ -7,9 +7,15 @@ import { describe, expect, it } from 'vitest';
 const SCREEPS_SERVER_SCRIPT_ROOT = path.join('scripts', 'screeps-server');
 
 interface RegistryProbe {
-  readonly defenseCaseFixtureNames: readonly string[];
-  readonly defenseCaseLabel: string;
-  readonly defenseCaseNames: readonly string[];
+  readonly coreThreatCaseFixtureNames: readonly string[];
+  readonly coreThreatCaseLabel: string;
+  readonly coreThreatCaseNames: readonly string[];
+  readonly distantThreatCaseFixtureNames: readonly string[];
+  readonly distantThreatCaseLabel: string;
+  readonly distantThreatCaseNames: readonly string[];
+  readonly harmlessScoutCaseFixtureNames: readonly string[];
+  readonly harmlessScoutCaseLabel: string;
+  readonly harmlessScoutCaseNames: readonly string[];
   readonly mixedFixtureError: string;
   readonly smokeCaseNames: readonly string[];
   readonly smokeFixtureNames: readonly string[];
@@ -25,22 +31,30 @@ const readRegistryProbe = (): RegistryProbe => {
         import { createSingleCaseSelection, createSuiteSelection, readSharedFixtureName } from './scripts/screeps-server/cases/case-registry.mjs';
 
         const suiteSelection = createSuiteSelection('smoke');
-        const defenseCaseSelection = createSingleCaseSelection('defense-core-threat-safe-mode');
+        const coreThreatCaseSelection = createSingleCaseSelection('defense-core-threat-safe-mode');
+        const harmlessScoutCaseSelection = createSingleCaseSelection('defense-harmless-scout-continues');
+        const distantThreatCaseSelection = createSingleCaseSelection('defense-distant-threat-defers-build');
         let mixedFixtureError = '';
 
         try {
           readSharedFixtureName([
             ...suiteSelection.caseDefinitions,
-            ...defenseCaseSelection.caseDefinitions,
+            ...coreThreatCaseSelection.caseDefinitions,
           ]);
         } catch (error) {
           mixedFixtureError = error instanceof Error ? error.message : String(error);
         }
 
         console.log(JSON.stringify({
-          defenseCaseFixtureNames: defenseCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
-          defenseCaseLabel: defenseCaseSelection.label,
-          defenseCaseNames: defenseCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
+          coreThreatCaseFixtureNames: coreThreatCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
+          coreThreatCaseLabel: coreThreatCaseSelection.label,
+          coreThreatCaseNames: coreThreatCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
+          distantThreatCaseFixtureNames: distantThreatCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
+          distantThreatCaseLabel: distantThreatCaseSelection.label,
+          distantThreatCaseNames: distantThreatCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
+          harmlessScoutCaseFixtureNames: harmlessScoutCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
+          harmlessScoutCaseLabel: harmlessScoutCaseSelection.label,
+          harmlessScoutCaseNames: harmlessScoutCaseSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
           mixedFixtureError,
           smokeCaseNames: suiteSelection.caseDefinitions.map((caseDefinition) => caseDefinition.name),
           smokeFixtureNames: suiteSelection.caseDefinitions.map((caseDefinition) => caseDefinition.fixtureName),
@@ -66,9 +80,15 @@ const isRegistryProbe = (registryProbe: unknown): registryProbe is RegistryProbe
   const candidateProbe = registryProbe as Record<string, unknown>;
 
   return (
-    isStringArray(candidateProbe['defenseCaseFixtureNames']) &&
-    typeof candidateProbe['defenseCaseLabel'] === 'string' &&
-    isStringArray(candidateProbe['defenseCaseNames']) &&
+    isStringArray(candidateProbe['coreThreatCaseFixtureNames']) &&
+    typeof candidateProbe['coreThreatCaseLabel'] === 'string' &&
+    isStringArray(candidateProbe['coreThreatCaseNames']) &&
+    isStringArray(candidateProbe['distantThreatCaseFixtureNames']) &&
+    typeof candidateProbe['distantThreatCaseLabel'] === 'string' &&
+    isStringArray(candidateProbe['distantThreatCaseNames']) &&
+    isStringArray(candidateProbe['harmlessScoutCaseFixtureNames']) &&
+    typeof candidateProbe['harmlessScoutCaseLabel'] === 'string' &&
+    isStringArray(candidateProbe['harmlessScoutCaseNames']) &&
     typeof candidateProbe['mixedFixtureError'] === 'string' &&
     isStringArray(candidateProbe['smokeCaseNames']) &&
     isStringArray(candidateProbe['smokeFixtureNames'])
@@ -110,7 +130,7 @@ describe('Screeps server suite registry', () => {
     ]);
   });
 
-  it('keeps the smoke suite inside the single-owned-spawn fixture boundary and selects the defense drill case explicitly', () => {
+  it('keeps smoke inside the single-owned-spawn fixture and selects defense drill cases explicitly', () => {
     const registryProbe = readRegistryProbe();
 
     expect(registryProbe.smokeCaseNames).toEqual([
@@ -118,9 +138,15 @@ describe('Screeps server suite registry', () => {
       'memory-schema-write',
     ]);
     expect(registryProbe.smokeFixtureNames).toEqual(['single-owned-spawn', 'single-owned-spawn']);
-    expect(registryProbe.defenseCaseLabel).toBe('case=defense-core-threat-safe-mode');
-    expect(registryProbe.defenseCaseNames).toEqual(['defense-core-threat-safe-mode']);
-    expect(registryProbe.defenseCaseFixtureNames).toEqual(['defense-core-threat']);
+    expect(registryProbe.coreThreatCaseLabel).toBe('case=defense-core-threat-safe-mode');
+    expect(registryProbe.coreThreatCaseNames).toEqual(['defense-core-threat-safe-mode']);
+    expect(registryProbe.coreThreatCaseFixtureNames).toEqual(['defense-core-threat']);
+    expect(registryProbe.harmlessScoutCaseLabel).toBe('case=defense-harmless-scout-continues');
+    expect(registryProbe.harmlessScoutCaseNames).toEqual(['defense-harmless-scout-continues']);
+    expect(registryProbe.harmlessScoutCaseFixtureNames).toEqual(['defense-harmless-scout']);
+    expect(registryProbe.distantThreatCaseLabel).toBe('case=defense-distant-threat-defers-build');
+    expect(registryProbe.distantThreatCaseNames).toEqual(['defense-distant-threat-defers-build']);
+    expect(registryProbe.distantThreatCaseFixtureNames).toEqual(['defense-distant-threat']);
     expect(registryProbe.mixedFixtureError).toContain(
       'Screeps server e2e cases in one run must share one fixture',
     );

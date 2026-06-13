@@ -169,12 +169,24 @@ module.exports = function registerScreepsServerTestStatus(config) {
 function createDefenseStatusObserverSource(defenseRuntimeContract) {
   return `
 const defenseControllerId = ${JSON.stringify(defenseRuntimeContract.controllerId)};
+const defenseConstructionSiteId = ${JSON.stringify(defenseRuntimeContract.constructionSiteId ?? null)};
 const defenseHostileCreepId = ${JSON.stringify(defenseRuntimeContract.hostileCreepId)};
+const defenseInitialConstructionProgress = ${JSON.stringify(defenseRuntimeContract.initialConstructionProgress ?? null)};
+const defenseInitialControllerProgress = ${JSON.stringify(defenseRuntimeContract.initialControllerProgress ?? null)};
 const defenseRoomName = ${JSON.stringify(defenseRuntimeContract.roomName)};
 const defenseUserId = ${JSON.stringify(defenseRuntimeContract.userId)};
+const writtenDefenseStatusKeys = new Set();
 
 function findDefenseHostile(roomObjects) {
   return roomObjects && roomObjects[defenseHostileCreepId] || null;
+}
+
+function findDefenseController(roomObjects) {
+  return roomObjects && roomObjects[defenseControllerId] || null;
+}
+
+function findDefenseConstructionSite(roomObjects) {
+  return defenseConstructionSiteId && roomObjects && roomObjects[defenseConstructionSiteId] || null;
 }
 
 function toDefenseHostileStatus(hostileCreep) {
@@ -198,6 +210,33 @@ function toDefenseHostileStatus(hostileCreep) {
   };
 }
 
+function toDefenseConstructionSiteStatus(constructionSite) {
+  if (!constructionSite) {
+    return null;
+  }
+
+  return {
+    id: constructionSite._id,
+    progress: constructionSite.progress || 0,
+    progressTotal: constructionSite.progressTotal || 0,
+    roomName: constructionSite.room,
+    structureType: constructionSite.structureType,
+    x: constructionSite.x,
+    y: constructionSite.y
+  };
+}
+
+function writeDefenseStatusOnce(event, statusKey, fields) {
+  const defenseStatusKey = event + ':' + statusKey;
+
+  if (writtenDefenseStatusKeys.has(defenseStatusKey)) {
+    return;
+  }
+
+  writtenDefenseStatusKeys.add(defenseStatusKey);
+  writeStatus(event, fields);
+}
+
 function writeDefenseSafeModeStatus(event, controller, roomObjects, gameTime) {
   writeStatus(event, {
     controllerId: controller._id,
@@ -207,6 +246,81 @@ function writeDefenseSafeModeStatus(event, controller, roomObjects, gameTime) {
     safeMode: controller.safeMode || null,
     safeModeAvailable: controller.safeModeAvailable || 0
   });
+}
+
+function writeDefenseObservationStatus(controller, roomObjects, gameTime) {
+  const hostileStatus = toDefenseHostileStatus(findDefenseHostile(roomObjects));
+
+  if (!hostileStatus) {
+    return;
+  }
+
+  writeDefenseStatusOnce('defense-hostile-observed', defenseHostileCreepId, {
+    controllerId: controller._id,
+    gameTime,
+    hostile: hostileStatus,
+    roomName: controller.room,
+    safeMode: controller.safeMode || null,
+    safeModeActive: controller.safeMode > gameTime,
+    safeModeAvailable: controller.safeModeAvailable || 0
+  });
+
+  if (!(controller.safeMode > gameTime)) {
+    writeDefenseStatusOnce('defense-no-safe-mode', defenseHostileCreepId + ':' + gameTime, {
+      controllerId: controller._id,
+      gameTime,
+      hostile: hostileStatus,
+      roomName: controller.room,
+      safeMode: controller.safeMode || null,
+      safeModeActive: false,
+      safeModeAvailable: controller.safeModeAvailable || 0
+    });
+  }
+}
+
+function writeDefenseConstructionStatus(controller, roomObjects, gameTime) {
+  const constructionSite = findDefenseConstructionSite(roomObjects);
+
+  if (!constructionSite) {
+    return;
+  }
+
+  const constructionSiteStatus = toDefenseConstructionSiteStatus(constructionSite);
+  const constructionStatusFields = {
+    constructionSite: constructionSiteStatus,
+    controllerId: controller._id,
+    controllerProgress: controller.progress || 0,
+    gameTime,
+    hostile: toDefenseHostileStatus(findDefenseHostile(roomObjects)),
+    roomName: controller.room,
+    safeMode: controller.safeMode || null,
+    safeModeActive: controller.safeMode > gameTime,
+    safeModeAvailable: controller.safeModeAvailable || 0
+  };
+
+  if (
+    defenseInitialConstructionProgress !== null &&
+    constructionSiteStatus.progress > defenseInitialConstructionProgress
+  ) {
+    writeDefenseStatusOnce(
+      'defense-construction-progress',
+      defenseConstructionSiteId,
+      constructionStatusFields
+    );
+  }
+
+  if (
+    defenseInitialConstructionProgress !== null &&
+    defenseInitialControllerProgress !== null &&
+    constructionSiteStatus.progress === defenseInitialConstructionProgress &&
+    constructionStatusFields.controllerProgress > defenseInitialControllerProgress
+  ) {
+    writeDefenseStatusOnce(
+      'defense-construction-deferred',
+      defenseConstructionSiteId,
+      constructionStatusFields
+    );
+  }
 }
 
 function registerDefenseStatusObserver(config) {
@@ -257,6 +371,27 @@ function registerDefenseStatusObserver(config) {
     }
 
     writeDefenseSafeModeStatus('safe-mode-active', controller, roomObjects, gameTime);
+  });
+
+  config.engine.on('processRoom', function onDefenseRoomObserved(
+    roomName,
+    roomInfo,
+    roomObjects,
+    roomTerrain,
+    gameTime
+  ) {
+    if (roomName !== defenseRoomName) {
+      return;
+    }
+
+    const controller = findDefenseController(roomObjects);
+
+    if (!controller) {
+      return;
+    }
+
+    writeDefenseObservationStatus(controller, roomObjects, gameTime);
+    writeDefenseConstructionStatus(controller, roomObjects, gameTime);
   });
 }
 `;

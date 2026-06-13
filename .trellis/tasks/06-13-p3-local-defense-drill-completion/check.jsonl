@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/testing/completion-definition.md", "reason": "task completion gate and docs/spec review requirements"}
+{"file": ".trellis/spec/testing/test-layers.md", "reason": "local official server e2e verification checks"}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "P3 defense behavior and no new combat feature boundary"}
+{"file": ".trellis/spec/documentation/game-state.md", "reason": "record local official server evidence without conflating PTR/live"}
+{"file": ".trellis/spec/operations/credentials.md", "reason": "ensure no live/PTR credentials are used or committed"}
+{"file": "README.md", "reason": "public command list consistency check"}
+{"file": "CONTEXT.md", "reason": "project state consistency check"}
+{"file": "docs/development.md", "reason": "local server command documentation consistency"}
+{"file": "docs/game-state.md", "reason": "final evidence record and blocked facts"}

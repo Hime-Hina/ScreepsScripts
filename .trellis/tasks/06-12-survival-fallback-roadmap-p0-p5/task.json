@@ -25,7 +25,8 @@
     "06-12-p3-defense-fallback-safe-mode",
     "06-12-p4-runtime-resilience-monitoring-fallback",
     "06-12-p5-recovery-rebuild-fallback",
-    "06-13-p3-ptr-defense-drill"
+    "06-13-p3-ptr-defense-drill",
+    "06-13-p3-local-defense-drill-completion"
   ],
   "parent": null,
   "relatedFiles": [],

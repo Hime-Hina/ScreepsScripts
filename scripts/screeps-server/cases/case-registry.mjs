@@ -1,5 +1,7 @@
 import {
   DEFENSE_CORE_THREAT_FIXTURE_NAME,
+  DEFENSE_DISTANT_THREAT_FIXTURE_NAME,
+  DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME,
   SINGLE_OWNED_SPAWN_ACTIVE_BOT,
   SINGLE_OWNED_SPAWN_FIXTURE_NAME,
 } from '../fixtures/single-owned-spawn-fixture.mjs';
@@ -27,6 +29,22 @@ const SCREEPS_SERVER_CASES = new Map([
       fixtureName: DEFENSE_CORE_THREAT_FIXTURE_NAME,
       name: 'defense-core-threat-safe-mode',
       run: assertDefenseCoreThreatSafeMode,
+    },
+  ],
+  [
+    'defense-harmless-scout-continues',
+    {
+      fixtureName: DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME,
+      name: 'defense-harmless-scout-continues',
+      run: assertDefenseHarmlessScoutContinues,
+    },
+  ],
+  [
+    'defense-distant-threat-defers-build',
+    {
+      fixtureName: DEFENSE_DISTANT_THREAT_FIXTURE_NAME,
+      name: 'defense-distant-threat-defers-build',
+      run: assertDefenseDistantThreatDefersBuild,
     },
   ],
 ]);
@@ -120,6 +138,20 @@ async function assertMemorySchemaWrite(harness) {
 async function assertDefenseCoreThreatSafeMode(harness) {
   await harness.waitForPlayerHeartbeat();
   await harness.waitForDefenseSafeModeActivation();
+}
+
+async function assertDefenseHarmlessScoutContinues(harness) {
+  await harness.waitForPlayerHeartbeat();
+  await harness.waitForDefenseHostileObserved();
+  await harness.waitForDefenseNoSafeMode();
+  await harness.waitForDefenseConstructionContinues();
+}
+
+async function assertDefenseDistantThreatDefersBuild(harness) {
+  await harness.waitForPlayerHeartbeat();
+  await harness.waitForDefenseHostileObserved();
+  await harness.waitForDefenseNoSafeMode();
+  await harness.waitForDefenseConstructionDeferred();
 }
 
 function describeAvailableSuites() {

@@ -61,7 +61,7 @@ The default fixture is `single-owned-spawn`: seeded `AliceBot` owns room `W1N9` 
 
 Generated server state belongs under ignored `.screeps/server/`. The harness installs or reuses official `screeps@4.3.0` there so root install and default checks do not compile Screeps native dependencies.
 
-The current smoke suite runs through a runner-owned suite/case/fixture registry. It contains `basic-runtime-heartbeat` and `memory-schema-write`, both using the `single-owned-spawn` fixture. The defense drill case is selected explicitly through `node scripts/screeps-server/run-suite.mjs case defense-core-threat-safe-mode` and uses the separate `defense-core-threat` fixture. Future growth should add runner cases and stable suite entrypoints, not a package script per strategy behavior.
+The current smoke suite runs through a runner-owned suite/case/fixture registry. It contains `basic-runtime-heartbeat` and `memory-schema-write`, both using the `single-owned-spawn` fixture. P3 defense drill cases are selected explicitly through `node scripts/screeps-server/run-suite.mjs case <case>` and use separate hostile fixtures. Future growth should add runner cases and stable suite entrypoints, not a package script per strategy behavior.
 
 ### 1. Scope / Trigger
 
@@ -77,7 +77,7 @@ Use this layer when a behavior needs a real Screeps engine, storage process, run
 - Server lifecycle framework: `scripts/screeps-server/framework/`
 - Run-scoped status mod generation: `scripts/screeps-server/observability/`
 - Smoke cases: `basic-runtime-heartbeat`, `memory-schema-write`
-- Defense drill case: `defense-core-threat-safe-mode`
+- Defense drill cases: `defense-core-threat-safe-mode`, `defense-harmless-scout-continues`, `defense-distant-threat-defers-build`
 - Harness class: `ScreepsLocalServerHarness`
 - Generated root: `.screeps/server/`
 - Server package cache: `.screeps/server/package/`
@@ -102,7 +102,9 @@ Use this layer when a behavior needs a real Screeps engine, storage process, run
   - Fixture: prepared world state such as `single-owned-spawn`.
 - Different fixtures must not be mixed in one runner invocation. A case that needs hostile room state belongs in its own fixture and must pass the shared-fixture guard before server startup.
 - The `defense-core-threat` fixture contract is: active player `AliceBot`, room `W1N9`, spawn `Spawn1`, controller safe mode available, hostile creep `MichaelBot-core-threat` near core structures, and hostile body containing active attack or dismantle capability.
-- Defense status evidence must come from natural engine events in the generated status mod: safe mode intent, accepted intent, or active controller state. The status mod observes engine hooks; it must not trigger safe mode itself.
+- The `defense-harmless-scout` fixture contract is: active player `AliceBot`, room `W1N9`, spawn `Spawn1`, controller safe mode available, MOVE-only hostile creep `MichaelBot-harmless-scout` near core structures, a watched extension construction site, and adjacent owned workers with energy.
+- The `defense-distant-threat` fixture contract is: active player `AliceBot`, room `W1N9`, spawn `Spawn1`, controller safe mode available, hostile creep `MichaelBot-distant-threat` away from core structures, hostile body containing active attack or dismantle capability, a watched extension construction site, and adjacent owned workers with energy.
+- Defense status evidence must come from natural engine events in the generated status mod: safe mode intent, accepted intent, active controller state, post-heartbeat no-safe-mode observation, construction progress, or construction-deferred plus controller upgrade progress. The status mod observes engine hooks; it must not trigger safe mode or change game semantics itself.
 
 ### 4. Validation & Error Matrix
 
@@ -117,13 +119,17 @@ Use this layer when a behavior needs a real Screeps engine, storage process, run
 | Teardown runs after assertion failure | Kill child processes and clear launcher timers before returning non-zero |
 | New strategy behavior needs local server e2e coverage | Add a runner case; add a package script only when it is a stable suite entrypoint |
 | New behavior needs different room objects or hostile state | Add a separate fixture and keep mixed-fixture runs rejected |
-| Defense case lacks `safe-mode-active` evidence | Fail the case on watchdog; do not infer activation from source-level tests |
+| Core threat defense case lacks `safe-mode-active` evidence | Fail the case on watchdog; do not infer activation from source-level tests |
+| Harmless scout defense case lacks post-heartbeat `defense-no-safe-mode` or construction progress evidence | Fail the case on watchdog |
+| Distant threat defense case lacks post-heartbeat `defense-no-safe-mode` or construction-deferred evidence | Fail the case on watchdog |
 | A flag switches to PTR/live/deploy/rollback | Reject the design; create an explicit command for that boundary |
 
 ### 5. Good/Base/Bad Cases
 
 - Good: warm cache starts the official local server, observes `AliceBot` tick and Memory, prints timings, and exits without orphaned child processes.
 - Good: `defense-core-threat-safe-mode` starts the official local server with `defense-core-threat`, observes a natural tick heartbeat, then observes `safe-mode-active` for the expected controller and hostile creep.
+- Good: `defense-harmless-scout-continues` observes a natural tick heartbeat, post-heartbeat `defense-no-safe-mode`, and watched construction site progress.
+- Good: `defense-distant-threat-defers-build` observes a natural tick heartbeat, post-heartbeat `defense-no-safe-mode`, watched construction site progress remaining at its initial value, and controller upgrade progress.
 - Base: cold cache compiles native dependencies slowly but succeeds; record the cost separately from warm cache.
 - Bad: the command polls a backend HTTP endpoint as the primary readiness proof, reads live credentials, mutates official package source, or stays alive because a launcher timer was not cleared.
 - Bad: every new strategy behavior adds `test:screeps-server:<behavior>` to `package.json`.
@@ -134,7 +140,7 @@ Use this layer when a behavior needs a real Screeps engine, storage process, run
 - The PoC command must assert the fixture name, active user, room, spawn, heartbeat, Memory schema, timing output, and teardown.
 - Bundle smoke must remain available until local server e2e cost is stable enough to revisit default gate composition.
 - Future suite runners must test their registry mapping with system or runner-level assertions so package scripts remain bounded.
-- Defense case registry tests must assert the selected fixture is `defense-core-threat` and that mixed `single-owned-spawn` plus `defense-core-threat` case lists are rejected before launch.
+- Defense case registry tests must assert each selected defense case maps to its explicit fixture and that mixed `single-owned-spawn` plus defense case lists are rejected before launch.
 
 ### 7. Wrong vs Correct
 
@@ -168,6 +174,8 @@ pnpm test:screeps-server
 pnpm test:screeps-server:full
 node scripts/screeps-server/run-suite.mjs case worker-harvest
 node scripts/screeps-server/run-suite.mjs case defense-core-threat-safe-mode
+node scripts/screeps-server/run-suite.mjs case defense-harmless-scout-continues
+node scripts/screeps-server/run-suite.mjs case defense-distant-threat-defers-build
 ```
 
 ## Official PTR Smoke

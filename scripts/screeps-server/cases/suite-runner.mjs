@@ -2,7 +2,11 @@ import { performance } from 'node:perf_hooks';
 
 import {
   DEFENSE_CORE_THREAT_FIXTURE_NAME,
+  DEFENSE_DISTANT_THREAT_FIXTURE_NAME,
+  DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME,
   describeDefenseCoreThreatFixture,
+  describeDefenseDistantThreatFixture,
+  describeDefenseHarmlessScoutFixture,
   describeSingleOwnedSpawnFixture,
   SINGLE_OWNED_SPAWN_FIXTURE_NAME,
 } from '../fixtures/single-owned-spawn-fixture.mjs';
@@ -48,6 +52,16 @@ async function prepareSelectedFixture(harness, fixtureName) {
     return;
   }
 
+  if (fixtureName === DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME) {
+    await harness.prepareDefenseHarmlessScoutFixture();
+    return;
+  }
+
+  if (fixtureName === DEFENSE_DISTANT_THREAT_FIXTURE_NAME) {
+    await harness.prepareDefenseDistantThreatFixture();
+    return;
+  }
+
   throw new Error(`Unsupported Screeps server e2e fixture "${fixtureName}".`);
 }
 
@@ -58,6 +72,14 @@ function describeFixture(fixtureName) {
 
   if (fixtureName === DEFENSE_CORE_THREAT_FIXTURE_NAME) {
     return describeDefenseCoreThreatFixture();
+  }
+
+  if (fixtureName === DEFENSE_HARMLESS_SCOUT_FIXTURE_NAME) {
+    return describeDefenseHarmlessScoutFixture();
+  }
+
+  if (fixtureName === DEFENSE_DISTANT_THREAT_FIXTURE_NAME) {
+    return describeDefenseDistantThreatFixture();
   }
 
   throw new Error(`Unsupported Screeps server e2e fixture "${fixtureName}".`);
