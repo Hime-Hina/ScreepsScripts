@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 interface OpsEventModule {
   appendOpsEventToJsonl(storePath: string, opsEvent: Record<string, unknown>): Promise<void>;
@@ -15,6 +15,25 @@ interface OpsEventModule {
   parseOpsEventLine(consoleLine: string): Record<string, unknown> | null;
 }
 
+interface OpsEventBridgeModule {
+  parseDryRunArguments(commandArguments: string[]): {
+    inputFile: string | null;
+    inputLine: string | null;
+    storePath: string | null;
+  };
+  readDefaultEventStorePath(clock?: Date): string;
+  runOpsEventBridgeDryRun(commandArguments: string[]): Promise<
+    {
+      actions: string[];
+      dedupeKey: string;
+      eventId: string;
+      kind: string;
+      severity: string;
+      suppressed: boolean;
+    }[]
+  >;
+}
+
 const loadOpsEventModule = async (): Promise<OpsEventModule> => {
   const loadedModule: unknown = await import(
     pathToFileURL(resolve('scripts/screeps/ops-event.mjs')).href
@@ -22,6 +41,18 @@ const loadOpsEventModule = async (): Promise<OpsEventModule> => {
 
   if (!isOpsEventModule(loadedModule)) {
     throw new Error('ops-event.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
+const loadOpsEventBridgeModule = async (): Promise<OpsEventBridgeModule> => {
+  const loadedModule: unknown = await import(
+    pathToFileURL(resolve('scripts/screeps/ops-event-bridge.mjs')).href
+  );
+
+  if (!isOpsEventBridgeModule(loadedModule)) {
+    throw new Error('ops-event-bridge.mjs exports changed.');
   }
 
   return loadedModule;
@@ -51,6 +82,19 @@ describe('Screeps ops event parser', () => {
     });
   });
 
+  it('accepts event JSON immediately after the prefix for emitter compatibility', async () => {
+    const opsEventModule = await loadOpsEventModule();
+
+    const opsEvent = opsEventModule.parseOpsEventLine(
+      '[HERMES_EVENT]{"schema":"screeps.ops.event.v1","id":"worker-low-compact","severity":"actionable","kind":"worker_below_target","tick":42,"shard":"shard1","summary":"worker count below target"}',
+    );
+
+    expect(opsEvent).toMatchObject({
+      id: 'worker-low-compact',
+      kind: 'worker_below_target',
+    });
+  });
+
   it('ignores normal console heartbeat lines', async () => {
     const opsEventModule = await loadOpsEventModule();
 
@@ -73,15 +117,22 @@ describe('Screeps ops event parser', () => {
     const opsEventModule = await loadOpsEventModule();
 
     const opsEvent = opsEventModule.parseOpsEventLine(
-      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"secret-test","severity":"critical","kind":"token_probe","tick":7,"shard":"shard1","summary":"secret should be redacted","metrics":{"token":"ptr-secret-token","nested":{"password":"pw","safe":1}}}',
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"secret-test","severity":"critical","kind":"token_probe","tick":7,"shard":"shard1","summary":"secret should be redacted","metrics":{"token":"ptr-secret-token","nested":{"password":"pw","safe":1},"snapshots":[{"authorization":"Bearer secret","safe":2}],"cookieValues":["secret-cookie"]}}',
     );
 
     expect(opsEvent).toMatchObject({
       metrics: {
+        cookieValues: '[redacted]',
         nested: {
           password: '[redacted]',
           safe: 1,
         },
+        snapshots: [
+          {
+            authorization: '[redacted]',
+            safe: 2,
+          },
+        ],
         token: '[redacted]',
       },
     });
@@ -178,6 +229,87 @@ describe('Screeps ops event store and policy', () => {
   });
 });
 
+describe('Screeps ops event bridge dry-run', () => {
+  it('uses a day-scoped default event store path', async () => {
+    const opsEventBridgeModule = await loadOpsEventBridgeModule();
+
+    expect(opsEventBridgeModule.readDefaultEventStorePath(new Date('2026-06-14T01:02:03Z'))).toBe(
+      join('.screeps/events', '2026-06-14.jsonl'),
+    );
+    const parsedArguments = opsEventBridgeModule.parseDryRunArguments([
+      '--dry-run-line',
+      '[HERMES_EVENT] {}',
+      '--store-default',
+    ]);
+
+    expect(parsedArguments.storePath).toMatch(
+      /^\.screeps[\\/]events[\\/]\d{4}-\d{2}-\d{2}\.jsonl$/,
+    );
+  });
+
+  it('processes dry-run files while ignoring non-event lines and storing redacted events', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'screeps-ops-bridge-'));
+    const inputPath = join(workspacePath, 'console.log');
+    const storePath = join(workspacePath, 'events.jsonl');
+    const opsEventBridgeModule = await loadOpsEventBridgeModule();
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await writeFile(
+        inputPath,
+        [
+          '[tick 1] cpu=0.10 bucket=10000',
+          '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-1","severity":"critical","kind":"spawn_missing","tick":1,"shard":"shard1","summary":"spawn missing","metrics":{"samples":[{"authorization":"Bearer secret","safe":1}]}}',
+          '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-2","severity":"critical","kind":"spawn_missing","tick":2,"shard":"shard1","summary":"spawn still missing"}',
+        ].join('\n'),
+        'utf8',
+      );
+
+      const decisions = await opsEventBridgeModule.runOpsEventBridgeDryRun([
+        '--dry-run-file',
+        inputPath,
+        '--store',
+        storePath,
+      ]);
+      const storedLines = (await readFile(storePath, 'utf8')).trim().split('\n');
+      const storedEvents = storedLines.map(
+        (storedLine: string) => JSON.parse(storedLine) as unknown,
+      );
+
+      expect(decisions).toEqual([
+        expect.objectContaining({
+          actions: ['record', 'notify', 'wake_hermes'],
+          eventId: 'critical-1',
+          suppressed: false,
+        }),
+        expect.objectContaining({
+          actions: ['record'],
+          eventId: 'critical-2',
+          suppressed: true,
+        }),
+      ]);
+      expect(storedEvents).toMatchObject([
+        {
+          metrics: {
+            samples: [
+              {
+                authorization: '[redacted]',
+                safe: 1,
+              },
+            ],
+          },
+        },
+        {
+          id: 'critical-2',
+        },
+      ]);
+    } finally {
+      consoleLogSpy.mockRestore();
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+});
+
 const isOpsEventModule = (candidateModule: unknown): candidateModule is OpsEventModule =>
   typeof candidateModule === 'object' &&
   candidateModule !== null &&
@@ -189,3 +321,15 @@ const isOpsEventModule = (candidateModule: unknown): candidateModule is OpsEvent
   typeof candidateModule.decideOpsEventActions === 'function' &&
   'parseOpsEventLine' in candidateModule &&
   typeof candidateModule.parseOpsEventLine === 'function';
+
+const isOpsEventBridgeModule = (
+  candidateModule: unknown,
+): candidateModule is OpsEventBridgeModule =>
+  typeof candidateModule === 'object' &&
+  candidateModule !== null &&
+  'parseDryRunArguments' in candidateModule &&
+  typeof candidateModule.parseDryRunArguments === 'function' &&
+  'readDefaultEventStorePath' in candidateModule &&
+  typeof candidateModule.readDefaultEventStorePath === 'function' &&
+  'runOpsEventBridgeDryRun' in candidateModule &&
+  typeof candidateModule.runOpsEventBridgeDryRun === 'function';
