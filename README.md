@@ -34,6 +34,8 @@ pnpm verify:ptr:screeps
 pnpm deploy:ptr:screeps
 pnpm found:ptr-room:screeps
 pnpm rollback:ptr:screeps
+pnpm ops:event-bridge:screeps
+pnpm ops:event-bridge:dry-run:screeps
 ```
 
 ## 文档
