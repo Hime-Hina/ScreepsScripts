@@ -119,6 +119,26 @@ describe('runtime alert decisions', () => {
     ]);
   });
 
+  it('does not notify for transient low spawn energy when the room is healthy', () => {
+    expect(
+      selectRuntimeAlertDecisions({
+        actionFailures: [],
+        defenseWorld: emptyDefenseWorld,
+        gameTime: 51,
+        spawningWorld: createSpawningWorld({
+          energyStructures: [
+            {
+              availableEnergy: 100,
+              energyCapacity: 300,
+            },
+          ],
+          ticksToDowngrade: 9000,
+          workerCreepCount: 5,
+        }),
+      }),
+    ).toEqual([]);
+  });
+
   it('does not notify when survival signals are stable', () => {
     expect(
       selectRuntimeAlertDecisions({

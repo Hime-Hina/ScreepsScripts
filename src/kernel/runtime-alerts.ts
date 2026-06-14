@@ -78,7 +78,15 @@ const selectSpawnEnergyAlerts = (
       0,
     );
 
-    if (totalEnergyCapacity <= 0 || totalAvailableEnergy >= totalEnergyCapacity) {
+    const hasSurvivalRisk =
+      spawningRoom.workerCreepCount < SURVIVAL_WORKER_ALERT_COUNT ||
+      spawningRoom.ticksToDowngrade < CONTROLLER_DOWNGRADE_ALERT_TICKS;
+
+    if (
+      totalEnergyCapacity <= 0 ||
+      totalAvailableEnergy >= totalEnergyCapacity ||
+      !hasSurvivalRisk
+    ) {
       return [];
     }
 
