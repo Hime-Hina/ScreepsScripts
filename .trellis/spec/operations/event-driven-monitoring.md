@@ -6,10 +6,10 @@ Screeps operations monitoring should prefer event-driven local processing over s
 
 ## Rules
 
-- Runtime-visible operations events use one console line prefixed with `[HERMES_EVENT]` followed by JSON.
+- Runtime-visible operations events use one console line prefixed with `[HERMES_EVENT]` followed by JSON; whitespace after the prefix is optional, and emitters should reuse the parser/exported prefix contract.
 - Event schema is `screeps.ops.event.v1`.
 - The local bridge must parse, validate, redact, persist, and classify events deterministically before any Hermes/LLM wake-up.
-- High-frequency data stays in local JSONL/SQLite-like storage; LLM calls are reserved for actionable or critical events that require reasoning, development, or cross-system coordination.
+- High-frequency data stays in local day-scoped JSONL/SQLite-like storage with retention/rotation before live PM2 operation; LLM calls are reserved for actionable or critical events that require reasoning, development, or cross-system coordination.
 - The first bridge slice is read-only with respect to live Screeps state. It must not deploy, roll back, mutate Memory, send console commands, or switch active branches.
 - Critical in-tick survival actions remain in Screeps runtime code; Hermes handles cross-tick operations, diagnosis, planning, issue/PR work, and authorized deployments.
 

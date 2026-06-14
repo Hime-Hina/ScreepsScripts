@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-export const OPS_EVENT_PREFIX = '[HERMES_EVENT] ';
+export const OPS_EVENT_PREFIX = '[HERMES_EVENT]';
 export const OPS_EVENT_SCHEMA = 'screeps.ops.event.v1';
 
 const OPS_EVENT_SEVERITIES = new Set(['info', 'warning', 'actionable', 'critical']);
@@ -149,17 +149,27 @@ const readDefaultCooldownTicks = (severity) => {
 const readOpsEventDedupeKey = (opsEvent) =>
   [opsEvent.severity, opsEvent.kind, opsEvent.shard, opsEvent.room ?? '-'].join(':');
 
+const redactSensitiveValue = (recordKey, recordEntry) => {
+  if (SECRET_KEY_PATTERN.test(recordKey)) {
+    return '[redacted]';
+  }
+
+  if (Array.isArray(recordEntry)) {
+    return recordEntry.map((arrayEntry) => redactSensitiveValue('', arrayEntry));
+  }
+
+  if (isPlainObject(recordEntry)) {
+    return redactSensitiveRecord(recordEntry);
+  }
+
+  return recordEntry;
+};
+
 const redactSensitiveRecord = (recordValue) => {
   const redactedRecord = {};
 
   for (const [recordKey, recordEntry] of Object.entries(recordValue)) {
-    if (SECRET_KEY_PATTERN.test(recordKey)) {
-      redactedRecord[recordKey] = '[redacted]';
-    } else if (isPlainObject(recordEntry)) {
-      redactedRecord[recordKey] = redactSensitiveRecord(recordEntry);
-    } else {
-      redactedRecord[recordKey] = recordEntry;
-    }
+    redactedRecord[recordKey] = redactSensitiveValue(recordKey, recordEntry);
   }
 
   return redactedRecord;

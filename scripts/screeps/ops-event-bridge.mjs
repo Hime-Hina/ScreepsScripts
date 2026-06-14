@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { reportCommandFailure } from './command-failure.mjs';
@@ -11,7 +12,10 @@ import {
   parseOpsEventLine,
 } from './ops-event.mjs';
 
-const DEFAULT_EVENT_STORE_PATH = '.screeps/events/live.jsonl';
+const DEFAULT_EVENT_STORE_DIRECTORY = '.screeps/events';
+
+export const readDefaultEventStorePath = (clock = new Date()) =>
+  join(DEFAULT_EVENT_STORE_DIRECTORY, `${clock.toISOString().slice(0, 10)}.jsonl`);
 
 export const runOpsEventBridgeDryRun = async (commandArguments = process.argv.slice(2)) => {
   const dryRunRequest = parseDryRunArguments(commandArguments);
@@ -81,7 +85,7 @@ export const parseDryRunArguments = (commandArguments) => {
     }
 
     if (commandArgument === '--store-default') {
-      storePath = DEFAULT_EVENT_STORE_PATH;
+      storePath = readDefaultEventStorePath();
       continue;
     }
 
