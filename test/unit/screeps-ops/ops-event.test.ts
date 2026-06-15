@@ -48,11 +48,11 @@ const loadOpsEventModule = async (): Promise<OpsEventModule> => {
 
 const loadOpsEventBridgeModule = async (): Promise<OpsEventBridgeModule> => {
   const loadedModule: unknown = await import(
-    pathToFileURL(resolve('scripts/screeps/ops-event-bridge.mjs')).href
+    pathToFileURL(resolve('scripts/screeps/ops-event-bridge-dry-run.mjs')).href
   );
 
   if (!isOpsEventBridgeModule(loadedModule)) {
-    throw new Error('ops-event-bridge.mjs exports changed.');
+    throw new Error('ops-event-bridge-dry-run.mjs exports changed.');
   }
 
   return loadedModule;
