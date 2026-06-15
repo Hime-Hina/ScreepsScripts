@@ -477,6 +477,8 @@ describe('Screeps live ops event bridge', () => {
     const eventStoreDirectory = join(workspacePath, '.screeps', 'events');
     const claimStorePath = join(workspacePath, '.screeps', 'ops-claims');
     const currentEventFileName = `${new Date().toISOString().slice(0, 10)}.jsonl`;
+    const oldClaimFileName = `${'a'.repeat(64)}.json`;
+    const recentClaimFileName = `${'b'.repeat(64)}.json`;
     stubAuthFetch();
     MockOpsEventWebSocket.scenarios = [
       {
@@ -493,12 +495,12 @@ describe('Screeps live ops event bridge', () => {
       await writeFile(join(eventStoreDirectory, '2020-01-01.jsonl'), '{}\n', 'utf8');
       await writeFile(join(eventStoreDirectory, currentEventFileName), '{}\n', 'utf8');
       await writeFile(
-        join(claimStorePath, 'old.json'),
+        join(claimStorePath, oldClaimFileName),
         JSON.stringify({ claimedAt: '2020-01-01T00:00:00.000Z' }),
         'utf8',
       );
       await writeFile(
-        join(claimStorePath, 'recent.json'),
+        join(claimStorePath, recentClaimFileName),
         JSON.stringify({ claimedAt: new Date().toISOString() }),
         'utf8',
       );
@@ -511,7 +513,7 @@ describe('Screeps live ops event bridge', () => {
       );
 
       await expect(readdir(eventStoreDirectory)).resolves.toEqual([currentEventFileName]);
-      await expect(readdir(claimStorePath)).resolves.toEqual(['recent.json']);
+      await expect(readdir(claimStorePath)).resolves.toEqual([recentClaimFileName]);
       expect(joinedLogLines(logSpy)).toContain(
         '[ops:event-bridge] maintenance={"claimFilesRemoved":1,"eventFilesRemoved":1}',
       );

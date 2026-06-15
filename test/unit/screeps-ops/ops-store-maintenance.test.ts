@@ -66,22 +66,30 @@ describe('Screeps ops store maintenance', () => {
     }
   });
 
-  it('removes stale claim records by claimedAt and falls back to mtime for unreadable claims', async () => {
+  it('removes stale hash-named claim records and keeps unrelated JSON files', async () => {
     const workspacePath = await mkdtemp(join(tmpdir(), 'screeps-ops-claims-retention-'));
     const claimStorePath = join(workspacePath, 'claims');
     const maintenanceModule = await loadOpsStoreMaintenanceModule();
-    const malformedOldPath = join(claimStorePath, 'malformed-old.json');
+    const oldClaimFileName = `${'a'.repeat(64)}.json`;
+    const recentClaimFileName = `${'b'.repeat(64)}.json`;
+    const malformedOldClaimFileName = `${'c'.repeat(64)}.json`;
+    const malformedOldPath = join(claimStorePath, malformedOldClaimFileName);
 
     try {
       await mkdir(claimStorePath, { recursive: true });
       await writeFile(
-        join(claimStorePath, 'old.json'),
+        join(claimStorePath, oldClaimFileName),
         JSON.stringify({ claimedAt: '2026-06-01T00:00:00.000Z' }),
         'utf8',
       );
       await writeFile(
-        join(claimStorePath, 'recent.json'),
+        join(claimStorePath, recentClaimFileName),
         JSON.stringify({ claimedAt: '2026-06-15T00:00:00.000Z' }),
+        'utf8',
+      );
+      await writeFile(
+        join(claimStorePath, 'old.json'),
+        JSON.stringify({ claimedAt: '2026-06-01T00:00:00.000Z' }),
         'utf8',
       );
       await writeFile(malformedOldPath, '{bad json', 'utf8');
@@ -100,7 +108,11 @@ describe('Screeps ops store maintenance', () => {
         }),
       ).resolves.toEqual({ filesRemoved: 2 });
 
-      expect((await readdir(claimStorePath)).sort()).toEqual(['readme.txt', 'recent.json']);
+      expect((await readdir(claimStorePath)).sort()).toEqual([
+        recentClaimFileName,
+        'old.json',
+        'readme.txt',
+      ]);
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
     }
