@@ -2,6 +2,7 @@ import { readdir, readFile, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const CLAIM_STORE_FILE_PATTERN = /^[a-f0-9]{64}\.json$/u;
 const EVENT_STORE_FILE_PATTERN = /^(?<date>\d{4}-\d{2}-\d{2})\.jsonl$/u;
 
 export const DEFAULT_EVENT_STORE_RETENTION_DAYS = 14;
@@ -74,7 +75,7 @@ export const cleanupClaimStore = async ({
   let filesRemoved = 0;
 
   for (const directoryEntry of await readDirectoryEntries(claimStorePath)) {
-    if (!directoryEntry.isFile() || !directoryEntry.name.endsWith('.json')) {
+    if (!directoryEntry.isFile() || !CLAIM_STORE_FILE_PATTERN.test(directoryEntry.name)) {
       continue;
     }
 
