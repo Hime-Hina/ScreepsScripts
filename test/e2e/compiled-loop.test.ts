@@ -55,6 +55,18 @@ const TEST_CONTROLLER_STRUCTURES = {
 const isScreepsLoop = (candidateLoop: unknown): candidateLoop is ScreepsLoop =>
   typeof candidateLoop === 'function';
 
+const parseOpsEventLine = (opsEventLine: string): Record<string, unknown> =>
+  JSON.parse(opsEventLine.replace(/^\[HERMES_EVENT\]\s*/u, '')) as Record<string, unknown>;
+
+const findConsoleOpsEvent = (
+  consoleLines: readonly string[],
+  kind: string,
+): Record<string, unknown> | undefined =>
+  consoleLines
+    .filter((consoleLine) => consoleLine.startsWith('[HERMES_EVENT] '))
+    .map(parseOpsEventLine)
+    .find((opsEvent) => opsEvent['kind'] === kind);
+
 const createTestCpu = (usedAtTickStart: number) => ({
   bucket: 5000,
   getUsed: () => usedAtTickStart,
@@ -147,9 +159,27 @@ describe('compiled Screeps bundle', () => {
 
     commonjsExports.loop();
 
-    expect(consoleLines).toEqual([
-      '[tick 99] cpu=2.50 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=0:spawnEnergy=0/0:construction=0:hostiles=0',
-    ]);
+    expect(findConsoleOpsEvent(consoleLines, 'runtime_heartbeat')).toMatchObject({
+      kind: 'runtime_heartbeat',
+      metrics: {
+        bucket: 5000,
+        budget: 'full',
+        cpu: 2.5,
+        limit: 20,
+        rooms: [
+          {
+            constructionSiteCount: 0,
+            hostileCount: 0,
+            room: 'W1N1',
+            spawnEnergy: '0/0',
+            workerCount: 0,
+          },
+        ],
+        tickLimit: 500,
+      },
+      tick: 99,
+    });
+    expect(consoleLines.some((consoleLine) => consoleLine.startsWith('[tick '))).toBe(false);
     expect(spawnRequests).toEqual([
       [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-99'],
     ]);

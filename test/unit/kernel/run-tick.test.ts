@@ -8,6 +8,9 @@ import { createEmptyScreepsMemoryState } from '../../../src/memory/screeps-memor
 import type { ScreepsTickIO } from '../../../src/runtime/screeps-runtime';
 import type { SpawnDecision } from '../../../src/spawning/spawn-decision';
 
+const parseOpsEventLine = (consoleLine: string): Record<string, unknown> =>
+  JSON.parse(consoleLine.replace(/^\[HERMES_EVENT\]\s*/u, '')) as Record<string, unknown>;
+
 describe('runTick', () => {
   it('reports the current tick and executes bootstrap actions', () => {
     const consoleLines: string[] = [];
@@ -30,6 +33,7 @@ describe('runTick', () => {
       executeSpawnDecision: (spawnDecision) => executedSpawnDecisions.push(spawnDecision),
       executeWorkerActions: (workerDecisions) => executedWorkerDecisions.push(...workerDecisions),
       gameTime: 42,
+      shardName: 'shard1',
       readCpuSnapshot: () => ({
         bucket: 5000,
         limit: 20,
@@ -160,9 +164,50 @@ describe('runTick', () => {
       },
       workerDecisions: [],
     });
-    expect(consoleLines).toEqual([
-      '[tick 42] cpu=1.25 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=0:spawnEnergy=300/300:construction=0:hostiles=0',
-    ]);
+    expect(consoleLines).toHaveLength(2);
+    expect(consoleLines.every((consoleLine) => consoleLine.startsWith('[HERMES_EVENT] '))).toBe(
+      true,
+    );
+    expect(consoleLines.some((consoleLine) => consoleLine.startsWith('[tick '))).toBe(false);
+    expect(parseOpsEventLine(consoleLines[0])).toMatchObject({
+      dedupeKey: 'worker_count_low:shard1:W1N1',
+      id: 'worker_count_low:shard1:W1N1:42',
+      kind: 'worker_count_low',
+      metrics: {
+        survivalFloor: 3,
+        workers: 0,
+      },
+      room: 'W1N1',
+      schema: 'screeps.ops.event.v1',
+      severity: 'critical',
+      shard: 'shard1',
+      tick: 42,
+    });
+    expect(parseOpsEventLine(consoleLines[1])).toMatchObject({
+      dedupeKey: 'runtime_heartbeat:shard1',
+      id: 'runtime_heartbeat:shard1:42',
+      kind: 'runtime_heartbeat',
+      metrics: {
+        bucket: 5000,
+        budget: 'full',
+        cpu: 1.25,
+        limit: 20,
+        rooms: [
+          {
+            constructionSiteCount: 0,
+            hostileCount: 0,
+            room: 'W1N1',
+            spawnEnergy: '300/300',
+            workerCount: 0,
+          },
+        ],
+        tickLimit: 500,
+      },
+      schema: 'screeps.ops.event.v1',
+      severity: 'info',
+      shard: 'shard1',
+      tick: 42,
+    });
     expect(executedConstructionDecisions).toEqual([]);
     expect(executedDefenseDecisions).toEqual([]);
     expect(executedSpawnDecisions).toEqual([
@@ -173,13 +218,18 @@ describe('runTick', () => {
       },
     ]);
     expect(executedWorkerDecisions).toEqual([]);
-    expect(sentRuntimeAlerts).toEqual([
-      {
-        groupInterval: 100,
-        message: 'alert=worker-count-low room=W1N1 workers=0',
-        type: 'notify',
+    expect(sentRuntimeAlerts).toHaveLength(1);
+    expect(sentRuntimeAlerts[0]).toMatchObject({
+      emailFallback: true,
+      groupInterval: 100,
+      opsEvent: {
+        dedupeKey: 'worker_count_low:shard1:W1N1',
+        id: 'worker_count_low:shard1:W1N1:42',
+        kind: 'worker_count_low',
+        severity: 'critical',
       },
-    ]);
+      type: 'notify',
+    });
   });
 
   it('plans construction, spawning, and worker actions before executing them in order', () => {
@@ -190,6 +240,7 @@ describe('runTick', () => {
       executeSpawnDecision: () => runtimeEvents.push('executeSpawnDecision'),
       executeWorkerActions: () => runtimeEvents.push('executeWorkerActions'),
       gameTime: 43,
+      shardName: 'shard1',
       readCpuSnapshot: () => {
         runtimeEvents.push('readCpuSnapshot');
         return {
@@ -393,6 +444,7 @@ describe('runTick', () => {
       'executeConstructionDecisions',
       'executeSpawnDecision',
       'executeWorkerActions',
+      'writeConsoleLine',
       'sendRuntimeAlert',
       'writeConsoleLine',
     ]);
@@ -410,6 +462,7 @@ describe('runTick', () => {
         executedWorkerDecisions.push(...workerDecisions);
       },
       gameTime: 44,
+      shardName: 'shard1',
       readCpuSnapshot: () => {
         runtimeEvents.push('readCpuSnapshot');
         return {
@@ -565,7 +618,9 @@ describe('runTick', () => {
       'executeConstructionDecisions',
       'executeSpawnDecision',
       'executeWorkerActions',
+      'writeConsoleLine',
       'sendRuntimeAlert',
+      'writeConsoleLine',
       'sendRuntimeAlert',
       'writeConsoleLine',
     ]);

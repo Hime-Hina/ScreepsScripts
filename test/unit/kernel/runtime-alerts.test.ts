@@ -92,31 +92,46 @@ describe('runtime alert decisions', () => {
         ],
       },
       gameTime: 51,
+      shardName: 'shard1',
       spawningWorld: createSpawningWorld({}),
     });
 
-    expect(alertDecisions).toEqual([
+    expect(
+      alertDecisions.map((alertDecision) => ({
+        emailFallback: alertDecision.emailFallback,
+        kind: alertDecision.opsEvent.kind,
+        dedupeKey: alertDecision.opsEvent.dedupeKey,
+        severity: alertDecision.opsEvent.severity,
+      })),
+    ).toEqual([
       {
-        groupInterval: 100,
-        message: 'alert=controller-downgrade-critical room=W1N1 ticksToDowngrade=4999',
-        type: 'notify',
+        dedupeKey: 'controller_downgrade_critical:shard1:W1N1',
+        emailFallback: true,
+        kind: 'controller_downgrade_critical',
+        severity: 'critical',
       },
       {
-        groupInterval: 100,
-        message: 'alert=worker-count-low room=W1N1 workers=2',
-        type: 'notify',
+        dedupeKey: 'worker_count_low:shard1:W1N1',
+        emailFallback: true,
+        kind: 'worker_count_low',
+        severity: 'critical',
       },
       {
-        groupInterval: 100,
-        message: 'alert=spawn-energy-low room=W1N1 energy=200/300',
-        type: 'notify',
+        dedupeKey: 'spawn_energy_low:shard1:W1N1',
+        emailFallback: false,
+        kind: 'spawn_energy_low',
+        severity: 'actionable',
       },
       {
-        groupInterval: 100,
-        message: 'alert=hostile-present room=W1N1 hostile=hostile-1 owner=Invader',
-        type: 'notify',
+        dedupeKey: 'hostile_present:shard1:W1N1',
+        emailFallback: true,
+        kind: 'hostile_present',
+        severity: 'critical',
       },
     ]);
+    expect(
+      alertDecisions.every((alertDecision) => alertDecision.message.startsWith('[HERMES_EVENT] ')),
+    ).toBe(true);
   });
 
   it('does not notify for transient low spawn energy when the room is healthy', () => {
@@ -125,6 +140,7 @@ describe('runtime alert decisions', () => {
         actionFailures: [],
         defenseWorld: emptyDefenseWorld,
         gameTime: 51,
+        shardName: 'shard1',
         spawningWorld: createSpawningWorld({
           energyStructures: [
             {
@@ -145,6 +161,7 @@ describe('runtime alert decisions', () => {
         actionFailures: [],
         defenseWorld: emptyDefenseWorld,
         gameTime: 51,
+        shardName: 'shard1',
         spawningWorld: createSpawningWorld({
           energyStructures: [
             {

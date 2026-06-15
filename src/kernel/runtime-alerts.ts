@@ -1,4 +1,5 @@
 import type { DefenseWorldSnapshot } from '../defense/defense-planner';
+import { createRuntimeOpsEvent, formatRuntimeOpsEventLine } from '../runtime/ops-event';
 import type { RuntimeAlertDecision } from '../runtime/screeps-runtime';
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
 
@@ -18,6 +19,7 @@ export interface RuntimeAlertDecisionInput {
   readonly actionFailures: readonly RuntimeActionFailure[];
   readonly defenseWorld: DefenseWorldSnapshot;
   readonly gameTime: number;
+  readonly shardName: string;
   readonly spawningWorld: SpawningWorldSnapshot;
 }
 
@@ -44,9 +46,19 @@ const selectControllerDowngradeAlerts = (
     }
 
     return [
-      createNotifyDecision(
-        `alert=controller-downgrade-critical room=${spawningRoom.roomName} ticksToDowngrade=${spawningRoom.ticksToDowngrade}`,
-      ),
+      createAlertDecision({
+        emailFallback: true,
+        gameTime: alertInput.gameTime,
+        kind: 'controller_downgrade_critical',
+        metrics: {
+          ticksToDowngrade: spawningRoom.ticksToDowngrade,
+        },
+        recommendedAction: 'prioritize controller upgrade and inspect room survival state',
+        roomName: spawningRoom.roomName,
+        severity: 'critical',
+        shardName: alertInput.shardName,
+        summary: `controller downgrade critical in ${spawningRoom.roomName}`,
+      }),
     ];
   });
 
@@ -59,9 +71,20 @@ const selectWorkerCountAlerts = (
     }
 
     return [
-      createNotifyDecision(
-        `alert=worker-count-low room=${spawningRoom.roomName} workers=${spawningRoom.workerCreepCount}`,
-      ),
+      createAlertDecision({
+        emailFallback: true,
+        gameTime: alertInput.gameTime,
+        kind: 'worker_count_low',
+        metrics: {
+          survivalFloor: SURVIVAL_WORKER_ALERT_COUNT,
+          workers: spawningRoom.workerCreepCount,
+        },
+        recommendedAction: 'inspect spawn availability and bootstrap worker recovery',
+        roomName: spawningRoom.roomName,
+        severity: 'critical',
+        shardName: alertInput.shardName,
+        summary: `worker count below survival floor in ${spawningRoom.roomName}`,
+      }),
     ];
   });
 
@@ -91,9 +114,20 @@ const selectSpawnEnergyAlerts = (
     }
 
     return [
-      createNotifyDecision(
-        `alert=spawn-energy-low room=${spawningRoom.roomName} energy=${totalAvailableEnergy}/${totalEnergyCapacity}`,
-      ),
+      createAlertDecision({
+        emailFallback: false,
+        gameTime: alertInput.gameTime,
+        kind: 'spawn_energy_low',
+        metrics: {
+          availableEnergy: totalAvailableEnergy,
+          energyCapacity: totalEnergyCapacity,
+        },
+        recommendedAction: 'treat as supporting context for the active survival-risk event',
+        roomName: spawningRoom.roomName,
+        severity: 'actionable',
+        shardName: alertInput.shardName,
+        summary: `spawn and extension energy low in ${spawningRoom.roomName}`,
+      }),
     ];
   });
 
@@ -101,21 +135,47 @@ const selectHostilePresenceAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
   alertInput.defenseWorld.hostileCreeps.map((hostileCreep) =>
-    createNotifyDecision(
-      `alert=hostile-present room=${hostileCreep.roomName} hostile=${hostileCreep.id} owner=${hostileCreep.owner}`,
-    ),
+    createAlertDecision({
+      emailFallback: true,
+      gameTime: alertInput.gameTime,
+      kind: 'hostile_present',
+      metrics: {
+        hostileId: hostileCreep.id,
+        owner: hostileCreep.owner,
+      },
+      recommendedAction: 'inspect room defense state and safe mode availability',
+      roomName: hostileCreep.roomName,
+      severity: 'critical',
+      shardName: alertInput.shardName,
+      summary: `hostile creep present in ${hostileCreep.roomName}`,
+    }),
   );
 
 const selectActionFailureAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
-  alertInput.actionFailures.map((actionFailure) =>
-    createNotifyDecision(
-      `alert=runtime-action-failure operation=${actionFailure.operation} criticality=${formatActionFailureCriticality(
-        actionFailure,
-      )} error=${actionFailure.errorMessage}`,
-    ),
-  );
+  alertInput.actionFailures.map((actionFailure) => {
+    const isCritical = actionFailure.type === 'criticalRuntimeActionFailure';
+
+    return createAlertDecision({
+      emailFallback: isCritical,
+      gameTime: alertInput.gameTime,
+      kind: 'runtime_action_failure',
+      metrics: {
+        criticality: formatActionFailureCriticality(actionFailure),
+        error: actionFailure.errorMessage,
+        operation: actionFailure.operation,
+      },
+      recommendedAction: isCritical
+        ? 'inspect runtime failure and prepare rollback if survival path is affected'
+        : 'inspect non-critical runtime failure when convenient',
+      severity: isCritical ? 'critical' : 'actionable',
+      shardName: alertInput.shardName,
+      summary: `${formatActionFailureCriticality(actionFailure)} runtime action failure in ${
+        actionFailure.operation
+      }`,
+    });
+  });
 
 const formatActionFailureCriticality = (actionFailure: RuntimeActionFailure): string => {
   switch (actionFailure.type) {
@@ -127,8 +187,46 @@ const formatActionFailureCriticality = (actionFailure: RuntimeActionFailure): st
   }
 };
 
-const createNotifyDecision = (message: string): RuntimeAlertDecision => ({
-  groupInterval: RUNTIME_ALERT_GROUP_INTERVAL,
-  message,
-  type: 'notify',
-});
+const createAlertDecision = ({
+  emailFallback,
+  gameTime,
+  kind,
+  metrics,
+  recommendedAction,
+  roomName,
+  severity,
+  shardName,
+  summary,
+}: {
+  readonly emailFallback: boolean;
+  readonly gameTime: number;
+  readonly kind: string;
+  readonly metrics?: Record<string, string | number>;
+  readonly recommendedAction: string;
+  readonly roomName?: string;
+  readonly severity: 'actionable' | 'critical';
+  readonly shardName: string;
+  readonly summary: string;
+}): RuntimeAlertDecision => {
+  const roomSegment = roomName ?? 'global';
+  const opsEvent = createRuntimeOpsEvent({
+    dedupeKey: `${kind}:${shardName}:${roomSegment}`,
+    id: `${kind}:${shardName}:${roomSegment}:${gameTime}`,
+    kind,
+    ...(metrics === undefined ? {} : { metrics }),
+    recommendedAction,
+    ...(roomName === undefined ? {} : { room: roomName }),
+    severity,
+    shard: shardName,
+    summary,
+    tick: gameTime,
+  });
+
+  return {
+    emailFallback,
+    groupInterval: RUNTIME_ALERT_GROUP_INTERVAL,
+    message: formatRuntimeOpsEventLine(opsEvent),
+    opsEvent,
+    type: 'notify',
+  };
+};

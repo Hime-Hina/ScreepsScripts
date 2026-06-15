@@ -51,6 +51,43 @@ const TEST_CONTROLLER_STRUCTURES = {
   },
 };
 
+const parseOpsEventLine = (opsEventLine: string): Record<string, unknown> =>
+  JSON.parse(opsEventLine.replace(/^\[HERMES_EVENT\]\s*/u, '')) as Record<string, unknown>;
+
+const parseConsoleOpsEvents = (consoleLines: readonly string[]): Record<string, unknown>[] =>
+  consoleLines
+    .filter((consoleLine) => consoleLine.startsWith('[HERMES_EVENT] '))
+    .map(parseOpsEventLine);
+
+const findConsoleOpsEvent = (
+  consoleLines: readonly string[],
+  kind: string,
+): Record<string, unknown> | undefined =>
+  parseConsoleOpsEvents(consoleLines).find((opsEvent) => opsEvent['kind'] === kind);
+
+const findNotifyOpsEvent = (
+  notifyRequests: readonly unknown[],
+  kind: string,
+): Record<string, unknown> | undefined => {
+  for (const notifyRequest of notifyRequests) {
+    if (!Array.isArray(notifyRequest) || typeof notifyRequest[0] !== 'string') {
+      continue;
+    }
+
+    if (!notifyRequest[0].startsWith('[HERMES_EVENT] ')) {
+      continue;
+    }
+
+    const opsEvent = parseOpsEventLine(notifyRequest[0]);
+
+    if (opsEvent['kind'] === kind) {
+      return opsEvent;
+    }
+  }
+
+  return undefined;
+};
+
 const createTestCpu = (usedAtTickStart: number) => ({
   bucket: 5000,
   getUsed: () => usedAtTickStart,
@@ -140,9 +177,27 @@ describe('Screeps main loop', () => {
 
     mainModule.loop();
 
-    expect(consoleLines).toEqual([
-      '[tick 7] cpu=0.50 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=0:spawnEnergy=0/0:construction=0:hostiles=0',
-    ]);
+    expect(findConsoleOpsEvent(consoleLines, 'runtime_heartbeat')).toMatchObject({
+      kind: 'runtime_heartbeat',
+      metrics: {
+        bucket: 5000,
+        budget: 'full',
+        cpu: 0.5,
+        limit: 20,
+        rooms: [
+          {
+            constructionSiteCount: 0,
+            hostileCount: 0,
+            room: 'W1N1',
+            spawnEnergy: '0/0',
+            workerCount: 0,
+          },
+        ],
+        tickLimit: 500,
+      },
+      tick: 7,
+    });
+    expect(consoleLines.some((consoleLine) => consoleLine.startsWith('[tick '))).toBe(false);
     expect(spawnRequests).toEqual([
       [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-7'],
     ]);
@@ -213,9 +268,26 @@ describe('Screeps main loop', () => {
 
     mainModule.loop();
 
-    expect(consoleLines).toEqual([
-      '[tick 27] cpu=0.55 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=0:spawnEnergy=300/350:construction=0:hostiles=0',
-    ]);
+    expect(findConsoleOpsEvent(consoleLines, 'runtime_heartbeat')).toMatchObject({
+      kind: 'runtime_heartbeat',
+      metrics: {
+        bucket: 5000,
+        budget: 'full',
+        cpu: 0.55,
+        limit: 20,
+        rooms: [
+          {
+            constructionSiteCount: 0,
+            hostileCount: 0,
+            room: 'W1N1',
+            spawnEnergy: '300/350',
+            workerCount: 0,
+          },
+        ],
+        tickLimit: 500,
+      },
+      tick: 27,
+    });
     expect(spawnRequests).toEqual([
       [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-27'],
     ]);
@@ -356,9 +428,26 @@ describe('Screeps main loop', () => {
 
     expect(harvestTargets).toEqual([sourceTarget]);
     expect(moveTargets).toEqual([sourceTarget]);
-    expect(consoleLines).toEqual([
-      '[tick 8] cpu=0.70 bucket=5000 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=1:spawnEnergy=0/0:construction=0:hostiles=0',
-    ]);
+    expect(findConsoleOpsEvent(consoleLines, 'runtime_heartbeat')).toMatchObject({
+      kind: 'runtime_heartbeat',
+      metrics: {
+        bucket: 5000,
+        budget: 'full',
+        cpu: 0.7,
+        limit: 20,
+        rooms: [
+          {
+            constructionSiteCount: 0,
+            hostileCount: 0,
+            room: 'W1N1',
+            spawnEnergy: '0/0',
+            workerCount: 1,
+          },
+        ],
+        tickLimit: 500,
+      },
+      tick: 8,
+    });
   });
 
   it('executes distributed harvest decisions through the runtime boundary', async () => {
@@ -2192,13 +2281,24 @@ describe('Screeps main loop', () => {
     expect(spawnRequests).toEqual([
       [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-25'],
     ]);
-    expect(notifyRequests).toContainEqual([
-      'alert=runtime-action-failure operation=construction criticality=non-critical error=construction failed',
-      100,
-    ]);
-    expect(consoleLines.some((line) => line.startsWith('[tick 25] cpu=0.88 bucket=5000'))).toBe(
-      true,
-    );
+    expect(findConsoleOpsEvent(consoleLines, 'runtime_action_failure')).toMatchObject({
+      kind: 'runtime_action_failure',
+      metrics: {
+        criticality: 'non-critical',
+        error: 'construction failed',
+        operation: 'construction',
+      },
+      severity: 'actionable',
+    });
+    expect(findNotifyOpsEvent(notifyRequests, 'runtime_action_failure')).toBeUndefined();
+    expect(findConsoleOpsEvent(consoleLines, 'runtime_heartbeat')).toMatchObject({
+      kind: 'runtime_heartbeat',
+      metrics: {
+        bucket: 5000,
+        cpu: 0.88,
+      },
+      tick: 25,
+    });
   });
 
   it('reports a critical spawn action failure before surfacing the error', async () => {
@@ -2245,9 +2345,14 @@ describe('Screeps main loop', () => {
     const mainModule = await import('../../src/main');
 
     expect(() => mainModule.loop()).toThrow('spawn failed');
-    expect(notifyRequests).toContainEqual([
-      'alert=runtime-action-failure operation=spawn criticality=critical error=spawn failed',
-      100,
-    ]);
+    expect(findNotifyOpsEvent(notifyRequests, 'runtime_action_failure')).toMatchObject({
+      kind: 'runtime_action_failure',
+      metrics: {
+        criticality: 'critical',
+        error: 'spawn failed',
+        operation: 'spawn',
+      },
+      severity: 'critical',
+    });
   });
 });

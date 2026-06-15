@@ -11,6 +11,7 @@ import {
   decideOpsEventActions,
   parseOpsEventLine,
 } from './ops-event.mjs';
+import { applyOpsEventClaim, readDefaultClaimStorePath } from './ops-event-claims.mjs';
 
 const DEFAULT_EVENT_STORE_DIRECTORY = '.screeps/events';
 
@@ -34,9 +35,16 @@ export const runOpsEventBridgeDryRun = async (commandArguments = process.argv.sl
       await appendOpsEventToJsonl(dryRunRequest.storePath, opsEvent);
     }
 
-    const decision = decideOpsEventActions(opsEvent, policyState);
+    const decision = await applyOpsEventClaim({
+      claimStorePath: dryRunRequest.claimStorePath,
+      decision: decideOpsEventActions(opsEvent, policyState),
+      opsEvent,
+      source: dryRunRequest.source,
+    });
     decisions.push({
       actions: decision.actions,
+      claimOwner: decision.claim.owner?.source ?? null,
+      duplicate: decision.claim.duplicate,
       dedupeKey: decision.dedupeKey,
       eventId: opsEvent.id,
       kind: opsEvent.kind,
@@ -58,6 +66,8 @@ export const parseDryRunArguments = (commandArguments) => {
   let inputFile = null;
   let inputLine = null;
   let storePath = null;
+  let claimStorePath = null;
+  let source = 'dry-run';
 
   for (let argumentIndex = 0; argumentIndex < commandArguments.length; argumentIndex += 1) {
     const commandArgument = commandArguments[argumentIndex];
@@ -89,6 +99,23 @@ export const parseDryRunArguments = (commandArguments) => {
       continue;
     }
 
+    if (commandArgument === '--claim-store') {
+      claimStorePath = readFollowingArgument(commandArguments, argumentIndex, '--claim-store');
+      argumentIndex += 1;
+      continue;
+    }
+
+    if (commandArgument === '--claim-store-default') {
+      claimStorePath = readDefaultClaimStorePath();
+      continue;
+    }
+
+    if (commandArgument === '--source') {
+      source = readFollowingArgument(commandArguments, argumentIndex, '--source');
+      argumentIndex += 1;
+      continue;
+    }
+
     throw new Error(`Unknown argument "${commandArgument}".`);
   }
 
@@ -97,8 +124,10 @@ export const parseDryRunArguments = (commandArguments) => {
   }
 
   return {
+    claimStorePath,
     inputFile,
     inputLine,
+    source,
     storePath,
   };
 };

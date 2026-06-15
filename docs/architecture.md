@@ -31,7 +31,7 @@ flowchart LR
 
 `src/main.ts` 刻意保持很薄，只负责捕获 Screeps 运行时边界并调用 kernel。
 
-`src/runtime/` 拥有对 Screeps 全局对象的直接访问权。策略模块应从该边界接收明确输入，而不是自行读取全局对象。该边界也负责捕获 `Game.cpu` snapshot、执行 `Game.notify` 和输出 tick heartbeat。
+`src/runtime/` 拥有对 Screeps 全局对象的直接访问权。策略模块应从该边界接收明确输入，而不是自行读取全局对象。该边界也负责捕获 `Game.cpu` snapshot、执行 critical `Game.notify` fallback 和输出结构化 tick heartbeat。
 
 `src/kernel/` 拥有 tick 级编排。当前实现记录 tick telemetry，把 runtime 快照交给 defense、construction、spawning 和 creeps 边界产出可测试的决策，并通过 runtime boundary 执行 safe mode、construction、spawn 和 worker action。kernel 根据 CPU bucket 选择 full 或 survival-only tick budget；低 bucket 时保留 defense、emergency spawn 和 controller upgrade，跳过非关键 construction/repair。runtime operation 按 defense、spawn、critical worker、construction、non-critical worker 分组隔离，关键组失败会先通知再抛出，非关键组失败会通知并继续当前 tick。
 
@@ -49,7 +49,7 @@ flowchart LR
 
 其他未来领域模块应围绕 Screeps 概念划分，例如 colony、creeps、logistics、pathing、defense、market。领域模块产出决策或 action request；最终 Screeps action 由运行时拥有的操作统一裁决和执行。
 
-CPU 和 bucket 行为是架构的一部分。当前 heartbeat 输出 `cpu`、`bucket`、`limit`、`tickLimit`、budget decision 和每房间 `workers`、`spawnEnergy`、`construction`、`hostiles` 摘要。Pathfinding、room scan、market scan、cache rebuild 在实现前必须明确预算、执行频率和低 bucket 行为。
+CPU 和 bucket 行为是架构的一部分。当前 heartbeat 以 `[HERMES_EVENT]` 的 `runtime_heartbeat` JSON 事件输出 `cpu`、`bucket`、`limit`、`tickLimit`、budget decision 和每房间 `workers`、`spawnEnergy`、`construction`、`hostiles` 摘要。Pathfinding、room scan、market scan、cache rebuild 在实现前必须明确预算、执行频率和低 bucket 行为。
 
 ## 测试层
 

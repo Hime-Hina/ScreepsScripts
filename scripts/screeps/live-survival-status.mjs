@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { reportCommandFailure } from './command-failure.mjs';
 import { readMainScreepsConfig, readMainScreepsConfigFrom } from './config.mjs';
 import { hashModuleSet } from './module-set.mjs';
+import { parseOpsEventLine } from './ops-event.mjs';
 import {
   readLiveAccountIdentity,
   readLiveOwnedRooms,
@@ -377,17 +378,29 @@ const readConsoleHeartbeatMessage = (messageText, accountId, statusRequest) => {
   }
 
   for (const consoleLine of messages.log) {
-    if (typeof consoleLine !== 'string' || !consoleLine.startsWith('[tick ')) {
+    if (typeof consoleLine !== 'string') {
       continue;
     }
 
-    return parseRuntimeMonitorHeartbeat(consoleLine, statusRequest);
+    const heartbeatEvidence = parseRuntimeMonitorHeartbeat(consoleLine, statusRequest);
+
+    if (heartbeatEvidence !== null) {
+      return heartbeatEvidence;
+    }
   }
 
   return null;
 };
 
 const parseRuntimeMonitorHeartbeat = (consoleLine, statusRequest) => {
+  if (consoleLine.startsWith('[HERMES_EVENT]')) {
+    return parseStructuredRuntimeHeartbeat(consoleLine, statusRequest);
+  }
+
+  if (!consoleLine.startsWith('[tick ')) {
+    return null;
+  }
+
   const heartbeatMatch =
     /^\[tick (?<tick>\d+)\] cpu=(?<cpu>\d+(?:\.\d+)?) bucket=(?<bucket>\d+) limit=(?<limit>\d+) tickLimit=(?<tickLimit>\d+) budget=(?<budget>[A-Za-z0-9-]+) rooms=(?<roomSummaries>.+)$/u.exec(
       consoleLine,
@@ -419,6 +432,75 @@ const parseRuntimeMonitorHeartbeat = (consoleLine, statusRequest) => {
     tickLimit: heartbeatMatch.groups.tickLimit,
     workerCount: roomSummary.workerCount,
   };
+};
+
+const parseStructuredRuntimeHeartbeat = (consoleLine, statusRequest) => {
+  const opsEvent = parseOpsEventLine(consoleLine);
+
+  if (opsEvent === null || opsEvent.kind !== 'runtime_heartbeat') {
+    return null;
+  }
+
+  if (opsEvent.shard !== statusRequest.shardName) {
+    return null;
+  }
+
+  if (!isPlainObject(opsEvent.metrics) || !Array.isArray(opsEvent.metrics.rooms)) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat on ${statusRequest.shardName} is missing structured runtime metrics.`,
+    );
+  }
+
+  const roomSummary = opsEvent.metrics.rooms.find(
+    (candidateRoomSummary) =>
+      readStringField(candidateRoomSummary, 'room') === statusRequest.roomName,
+  );
+
+  if (roomSummary === undefined) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat on ${statusRequest.shardName} did not include target room ${statusRequest.roomName}.`,
+    );
+  }
+
+  return {
+    bucket: readRequiredMetricText(opsEvent.metrics, 'bucket', statusRequest),
+    budget: readRequiredMetricText(opsEvent.metrics, 'budget', statusRequest),
+    constructionSiteCount: readRequiredMetricText(
+      roomSummary,
+      'constructionSiteCount',
+      statusRequest,
+    ),
+    cpu: readRequiredMetricText(opsEvent.metrics, 'cpu', statusRequest),
+    hostileCount: readRequiredMetricText(roomSummary, 'hostileCount', statusRequest),
+    limit: readRequiredMetricText(opsEvent.metrics, 'limit', statusRequest),
+    roomName: statusRequest.roomName,
+    shardName: statusRequest.shardName,
+    spawnEnergy: readRequiredMetricText(roomSummary, 'spawnEnergy', statusRequest),
+    tick: String(opsEvent.tick),
+    tickLimit: readRequiredMetricText(opsEvent.metrics, 'tickLimit', statusRequest),
+    workerCount: readRequiredMetricText(roomSummary, 'workerCount', statusRequest),
+  };
+};
+
+const readRequiredMetricText = (metrics, fieldName, statusRequest) => {
+  if (!isPlainObject(metrics)) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat on ${statusRequest.shardName} is missing structured ${fieldName} metric.`,
+    );
+  }
+
+  const metricValue = metrics[fieldName];
+
+  if (
+    (typeof metricValue !== 'number' || !Number.isFinite(metricValue)) &&
+    typeof metricValue !== 'string'
+  ) {
+    throw new LiveSurvivalStatusError(
+      `P4 heartbeat on ${statusRequest.shardName} is missing structured ${fieldName} metric.`,
+    );
+  }
+
+  return String(metricValue);
 };
 
 const readHeartbeatRoomSummary = (roomSummariesText, targetRoomName, shardName) => {

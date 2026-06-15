@@ -41,7 +41,7 @@ const SCREEPS_CONFIG_TEXT = JSON.stringify({
 });
 
 const P4_HEARTBEAT_LINE =
-  '[tick 71650000] cpu=0.63 bucket=9876 limit=20 tickLimit=500 budget=full rooms=W51N21:workers=5:spawnEnergy=300/300:construction=5:hostiles=0';
+  '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"runtime_heartbeat:shard1:71650000","dedupeKey":"runtime_heartbeat:shard1","severity":"info","kind":"runtime_heartbeat","tick":71650000,"shard":"shard1","summary":"runtime heartbeat for 1 room(s)","metrics":{"cpu":0.63,"bucket":9876,"limit":20,"tickLimit":500,"budget":"full","rooms":[{"room":"W51N21","workerCount":5,"spawnEnergy":"300/300","constructionSiteCount":5,"hostileCount":0}]}}';
 
 describe('live survival status command', () => {
   afterEach(() => {
