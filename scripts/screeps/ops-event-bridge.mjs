@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { isAbsolute, join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 
@@ -11,6 +12,7 @@ import {
   decideOpsEventActions,
   parseOpsEventLine,
 } from './ops-event.mjs';
+import { applyOpsEventClaim, readDefaultClaimStorePath } from './ops-event-claims.mjs';
 import { readDefaultEventStorePath } from './ops-event-bridge-dry-run.mjs';
 import { readLiveAccountIdentity } from './screeps-api.mjs';
 import { openScreepsConsoleWebSocket } from './screeps-console-websocket.mjs';
@@ -37,10 +39,27 @@ export const runOpsEventBridgeLiveFrom = async (
   commandArguments,
   dependencies = {},
 ) => {
-  const liveRequest = parseLiveBridgeArguments(commandArguments);
+  const liveRequest = resolveWorkspaceLiveRequest(
+    workspacePath,
+    parseLiveBridgeArguments(commandArguments),
+  );
   const screepsConfig = await readMainScreepsConfigFrom(workspacePath);
 
   return runOpsEventBridgeLiveWithConfig(screepsConfig, liveRequest, dependencies);
+};
+
+const resolveWorkspaceLiveRequest = (workspacePath, liveRequest) => ({
+  ...liveRequest,
+  claimStorePath: resolveWorkspacePath(workspacePath, liveRequest.claimStorePath),
+  storePath: resolveWorkspacePath(workspacePath, liveRequest.storePath),
+});
+
+const resolveWorkspacePath = (workspacePath, candidatePath) => {
+  if (candidatePath === null || isAbsolute(candidatePath)) {
+    return candidatePath;
+  }
+
+  return join(workspacePath, candidatePath);
 };
 
 export const parseLiveBridgeArguments = (commandArguments) => {
@@ -51,6 +70,7 @@ export const parseLiveBridgeArguments = (commandArguments) => {
   let maxReconnects = null;
   let reconnectDelayMs = DEFAULT_RECONNECT_DELAY_MS;
   let shardName = null;
+  let claimStorePath = readDefaultClaimStorePath();
 
   for (let argumentIndex = 0; argumentIndex < commandArguments.length; argumentIndex += 1) {
     const commandArgument = commandArguments[argumentIndex];
@@ -73,6 +93,22 @@ export const parseLiveBridgeArguments = (commandArguments) => {
 
     if (commandArgument === '--store-default') {
       storePath = readDefaultEventStorePath();
+      continue;
+    }
+
+    if (commandArgument === '--claim-store') {
+      claimStorePath = readFollowingArgument(commandArguments, argumentIndex, '--claim-store');
+      argumentIndex += 1;
+      continue;
+    }
+
+    if (commandArgument === '--claim-store-default') {
+      claimStorePath = readDefaultClaimStorePath();
+      continue;
+    }
+
+    if (commandArgument === '--no-claim-store') {
+      claimStorePath = null;
       continue;
     }
 
@@ -131,6 +167,7 @@ export const parseLiveBridgeArguments = (commandArguments) => {
     maxConsoleUpdates,
     maxEvents,
     maxReconnects,
+    claimStorePath,
     reconnectDelayMs,
     shardName,
     storePath,
@@ -155,6 +192,7 @@ const runOpsEventBridgeLiveWithConfig = async (
       '[ops:event-bridge] live=started',
       `branch=${screepsConfig.branch}`,
       `store=${liveRequest.storePath ?? '-'}`,
+      `claimStore=${liveRequest.claimStorePath ?? '-'}`,
       `shard=${liveRequest.shardName ?? '*'}`,
       `maxEvents=${liveRequest.maxEvents ?? 'unbounded'}`,
       `maxConsoleUpdates=${liveRequest.maxConsoleUpdates ?? 'unbounded'}`,
@@ -323,9 +361,17 @@ const processConsoleUpdate = async ({
       await appendOpsEventToJsonl(liveRequest.storePath, opsEvent);
     }
 
-    const decision = decideOpsEventActions(opsEvent, policyState);
+    const decision = await applyOpsEventClaim({
+      claimStorePath: liveRequest.claimStorePath,
+      decision: decideOpsEventActions(opsEvent, policyState),
+      opsEvent,
+      source: 'console',
+    });
     const decisionSummary = {
       actions: decision.actions,
+      claimOwner: decision.claim.owner?.source ?? null,
+      claimPath: decision.claim.path,
+      duplicate: decision.claim.duplicate,
       dedupeKey: decision.dedupeKey,
       eventId: opsEvent.id,
       kind: opsEvent.kind,

@@ -62,6 +62,10 @@ export const decodeOpsEvent = (rawEvent) => {
     tick: readRequiredNonNegativeInteger(rawEvent, 'tick'),
   };
 
+  if ('dedupeKey' in rawEvent) {
+    event.dedupeKey = readOptionalString(rawEvent, 'dedupeKey');
+  }
+
   if ('room' in rawEvent) {
     event.room = readOptionalString(rawEvent, 'room');
   }
@@ -146,7 +150,8 @@ const readDefaultCooldownTicks = (severity) => {
   return 300;
 };
 
-const readOpsEventDedupeKey = (opsEvent) =>
+export const readOpsEventDedupeKey = (opsEvent) =>
+  opsEvent.dedupeKey ??
   [opsEvent.severity, opsEvent.kind, opsEvent.shard, opsEvent.room ?? '-'].join(':');
 
 const redactSensitiveValue = (recordKey, recordEntry) => {

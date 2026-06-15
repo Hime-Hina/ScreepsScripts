@@ -12,6 +12,7 @@ interface FetchRecord {
 
 interface OpsEventBridgeLiveModule {
   parseLiveBridgeArguments(commandArguments: string[]): {
+    readonly claimStorePath: string | null;
     readonly maxConsoleUpdates: number | null;
     readonly maxEvents: number | null;
     readonly maxReconnects: number | null;

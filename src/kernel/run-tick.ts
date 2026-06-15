@@ -5,6 +5,7 @@ import {
 import { planBootstrapWorkerActions, type WorkerActionDecision } from '../creeps/worker-decision';
 import { planRoomDefense, type DefenseDecision } from '../defense/defense-planner';
 import type { ScreepsMemoryState } from '../memory/screeps-memory';
+import { createRuntimeHeartbeatOpsEvent, formatRuntimeOpsEventLine } from '../runtime/ops-event';
 import type {
   RuntimeCpuSnapshot,
   ScreepsTickIO,
@@ -106,11 +107,16 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
   sendRuntimeAlerts(alertContext, actionFailures);
 
   runtime.writeConsoleLine(
-    `[tick ${runtime.gameTime}] cpu=${cpuSnapshot.usedAtTickStart.toFixed(2)} bucket=${
-      cpuSnapshot.bucket
-    } limit=${cpuSnapshot.limit} tickLimit=${cpuSnapshot.tickLimit} budget=${formatTickBudgetDecision(
-      tickBudgetDecision,
-    )} rooms=${formatRuntimeRoomSummaries(spawningWorld, defenseWorld)}`,
+    formatRuntimeOpsEventLine(
+      createRuntimeHeartbeatOpsEvent({
+        cpuSnapshot,
+        defenseWorld,
+        gameTime: runtime.gameTime,
+        shardName: runtime.shardName,
+        spawningWorld,
+        tickBudget: formatTickBudgetDecision(tickBudgetDecision),
+      }),
+    ),
   );
 
   return {
@@ -178,11 +184,16 @@ const sendRuntimeAlerts = (
     actionFailures,
     defenseWorld: alertContext.defenseWorld,
     gameTime: alertContext.runtime.gameTime,
+    shardName: alertContext.runtime.shardName,
     spawningWorld: alertContext.spawningWorld,
   });
 
   for (const alertDecision of alertDecisions) {
-    alertContext.runtime.sendRuntimeAlert(alertDecision);
+    alertContext.runtime.writeConsoleLine(alertDecision.message);
+
+    if (alertDecision.emailFallback) {
+      alertContext.runtime.sendRuntimeAlert(alertDecision);
+    }
   }
 };
 
@@ -193,50 +204,6 @@ const readCaughtErrorMessage = (caughtError: unknown): string => {
 
   return String(caughtError);
 };
-
-const formatRuntimeRoomSummaries = (
-  spawningWorld: ReturnType<ScreepsTickIO['readSpawningWorld']>,
-  defenseWorld: ReturnType<ScreepsTickIO['readDefenseWorld']>,
-): string => {
-  if (spawningWorld.rooms.length === 0) {
-    return '-';
-  }
-
-  return spawningWorld.rooms
-    .map((spawningRoom) =>
-      [
-        spawningRoom.roomName,
-        `workers=${spawningRoom.workerCreepCount}`,
-        `spawnEnergy=${formatRoomEnergy(spawningRoom.energyStructures)}`,
-        `construction=${spawningRoom.constructionSites.length}`,
-        `hostiles=${countRoomHostiles(defenseWorld, spawningRoom.roomName)}`,
-      ].join(':'),
-    )
-    .join(',');
-};
-
-const formatRoomEnergy = (
-  energyStructures: ReturnType<
-    ScreepsTickIO['readSpawningWorld']
-  >['rooms'][number]['energyStructures'],
-): string => {
-  const availableEnergy = energyStructures.reduce(
-    (totalEnergy, energyStructure) => totalEnergy + energyStructure.availableEnergy,
-    0,
-  );
-  const energyCapacity = energyStructures.reduce(
-    (totalCapacity, energyStructure) => totalCapacity + energyStructure.energyCapacity,
-    0,
-  );
-
-  return `${availableEnergy}/${energyCapacity}`;
-};
-
-const countRoomHostiles = (
-  defenseWorld: ReturnType<ScreepsTickIO['readDefenseWorld']>,
-  roomName: string,
-): number =>
-  defenseWorld.hostileCreeps.filter((hostileCreep) => hostileCreep.roomName === roomName).length;
 
 const isCriticalWorkerActionDecision = (workerDecision: WorkerActionDecision): boolean => {
   switch (workerDecision.type) {

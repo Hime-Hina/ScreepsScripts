@@ -17,8 +17,10 @@ interface OpsEventModule {
 
 interface OpsEventBridgeModule {
   parseDryRunArguments(commandArguments: string[]): {
+    claimStorePath: string | null;
     inputFile: string | null;
     inputLine: string | null;
+    source: string;
     storePath: string | null;
   };
   readDefaultEventStorePath(clock?: Date): string;
@@ -32,6 +34,23 @@ interface OpsEventBridgeModule {
       suppressed: boolean;
     }[]
   >;
+}
+
+interface OpsEventEmailFallbackModule {
+  parseEmailFallbackArguments(commandArguments: string[]): {
+    claimStorePath: string | null;
+    eventLine: string | null;
+    messageFile: string | null;
+  };
+  runOpsEventEmailFallback(commandArguments: string[]): Promise<{
+    actions?: string[];
+    dedupeKey?: string;
+    duplicate?: boolean;
+    eventId?: string;
+    fallback: string;
+    kind?: string;
+    suppressed?: boolean;
+  }>;
 }
 
 const loadOpsEventModule = async (): Promise<OpsEventModule> => {
@@ -53,6 +72,18 @@ const loadOpsEventBridgeModule = async (): Promise<OpsEventBridgeModule> => {
 
   if (!isOpsEventBridgeModule(loadedModule)) {
     throw new Error('ops-event-bridge-dry-run.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
+const loadOpsEventEmailFallbackModule = async (): Promise<OpsEventEmailFallbackModule> => {
+  const loadedModule: unknown = await import(
+    pathToFileURL(resolve('scripts/screeps/ops-event-email-fallback.mjs')).href
+  );
+
+  if (!isOpsEventEmailFallbackModule(loadedModule)) {
+    throw new Error('ops-event-email-fallback.mjs exports changed.');
   }
 
   return loadedModule;
@@ -308,6 +339,200 @@ describe('Screeps ops event bridge dry-run', () => {
       await rm(workspacePath, { force: true, recursive: true });
     }
   });
+
+  it('lets a single claim owner suppress duplicate console/email active actions', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'screeps-ops-claims-'));
+    const claimStorePath = join(workspacePath, 'claims');
+    const opsEventBridgeModule = await loadOpsEventBridgeModule();
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const eventLine =
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-console-1","dedupeKey":"spawn_missing:shard1:W51N21","severity":"critical","kind":"spawn_missing","tick":1,"shard":"shard1","room":"W51N21","summary":"spawn missing"}';
+
+    try {
+      const consoleDecisions = await opsEventBridgeModule.runOpsEventBridgeDryRun([
+        '--dry-run-line',
+        eventLine,
+        '--claim-store',
+        claimStorePath,
+        '--source',
+        'console',
+      ]);
+      const emailDecisions = await opsEventBridgeModule.runOpsEventBridgeDryRun([
+        '--dry-run-line',
+        eventLine,
+        '--claim-store',
+        claimStorePath,
+        '--source',
+        'email',
+      ]);
+
+      expect(consoleDecisions).toEqual([
+        expect.objectContaining({
+          actions: ['record', 'notify', 'wake_hermes'],
+          claimOwner: 'console',
+          duplicate: false,
+          suppressed: false,
+        }),
+      ]);
+      expect(emailDecisions).toEqual([
+        expect.objectContaining({
+          actions: ['record'],
+          claimOwner: 'console',
+          duplicate: true,
+          suppressed: true,
+        }),
+      ]);
+    } finally {
+      consoleLogSpy.mockRestore();
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+});
+
+describe('Screeps ops event email fallback', () => {
+  it('parses email fallback arguments and rejects ambiguous input', async () => {
+    const emailFallbackModule = await loadOpsEventEmailFallbackModule();
+
+    expect(
+      emailFallbackModule.parseEmailFallbackArguments([
+        '--',
+        '--message-file',
+        'message.txt',
+        '--claim-store-default',
+      ]),
+    ).toMatchObject({
+      eventLine: null,
+      messageFile: 'message.txt',
+    });
+    expect(
+      emailFallbackModule.parseEmailFallbackArguments([
+        '--event-line',
+        '[HERMES_EVENT] {}',
+        '--no-claim-store',
+      ]),
+    ).toEqual({
+      claimStorePath: null,
+      eventLine: '[HERMES_EVENT] {}',
+      messageFile: null,
+    });
+    expect(() => emailFallbackModule.parseEmailFallbackArguments(['--unknown'])).toThrow(
+      'Unknown argument "--unknown".',
+    );
+    expect(() => emailFallbackModule.parseEmailFallbackArguments(['--event-line'])).toThrow(
+      'Missing value after --event-line.',
+    );
+    expect(() =>
+      emailFallbackModule.parseEmailFallbackArguments([
+        '--event-line',
+        '[HERMES_EVENT] {}',
+        '--message-file',
+        'message.txt',
+      ]),
+    ).toThrow('Specify only one of --event-line or --message-file.');
+  });
+
+  it('claims the first critical fallback and suppresses duplicates', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'screeps-ops-email-'));
+    const claimStorePath = join(workspacePath, 'claims');
+    const emailFallbackModule = await loadOpsEventEmailFallbackModule();
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const eventLine =
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-email-1","dedupeKey":"controller_downgrade_critical:shard1:W51N21","severity":"critical","kind":"controller_downgrade_critical","tick":500,"shard":"shard1","room":"W51N21","summary":"controller downgrade critical"}';
+
+    try {
+      const firstResult = await emailFallbackModule.runOpsEventEmailFallback([
+        '--event-line',
+        eventLine,
+        '--claim-store',
+        claimStorePath,
+      ]);
+      const secondResult = await emailFallbackModule.runOpsEventEmailFallback([
+        '--event-line',
+        eventLine,
+        '--claim-store',
+        claimStorePath,
+      ]);
+
+      expect(firstResult).toMatchObject({
+        actions: ['record', 'notify', 'wake_hermes'],
+        duplicate: false,
+        fallback: 'claimed',
+        suppressed: false,
+      });
+      expect(secondResult).toMatchObject({
+        actions: ['record'],
+        claimOwner: 'email',
+        duplicate: true,
+        fallback: 'duplicate',
+        suppressed: true,
+      });
+    } finally {
+      consoleLogSpy.mockRestore();
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('extracts structured events from message files and ignores messages without events', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'screeps-ops-email-file-'));
+    const claimStorePath = join(workspacePath, 'claims');
+    const criticalMessagePath = join(workspacePath, 'critical-email.txt');
+    const emptyMessagePath = join(workspacePath, 'empty-email.txt');
+    const emailFallbackModule = await loadOpsEventEmailFallbackModule();
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await writeFile(
+        criticalMessagePath,
+        [
+          'Screeps alert fallback',
+          '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-file-1","dedupeKey":"spawn_missing:shard1:W51N21","severity":"critical","kind":"spawn_missing","tick":600,"shard":"shard1","room":"W51N21","summary":"spawn missing"}',
+        ].join('\n'),
+        'utf8',
+      );
+      await writeFile(emptyMessagePath, 'plain Game.notify body without structured event', 'utf8');
+
+      await expect(
+        emailFallbackModule.runOpsEventEmailFallback([
+          '--message-file',
+          criticalMessagePath,
+          '--claim-store',
+          claimStorePath,
+        ]),
+      ).resolves.toMatchObject({
+        eventId: 'critical-file-1',
+        fallback: 'claimed',
+        kind: 'spawn_missing',
+      });
+      await expect(
+        emailFallbackModule.runOpsEventEmailFallback(['--message-file', emptyMessagePath]),
+      ).resolves.toMatchObject({
+        fallback: 'ignored',
+        reason: 'no-structured-event',
+      });
+    } finally {
+      consoleLogSpy.mockRestore();
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('ignores non-critical fallback events', async () => {
+    const emailFallbackModule = await loadOpsEventEmailFallbackModule();
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        emailFallbackModule.runOpsEventEmailFallback([
+          '--event-line',
+          '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"heartbeat-1","dedupeKey":"runtime_heartbeat:shard1","severity":"info","kind":"runtime_heartbeat","tick":1,"shard":"shard1","summary":"ok"}',
+        ]),
+      ).resolves.toMatchObject({
+        fallback: 'ignored',
+        reason: 'non-critical-event',
+      });
+    } finally {
+      consoleLogSpy.mockRestore();
+    }
+  });
 });
 
 const isOpsEventModule = (candidateModule: unknown): candidateModule is OpsEventModule =>
@@ -333,3 +558,13 @@ const isOpsEventBridgeModule = (
   typeof candidateModule.readDefaultEventStorePath === 'function' &&
   'runOpsEventBridgeDryRun' in candidateModule &&
   typeof candidateModule.runOpsEventBridgeDryRun === 'function';
+
+const isOpsEventEmailFallbackModule = (
+  candidateModule: unknown,
+): candidateModule is OpsEventEmailFallbackModule =>
+  typeof candidateModule === 'object' &&
+  candidateModule !== null &&
+  'parseEmailFallbackArguments' in candidateModule &&
+  typeof candidateModule.parseEmailFallbackArguments === 'function' &&
+  'runOpsEventEmailFallback' in candidateModule &&
+  typeof candidateModule.runOpsEventEmailFallback === 'function';

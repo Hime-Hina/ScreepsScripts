@@ -31,6 +31,7 @@ import type {
 } from '../defense/defense-planner';
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
 import type { SpawnDecision } from '../spawning/spawn-decision';
+import { formatRuntimeOpsEventLine, type RuntimeOpsEvent } from './ops-event';
 
 export interface RuntimeCpuSnapshot {
   readonly bucket: number;
@@ -40,8 +41,10 @@ export interface RuntimeCpuSnapshot {
 }
 
 export interface RuntimeAlertDecision {
+  readonly emailFallback: boolean;
   readonly groupInterval: number;
   readonly message: string;
+  readonly opsEvent: RuntimeOpsEvent;
   readonly type: 'notify';
 }
 
@@ -51,6 +54,7 @@ export interface ScreepsTickIO {
   executeSpawnDecision(spawnDecision: SpawnDecision): void;
   executeWorkerActions(workerDecisions: readonly WorkerActionDecision[]): void;
   readonly gameTime: number;
+  readonly shardName: string;
   readCpuSnapshot(): RuntimeCpuSnapshot;
   readConstructionWorld(): ConstructionWorldSnapshot;
   readDefenseWorld(): DefenseWorldSnapshot;
@@ -84,7 +88,8 @@ export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
   readSurvivalWorkerWorld: captureSurvivalWorkerWorld,
   readWorkerWorld: captureWorkerWorld,
   sendRuntimeAlert: (alertDecision) =>
-    Game.notify(alertDecision.message, alertDecision.groupInterval),
+    Game.notify(formatRuntimeOpsEventLine(alertDecision.opsEvent), alertDecision.groupInterval),
+  shardName: Game.shard?.name ?? 'shard0',
   writeMemoryState: (memoryState) => writeScreepsMemoryState(Memory, memoryState),
   writeConsoleLine: (message) => console.log(message),
 });
