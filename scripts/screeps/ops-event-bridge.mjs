@@ -13,6 +13,7 @@ import {
   parseOpsEventLine,
 } from './ops-event.mjs';
 import { applyOpsEventClaim, readDefaultClaimStorePath } from './ops-event-claims.mjs';
+import { runOpsEventHooks } from './ops-event-hooks.mjs';
 import { readDefaultEventStorePath } from './ops-event-bridge-dry-run.mjs';
 import { readLiveAccountIdentity } from './screeps-api.mjs';
 import { openScreepsConsoleWebSocket } from './screeps-console-websocket.mjs';
@@ -178,7 +179,11 @@ export const parseLiveBridgeArguments = (commandArguments) => {
 const runOpsEventBridgeLiveWithConfig = async (
   screepsConfig,
   liveRequest,
-  { WebSocketConstructor = globalThis.WebSocket } = {},
+  {
+    hookCommandRunner,
+    hookEnvironment = process.env,
+    WebSocketConstructor = globalThis.WebSocket,
+  } = {},
 ) => {
   const accountIdentity = await readLiveAccountIdentity(screepsConfig);
   const policyState = createOpsEventPolicyState();
@@ -207,6 +212,8 @@ const runOpsEventBridgeLiveWithConfig = async (
       accountId: accountIdentity.accountId,
       bridgeState,
       decisions,
+      hookCommandRunner,
+      hookEnvironment,
       liveRequest,
       policyState,
       screepsConfig,
@@ -241,6 +248,8 @@ const runSingleLiveBridgeConnection = ({
   accountId,
   bridgeState,
   decisions,
+  hookCommandRunner,
+  hookEnvironment,
   liveRequest,
   policyState,
   screepsConfig,
@@ -303,6 +312,8 @@ const runSingleLiveBridgeConnection = ({
                 bridgeState,
                 consoleUpdate,
                 decisions,
+                hookCommandRunner,
+                hookEnvironment,
                 liveRequest,
                 policyState,
               }),
@@ -328,6 +339,8 @@ const processConsoleUpdate = async ({
   bridgeState,
   consoleUpdate,
   decisions,
+  hookCommandRunner,
+  hookEnvironment,
   liveRequest,
   policyState,
 }) => {
@@ -387,6 +400,17 @@ const processConsoleUpdate = async ({
     bridgeState.eventCount += 1;
     retainDecision(decisions, decisionSummary);
     console.log(`[ops:event-bridge] decision=${JSON.stringify(decisionSummary)}`);
+
+    const hookResults = await runOpsEventHooks({
+      decision,
+      ...(hookCommandRunner === undefined ? {} : { executeCommand: hookCommandRunner }),
+      env: hookEnvironment,
+      opsEvent,
+    });
+
+    for (const hookResult of hookResults) {
+      console.log(`[ops:event-bridge] delivery=${JSON.stringify(hookResult)}`);
+    }
   }
 };
 
