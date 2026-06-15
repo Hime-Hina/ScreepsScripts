@@ -408,6 +408,74 @@ describe('Screeps ops event bridge dry-run', () => {
       await rm(workspacePath, { force: true, recursive: true });
     }
   });
+
+  it('lets later incidents claim the same dedupe key after the claim window changes', async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), 'screeps-ops-claim-window-'));
+    const claimStorePath = join(workspacePath, 'claims');
+    const opsEventBridgeModule = await loadOpsEventBridgeModule();
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const firstEventLine =
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-console-200","dedupeKey":"spawn_missing:shard1:W51N21","severity":"critical","kind":"spawn_missing","tick":200,"shard":"shard1","room":"W51N21","summary":"spawn missing"}';
+    const sameWindowEventLine =
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-console-201","dedupeKey":"spawn_missing:shard1:W51N21","severity":"critical","kind":"spawn_missing","tick":201,"shard":"shard1","room":"W51N21","summary":"spawn still missing"}';
+    const laterWindowEventLine =
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-console-250","dedupeKey":"spawn_missing:shard1:W51N21","severity":"critical","kind":"spawn_missing","tick":250,"shard":"shard1","room":"W51N21","summary":"spawn missing in later window"}';
+
+    try {
+      const firstDecisions = await opsEventBridgeModule.runOpsEventBridgeDryRun([
+        '--dry-run-line',
+        firstEventLine,
+        '--claim-store',
+        claimStorePath,
+        '--source',
+        'console',
+      ]);
+      const sameWindowDecisions = await opsEventBridgeModule.runOpsEventBridgeDryRun([
+        '--dry-run-line',
+        sameWindowEventLine,
+        '--claim-store',
+        claimStorePath,
+        '--source',
+        'email',
+      ]);
+      const laterWindowDecisions = await opsEventBridgeModule.runOpsEventBridgeDryRun([
+        '--dry-run-line',
+        laterWindowEventLine,
+        '--claim-store',
+        claimStorePath,
+        '--source',
+        'console',
+      ]);
+
+      expect(firstDecisions).toEqual([
+        expect.objectContaining({
+          actions: ['record', 'notify', 'wake_hermes'],
+          claimOwner: 'console',
+          duplicate: false,
+          suppressed: false,
+        }),
+      ]);
+      expect(sameWindowDecisions).toEqual([
+        expect.objectContaining({
+          actions: ['record'],
+          claimOwner: 'console',
+          duplicate: true,
+          suppressed: true,
+        }),
+      ]);
+      expect(laterWindowDecisions).toEqual([
+        expect.objectContaining({
+          actions: ['record', 'notify', 'wake_hermes'],
+          claimOwner: 'console',
+          duplicate: false,
+          suppressed: false,
+        }),
+      ]);
+    } finally {
+      consoleLogSpy.mockRestore();
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
 });
 
 describe('Screeps ops event email fallback', () => {
