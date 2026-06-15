@@ -13,10 +13,12 @@ import {
 } from './ops-event.mjs';
 import { applyOpsEventClaim, readDefaultClaimStorePath } from './ops-event-claims.mjs';
 
-const DEFAULT_EVENT_STORE_DIRECTORY = '.screeps/events';
+export const DEFAULT_EVENT_STORE_DIRECTORY = '.screeps/events';
+
+export const readDefaultEventStoreDirectory = () => DEFAULT_EVENT_STORE_DIRECTORY;
 
 export const readDefaultEventStorePath = (clock = new Date()) =>
-  join(DEFAULT_EVENT_STORE_DIRECTORY, `${clock.toISOString().slice(0, 10)}.jsonl`);
+  join(readDefaultEventStoreDirectory(), `${clock.toISOString().slice(0, 10)}.jsonl`);
 
 export const runOpsEventBridgeDryRun = async (commandArguments = process.argv.slice(2)) => {
   const dryRunRequest = parseDryRunArguments(commandArguments);
