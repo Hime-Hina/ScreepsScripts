@@ -28,10 +28,10 @@ The bridge policy is deterministic. It does not call an LLM for every console li
 Console websocket output is the primary channel. `Game.notify` email is a critical-only fallback. Both channels must use the same event `dedupeKey`, and active actions are gated through a local claim ledger:
 
 ```text
-.screeps/ops-claims/<sha256(dedupeKey)>.json
+.screeps/ops-claims/<sha256(dedupeKey + claim-window)>.json
 ```
 
-The claim file is created atomically. The first channel to claim an active event is the owner and may notify or wake Hermes. Later console/email duplicates are recorded as `duplicate=true`, reduced to `actions=["record"]`, and must not start a second Hermes response.
+The claim file is created atomically. The first channel to claim an active event inside a cooldown-sized claim window is the owner and may notify or wake Hermes. Later console/email duplicates for that window are recorded as `duplicate=true`, reduced to `actions=["record"]`, and must not start a second Hermes response. Later incidents with the same stable `dedupeKey` can claim a new window, so stale claim files do not suppress future critical alerts forever.
 
 Email fallback can be evaluated without starting an agent:
 

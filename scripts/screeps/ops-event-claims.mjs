@@ -25,9 +25,11 @@ export const claimOpsEvent = async ({
   }
 
   const dedupeKey = readOpsEventDedupeKey(opsEvent);
-  const claimPath = join(claimStorePath, `${hashDedupeKey(dedupeKey)}.json`);
+  const claimScopeKey = readClaimScopeKey(dedupeKey, opsEvent);
+  const claimPath = join(claimStorePath, `${hashDedupeKey(claimScopeKey)}.json`);
   const claimRecord = {
     actions,
+    claimScopeKey,
     claimedAt: clock.toISOString(),
     dedupeKey,
     eventId: opsEvent.id,
@@ -107,6 +109,24 @@ export const applyOpsEventClaim = async ({ claimStorePath, clock, decision, opsE
 };
 
 export const hasActiveActions = (actions) => actions.some((action) => action !== 'record');
+
+const readClaimScopeKey = (dedupeKey, opsEvent) => {
+  const claimWindowTicks = readClaimWindowTicks(opsEvent);
+
+  return `${dedupeKey}:${Math.floor(opsEvent.tick / claimWindowTicks)}`;
+};
+
+const readClaimWindowTicks = (opsEvent) => {
+  if (opsEvent.cooldownTicks !== undefined) {
+    return opsEvent.cooldownTicks;
+  }
+
+  if (opsEvent.severity === 'critical') {
+    return 50;
+  }
+
+  return 300;
+};
 
 const readClaimRecord = async (claimPath) => {
   try {
