@@ -399,7 +399,10 @@ const processConsoleUpdate = async ({
 
     bridgeState.eventCount += 1;
     retainDecision(decisions, decisionSummary);
-    console.log(`[ops:event-bridge] decision=${JSON.stringify(decisionSummary)}`);
+
+    if (shouldLogDecision(decisionSummary)) {
+      console.log(`[ops:event-bridge] decision=${JSON.stringify(decisionSummary)}`);
+    }
 
     const hookResults = await runOpsEventHooks({
       decision,
@@ -413,6 +416,11 @@ const processConsoleUpdate = async ({
     }
   }
 };
+
+const shouldLogDecision = (decisionSummary) =>
+  decisionSummary.suppressed === true ||
+  decisionSummary.duplicate === true ||
+  decisionSummary.actions.some((action) => action !== 'record');
 
 const retainDecision = (decisions, decisionSummary) => {
   decisions.push(decisionSummary);

@@ -70,6 +70,9 @@ const SCREEPS_CONFIG_TEXT = JSON.stringify({
 const CRITICAL_EVENT_LINE =
   '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-1","severity":"critical","kind":"spawn_missing","tick":1,"shard":"shard1","room":"W51N21","summary":"spawn missing","metrics":{"token":"secret-token","safe":1}}';
 
+const HEARTBEAT_EVENT_LINE =
+  '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"runtime_heartbeat:shard1:71685567","dedupeKey":"runtime_heartbeat:shard1","severity":"info","kind":"runtime_heartbeat","tick":71685567,"shard":"shard1","summary":"runtime heartbeat","metrics":{"cpu":0.08,"bucket":10000}}';
+
 const loadOpsEventBridgeLiveModule = async (): Promise<OpsEventBridgeLiveModule> => {
   const loadedModule: unknown = await import(
     pathToFileURL(resolve('scripts/screeps/ops-event-bridge.mjs')).href
@@ -147,6 +150,37 @@ describe('Screeps live ops event bridge', () => {
         '[ops:event-bridge] delivery={"action":"notify","reason":"not-configured","status":"skipped"}',
       );
       expect(joinedLogLines(logSpy)).not.toContain('secret-token');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('suppresses per-tick logs for record-only heartbeat events', async () => {
+    const workspacePath = await createLiveOpsWorkspace();
+    stubAuthFetch();
+    MockOpsEventWebSocket.scenarios = [{ eventLine: HEARTBEAT_EVENT_LINE, type: 'event' }];
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const liveBridgeModule = await loadOpsEventBridgeLiveModule();
+      const decisions = await liveBridgeModule.runOpsEventBridgeLiveFrom(
+        workspacePath,
+        ['--max-events', '1', '--timeout-ms', '1000'],
+        { WebSocketConstructor: MockOpsEventWebSocket },
+      );
+
+      expect(decisions).toEqual([
+        expect.objectContaining({
+          actions: ['record'],
+          eventId: 'runtime_heartbeat:shard1:71685567',
+          kind: 'runtime_heartbeat',
+          severity: 'info',
+          suppressed: false,
+        }),
+      ]);
+      expect(joinedLogLines(logSpy)).toContain('[ops:event-bridge] liveEvents=1');
+      expect(joinedLogLines(logSpy)).not.toContain('[ops:event-bridge] decision=');
+      expect(joinedLogLines(logSpy)).not.toContain('[ops:event-bridge] delivery=');
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
     }
