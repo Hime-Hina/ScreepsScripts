@@ -393,45 +393,11 @@ const readConsoleHeartbeatMessage = (messageText, accountId, statusRequest) => {
 };
 
 const parseRuntimeMonitorHeartbeat = (consoleLine, statusRequest) => {
-  if (consoleLine.startsWith('[HERMES_EVENT]')) {
-    return parseStructuredRuntimeHeartbeat(consoleLine, statusRequest);
-  }
-
-  if (!consoleLine.startsWith('[tick ')) {
+  if (!consoleLine.startsWith('[HERMES_EVENT]')) {
     return null;
   }
 
-  const heartbeatMatch =
-    /^\[tick (?<tick>\d+)\] cpu=(?<cpu>\d+(?:\.\d+)?) bucket=(?<bucket>\d+) limit=(?<limit>\d+) tickLimit=(?<tickLimit>\d+) budget=(?<budget>[A-Za-z0-9-]+) rooms=(?<roomSummaries>.+)$/u.exec(
-      consoleLine,
-    );
-
-  if (heartbeatMatch?.groups === undefined) {
-    throw new LiveSurvivalStatusError(
-      `P4 heartbeat on ${statusRequest.shardName} is missing required CPU or budget fields.`,
-    );
-  }
-
-  const roomSummary = readHeartbeatRoomSummary(
-    heartbeatMatch.groups.roomSummaries,
-    statusRequest.roomName,
-    statusRequest.shardName,
-  );
-
-  return {
-    bucket: heartbeatMatch.groups.bucket,
-    budget: heartbeatMatch.groups.budget,
-    constructionSiteCount: roomSummary.constructionSiteCount,
-    cpu: heartbeatMatch.groups.cpu,
-    hostileCount: roomSummary.hostileCount,
-    limit: heartbeatMatch.groups.limit,
-    roomName: statusRequest.roomName,
-    shardName: statusRequest.shardName,
-    spawnEnergy: roomSummary.spawnEnergy,
-    tick: heartbeatMatch.groups.tick,
-    tickLimit: heartbeatMatch.groups.tickLimit,
-    workerCount: roomSummary.workerCount,
-  };
+  return parseStructuredRuntimeHeartbeat(consoleLine, statusRequest);
 };
 
 const parseStructuredRuntimeHeartbeat = (consoleLine, statusRequest) => {
@@ -501,72 +467,6 @@ const readRequiredMetricText = (metrics, fieldName, statusRequest) => {
   }
 
   return String(metricValue);
-};
-
-const readHeartbeatRoomSummary = (roomSummariesText, targetRoomName, shardName) => {
-  const roomSummaryTexts = roomSummariesText.split(',');
-  const matchingRoomSummaryText = roomSummaryTexts.find(
-    (roomSummaryText) => roomSummaryText.split(':')[0] === targetRoomName,
-  );
-
-  if (matchingRoomSummaryText === undefined) {
-    throw new LiveSurvivalStatusError(
-      `P4 heartbeat on ${shardName} did not include target room ${targetRoomName}.`,
-    );
-  }
-
-  const roomSummaryParts = matchingRoomSummaryText.split(':');
-  const roomFields = new Map(
-    roomSummaryParts.slice(1).map((roomSummaryPart) => {
-      const separatorIndex = roomSummaryPart.indexOf('=');
-
-      if (separatorIndex === -1) {
-        return [roomSummaryPart, ''];
-      }
-
-      return [roomSummaryPart.slice(0, separatorIndex), roomSummaryPart.slice(separatorIndex + 1)];
-    }),
-  );
-
-  const workerCount = readRequiredRoomSummaryNumber(roomFields, 'workers', targetRoomName);
-  const spawnEnergy = readRequiredRoomSummaryEnergy(roomFields, targetRoomName);
-  const constructionSiteCount = readRequiredRoomSummaryNumber(
-    roomFields,
-    'construction',
-    targetRoomName,
-  );
-  const hostileCount = readRequiredRoomSummaryNumber(roomFields, 'hostiles', targetRoomName);
-
-  return {
-    constructionSiteCount,
-    hostileCount,
-    spawnEnergy,
-    workerCount,
-  };
-};
-
-const readRequiredRoomSummaryNumber = (roomFields, fieldName, roomName) => {
-  const fieldValue = roomFields.get(fieldName);
-
-  if (fieldValue === undefined || !/^\d+$/u.test(fieldValue)) {
-    throw new LiveSurvivalStatusError(
-      `P4 heartbeat room ${roomName} is missing ${fieldName} summary.`,
-    );
-  }
-
-  return fieldValue;
-};
-
-const readRequiredRoomSummaryEnergy = (roomFields, roomName) => {
-  const spawnEnergy = roomFields.get('spawnEnergy');
-
-  if (spawnEnergy === undefined || !/^\d+\/\d+$/u.test(spawnEnergy)) {
-    throw new LiveSurvivalStatusError(
-      `P4 heartbeat room ${roomName} is missing spawnEnergy summary.`,
-    );
-  }
-
-  return spawnEnergy;
 };
 
 const summarizeLiveRoomSurvival = (roomObjects, ownedUserId) => {

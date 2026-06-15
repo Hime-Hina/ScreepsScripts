@@ -255,8 +255,7 @@ describe('live survival status command', () => {
     });
     stubConsoleWebSocket({
       accountId: 'alice-user',
-      heartbeatLine:
-        '[tick 71650000] cpu=0.63 bucket=9876 limit=20 tickLimit=500 budget=full rooms=W51N21:workers=0:spawnEnergy=0/0:construction=0:hostiles=0',
+      heartbeatLine: P4_HEARTBEAT_LINE,
       shardName: 'shard1',
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -281,13 +280,13 @@ describe('live survival status command', () => {
     }
   });
 
-  it('rejects target-shard heartbeat lines that lack required P4 fields without printing secrets', async () => {
+  it('rejects structured heartbeat lines that lack required metrics without printing secrets', async () => {
     const workspacePath = await createLiveStatusWorkspace();
     stubLiveFetch(createMinimalLiveFetchPayloads());
     stubConsoleWebSocket({
       accountId: 'alice-user',
       heartbeatLine:
-        '[tick 71650000] cpu=0.63 limit=20 tickLimit=500 budget=full rooms=W51N21:workers=5:spawnEnergy=300/300:construction=5:hostiles=0',
+        '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"runtime_heartbeat:shard1:71650000","dedupeKey":"runtime_heartbeat:shard1","severity":"info","kind":"runtime_heartbeat","tick":71650000,"shard":"shard1","summary":"runtime heartbeat for 1 room(s)","metrics":{"cpu":0.63,"limit":20,"tickLimit":500,"budget":"full","rooms":[{"room":"W51N21","workerCount":5,"spawnEnergy":"300/300","constructionSiteCount":5,"hostileCount":0}]}}',
       shardName: 'shard1',
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -303,7 +302,7 @@ describe('live survival status command', () => {
 
       expect(caughtError).toBeInstanceOf(Error);
       expect(String(caughtError)).toContain(
-        'P4 heartbeat on shard1 is missing required CPU or budget fields.',
+        'P4 heartbeat on shard1 is missing structured bucket metric.',
       );
       expect(String(caughtError)).not.toContain('secret-token');
       expect(String(caughtError)).not.toContain('refreshed-token');
@@ -321,7 +320,7 @@ describe('live survival status command', () => {
     stubConsoleWebSocket({
       accountId: 'alice-user',
       heartbeatLine:
-        '[tick 71650000] cpu=0.63 bucket=9876 limit=20 tickLimit=500 budget=full rooms=W1N1:workers=5:spawnEnergy=300/300:construction=5:hostiles=0',
+        '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"runtime_heartbeat:shard1:71650000","dedupeKey":"runtime_heartbeat:shard1","severity":"info","kind":"runtime_heartbeat","tick":71650000,"shard":"shard1","summary":"runtime heartbeat for 1 room(s)","metrics":{"cpu":0.63,"bucket":9876,"limit":20,"tickLimit":500,"budget":"full","rooms":[{"room":"W1N1","workerCount":5,"spawnEnergy":"300/300","constructionSiteCount":5,"hostileCount":0}]}}',
       shardName: 'shard1',
     });
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -338,6 +337,37 @@ describe('live survival status command', () => {
       expect(caughtError).toBeInstanceOf(Error);
       expect(String(caughtError)).toContain(
         'P4 heartbeat on shard1 did not include target room W51N21.',
+      );
+      expect(joinedLogLines(logSpy)).not.toContain('naturalTickHeartbeat=verified');
+      expect(joinedLogLines(logSpy)).not.toContain('secret-token');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('ignores legacy tick heartbeat lines and fails closed', async () => {
+    const workspacePath = await createLiveStatusWorkspace();
+    stubLiveFetch(createMinimalLiveFetchPayloads());
+    stubConsoleWebSocketCloseAfterConsoleUpdate({
+      accountId: 'alice-user',
+      heartbeatLine:
+        '[tick 71650000] cpu=0.63 bucket=9876 limit=20 tickLimit=500 budget=full rooms=W51N21:workers=5:spawnEnergy=300/300:construction=5:hostiles=0',
+      shardName: 'shard1',
+    });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const liveStatusModule = await loadLiveSurvivalStatusModule();
+      const caughtError = await liveStatusModule
+        .checkLiveSurvivalStatusFrom(workspacePath, ['--shard', 'shard1', '--room', 'W51N21'])
+        .then(
+          () => null,
+          (commandError: unknown) => commandError,
+        );
+
+      expect(caughtError).toBeInstanceOf(Error);
+      expect(String(caughtError)).toContain(
+        'Screeps console websocket closed before P4 heartbeat was observed.',
       );
       expect(joinedLogLines(logSpy)).not.toContain('naturalTickHeartbeat=verified');
       expect(joinedLogLines(logSpy)).not.toContain('secret-token');
