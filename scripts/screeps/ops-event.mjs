@@ -1,6 +1,8 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import he from 'he';
+
 export const OPS_EVENT_PREFIX = '[HERMES_EVENT]';
 export const OPS_EVENT_SCHEMA = 'screeps.ops.event.v1';
 
@@ -85,15 +87,7 @@ export const decodeOpsEvent = (rawEvent) => {
   return event;
 };
 
-const decodeScreepsConsoleEntities = (eventText) =>
-  eventText
-    .replaceAll('&#x22;', '"')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&#39;', "'")
-    .replaceAll('&#x27;', "'")
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-    .replaceAll('&amp;', '&');
+const decodeScreepsConsoleEntities = (eventText) => he.decode(eventText);
 
 export const appendOpsEventToJsonl = async (storePath, opsEvent) => {
   await mkdir(dirname(storePath), { recursive: true });

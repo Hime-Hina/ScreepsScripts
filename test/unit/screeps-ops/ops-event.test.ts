@@ -130,7 +130,7 @@ describe('Screeps ops event parser', () => {
     const opsEventModule = await loadOpsEventModule();
 
     const opsEvent = opsEventModule.parseOpsEventLine(
-      '[HERMES_EVENT] {&#x22;schema&#x22;:&#x22;screeps.ops.event.v1&#x22;,&#x22;id&#x22;:&#x22;runtime_heartbeat:shard1:71683646&#x22;,&#x22;dedupeKey&#x22;:&#x22;runtime_heartbeat:shard1&#x22;,&#x22;severity&#x22;:&#x22;info&#x22;,&#x22;kind&#x22;:&#x22;runtime_heartbeat&#x22;,&#x22;tick&#x22;:71683646,&#x22;shard&#x22;:&#x22;shard1&#x22;,&#x22;summary&#x22;:&#x22;runtime heartbeat for 1 room(s)&#x22;,&#x22;metrics&#x22;:{&#x22;cpu&#x22;:0.12,&#x22;bucket&#x22;:10000}}',
+      '[HERMES_EVENT] {&#x22;schema&#34;:&quot;screeps.ops.event.v1&quot;,&#34;id&#x22;:&#34;runtime_heartbeat:shard1:71683646&#x22;,&#x22;dedupeKey&#x22;:&#x22;runtime_heartbeat:shard1&#x22;,&#x22;severity&#x22;:&#x22;info&#x22;,&#x22;kind&#x22;:&#x22;runtime_heartbeat&#x22;,&#x22;tick&#x22;:71683646,&#x22;shard&#x22;:&#x22;shard1&#x22;,&#x22;summary&#x22;:&#34;runtime &amp; heartbeat for &lt;1&gt; room(s)&#34;,&#x22;metrics&#x22;:{&#x22;cpu&#x22;:0.12,&#x22;bucket&#x22;:10000,&#x22;label&#x22;:&#34;canary &#39;ok&#x27;&#34;}}',
     );
 
     expect(opsEvent).toMatchObject({
@@ -140,9 +140,11 @@ describe('Screeps ops event parser', () => {
       metrics: {
         bucket: 10000,
         cpu: 0.12,
+        label: "canary 'ok'",
       },
       severity: 'info',
       shard: 'shard1',
+      summary: 'runtime & heartbeat for <1> room(s)',
       tick: 71683646,
     });
   });
