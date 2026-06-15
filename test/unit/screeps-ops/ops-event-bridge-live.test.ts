@@ -24,7 +24,15 @@ interface OpsEventBridgeLiveModule {
   runOpsEventBridgeLiveFrom(
     workspacePath: string,
     commandArguments: string[],
-    dependencies?: { readonly WebSocketConstructor?: unknown },
+    dependencies?: {
+      readonly hookCommandRunner?: (request: {
+        readonly command: string;
+        readonly input: string;
+        readonly timeoutMs: number;
+      }) => Promise<{ readonly exitCode?: number | null; readonly timedOut?: boolean }>;
+      readonly hookEnvironment?: Record<string, string | undefined>;
+      readonly WebSocketConstructor?: unknown;
+    },
   ): Promise<
     {
       readonly actions: string[];
@@ -135,6 +143,108 @@ describe('Screeps live ops event bridge', () => {
       ]);
       expect(joinedLogLines(logSpy)).toContain('[ops:event-bridge] live=started');
       expect(joinedLogLines(logSpy)).toContain('[ops:event-bridge] liveEvents=1');
+      expect(joinedLogLines(logSpy)).toContain(
+        '[ops:event-bridge] delivery={"action":"notify","reason":"not-configured","status":"skipped"}',
+      );
+      expect(joinedLogLines(logSpy)).not.toContain('secret-token');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('runs a configured notify hook with redacted event payload', async () => {
+    const workspacePath = await createLiveOpsWorkspace();
+    const hookRequests: {
+      readonly command: string;
+      readonly input: string;
+      readonly timeoutMs: number;
+    }[] = [];
+    stubAuthFetch();
+    MockOpsEventWebSocket.scenarios = [{ eventLine: CRITICAL_EVENT_LINE, type: 'event' }];
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const liveBridgeModule = await loadOpsEventBridgeLiveModule();
+      await liveBridgeModule.runOpsEventBridgeLiveFrom(
+        workspacePath,
+        ['--max-events', '1', '--timeout-ms', '1000'],
+        {
+          hookCommandRunner: (hookRequest) => {
+            hookRequests.push(hookRequest);
+            return Promise.resolve({ exitCode: 0 });
+          },
+          hookEnvironment: { SCREEPS_OPS_NOTIFY_COMMAND: 'notify-hook' },
+          WebSocketConstructor: MockOpsEventWebSocket,
+        },
+      );
+
+      expect(hookRequests).toHaveLength(1);
+      expect(hookRequests[0]?.command).toBe('notify-hook');
+      expect(hookRequests[0]?.timeoutMs).toBe(10000);
+      const hookPayload = JSON.parse(hookRequests[0]?.input ?? '{}') as Record<string, unknown>;
+      expect(hookPayload).toMatchObject({
+        action: 'notify',
+        decision: {
+          actions: ['record', 'notify', 'wake_hermes'],
+          dedupeKey: 'critical:spawn_missing:shard1:W51N21',
+          suppressed: false,
+        },
+        event: {
+          id: 'critical-1',
+          kind: 'spawn_missing',
+          metrics: {
+            safe: 1,
+            token: '[redacted]',
+          },
+        },
+        source: 'screeps-ops-event-bridge',
+      });
+      expect(typeof hookPayload['observedAt']).toBe('string');
+      expect(joinedLogLines(logSpy)).toContain(
+        '[ops:event-bridge] delivery={"action":"notify","status":"delivered"}',
+      );
+      expect(joinedLogLines(logSpy)).not.toContain('secret-token');
+      expect(hookRequests[0]?.input).not.toContain('secret-token');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it('does not run notify hooks for duplicate active events in the same claim window', async () => {
+    const workspacePath = await createLiveOpsWorkspace();
+    const hookRequests: unknown[] = [];
+    stubAuthFetch();
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    MockOpsEventWebSocket.scenarios = [
+      {
+        eventLines: [
+          CRITICAL_EVENT_LINE,
+          '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"critical-2","severity":"critical","kind":"spawn_missing","tick":2,"shard":"shard1","room":"W51N21","summary":"spawn still missing"}',
+        ],
+        type: 'event',
+      },
+    ];
+
+    try {
+      const liveBridgeModule = await loadOpsEventBridgeLiveModule();
+      const decisions = await liveBridgeModule.runOpsEventBridgeLiveFrom(
+        workspacePath,
+        ['--max-events', '2', '--timeout-ms', '1000'],
+        {
+          hookCommandRunner: (hookRequest) => {
+            hookRequests.push(hookRequest);
+            return Promise.resolve({ exitCode: 0 });
+          },
+          hookEnvironment: { SCREEPS_OPS_NOTIFY_COMMAND: 'notify-hook' },
+          WebSocketConstructor: MockOpsEventWebSocket,
+        },
+      );
+
+      expect(decisions).toEqual([
+        expect.objectContaining({ eventId: 'critical-1', suppressed: false }),
+        expect.objectContaining({ eventId: 'critical-2', suppressed: true }),
+      ]);
+      expect(hookRequests).toHaveLength(1);
       expect(joinedLogLines(logSpy)).not.toContain('secret-token');
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
