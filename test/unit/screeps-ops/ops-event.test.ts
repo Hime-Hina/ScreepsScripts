@@ -126,6 +126,27 @@ describe('Screeps ops event parser', () => {
     });
   });
 
+  it('accepts Screeps console HTML-escaped structured events', async () => {
+    const opsEventModule = await loadOpsEventModule();
+
+    const opsEvent = opsEventModule.parseOpsEventLine(
+      '[HERMES_EVENT] {&#x22;schema&#x22;:&#x22;screeps.ops.event.v1&#x22;,&#x22;id&#x22;:&#x22;runtime_heartbeat:shard1:71683646&#x22;,&#x22;dedupeKey&#x22;:&#x22;runtime_heartbeat:shard1&#x22;,&#x22;severity&#x22;:&#x22;info&#x22;,&#x22;kind&#x22;:&#x22;runtime_heartbeat&#x22;,&#x22;tick&#x22;:71683646,&#x22;shard&#x22;:&#x22;shard1&#x22;,&#x22;summary&#x22;:&#x22;runtime heartbeat for 1 room(s)&#x22;,&#x22;metrics&#x22;:{&#x22;cpu&#x22;:0.12,&#x22;bucket&#x22;:10000}}',
+    );
+
+    expect(opsEvent).toMatchObject({
+      dedupeKey: 'runtime_heartbeat:shard1',
+      id: 'runtime_heartbeat:shard1:71683646',
+      kind: 'runtime_heartbeat',
+      metrics: {
+        bucket: 10000,
+        cpu: 0.12,
+      },
+      severity: 'info',
+      shard: 'shard1',
+      tick: 71683646,
+    });
+  });
+
   it('ignores normal console heartbeat lines', async () => {
     const opsEventModule = await loadOpsEventModule();
 

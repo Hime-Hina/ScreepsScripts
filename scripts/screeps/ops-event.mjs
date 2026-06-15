@@ -23,7 +23,7 @@ export const parseOpsEventLine = (consoleLine) => {
     return null;
   }
 
-  const eventText = consoleLine.slice(OPS_EVENT_PREFIX.length).trim();
+  const eventText = decodeScreepsConsoleEntities(consoleLine.slice(OPS_EVENT_PREFIX.length).trim());
   let rawEvent;
 
   try {
@@ -84,6 +84,16 @@ export const decodeOpsEvent = (rawEvent) => {
 
   return event;
 };
+
+const decodeScreepsConsoleEntities = (eventText) =>
+  eventText
+    .replaceAll('&#x22;', '"')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&#x27;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
 
 export const appendOpsEventToJsonl = async (storePath, opsEvent) => {
   await mkdir(dirname(storePath), { recursive: true });
