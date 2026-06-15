@@ -14,7 +14,11 @@ import {
 } from './ops-event.mjs';
 import { applyOpsEventClaim, readDefaultClaimStorePath } from './ops-event-claims.mjs';
 import { runOpsEventHooks } from './ops-event-hooks.mjs';
-import { readDefaultEventStorePath } from './ops-event-bridge-dry-run.mjs';
+import {
+  readDefaultEventStoreDirectory,
+  readDefaultEventStorePath,
+} from './ops-event-bridge-dry-run.mjs';
+import { cleanupOpsDataStores } from './ops-store-maintenance.mjs';
 import { readLiveAccountIdentity } from './screeps-api.mjs';
 import { openScreepsConsoleWebSocket } from './screeps-console-websocket.mjs';
 
@@ -52,6 +56,7 @@ export const runOpsEventBridgeLiveFrom = async (
 const resolveWorkspaceLiveRequest = (workspacePath, liveRequest) => ({
   ...liveRequest,
   claimStorePath: resolveWorkspacePath(workspacePath, liveRequest.claimStorePath),
+  eventStoreDirectory: resolveWorkspacePath(workspacePath, liveRequest.eventStoreDirectory),
   storePath: resolveWorkspacePath(workspacePath, liveRequest.storePath),
 });
 
@@ -65,6 +70,7 @@ const resolveWorkspacePath = (workspacePath, candidatePath) => {
 
 export const parseLiveBridgeArguments = (commandArguments) => {
   let storePath = null;
+  let eventStoreDirectory = null;
   let maxEvents = null;
   let maxConsoleUpdates = null;
   let timeoutMs = null;
@@ -88,12 +94,14 @@ export const parseLiveBridgeArguments = (commandArguments) => {
 
     if (commandArgument === '--store') {
       storePath = readFollowingArgument(commandArguments, argumentIndex, '--store');
+      eventStoreDirectory = null;
       argumentIndex += 1;
       continue;
     }
 
     if (commandArgument === '--store-default') {
       storePath = readDefaultEventStorePath();
+      eventStoreDirectory = readDefaultEventStoreDirectory();
       continue;
     }
 
@@ -169,6 +177,7 @@ export const parseLiveBridgeArguments = (commandArguments) => {
     maxEvents,
     maxReconnects,
     claimStorePath,
+    eventStoreDirectory,
     reconnectDelayMs,
     shardName,
     storePath,
@@ -191,6 +200,8 @@ const runOpsEventBridgeLiveWithConfig = async (
   const bridgeState = { consoleUpdateCount: 0, eventCount: 0 };
   const startedAt = Date.now();
   let reconnectCount = 0;
+
+  await cleanupLiveOpsStores(liveRequest);
 
   console.log(
     [
@@ -242,6 +253,23 @@ const runOpsEventBridgeLiveWithConfig = async (
   );
 
   return decisions;
+};
+
+const cleanupLiveOpsStores = async (liveRequest) => {
+  try {
+    const cleanupResult = await cleanupOpsDataStores({
+      claimStorePath: liveRequest.claimStorePath,
+      eventStoreDirectory: liveRequest.eventStoreDirectory,
+    });
+
+    if (cleanupResult.claimFilesRemoved > 0 || cleanupResult.eventFilesRemoved > 0) {
+      console.log(`[ops:event-bridge] maintenance=${JSON.stringify(cleanupResult)}`);
+    }
+  } catch (caughtError) {
+    console.log(
+      `[ops:event-bridge] maintenanceError=${JSON.stringify({ message: readCaughtErrorMessage(caughtError) })}`,
+    );
+  }
 };
 
 const runSingleLiveBridgeConnection = ({

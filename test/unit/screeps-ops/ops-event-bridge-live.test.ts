@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -13,6 +13,7 @@ interface FetchRecord {
 interface OpsEventBridgeLiveModule {
   parseLiveBridgeArguments(commandArguments: string[]): {
     readonly claimStorePath: string | null;
+    readonly eventStoreDirectory: string | null;
     readonly maxConsoleUpdates: number | null;
     readonly maxEvents: number | null;
     readonly maxReconnects: number | null;
@@ -471,6 +472,54 @@ describe('Screeps live ops event bridge', () => {
     }
   });
 
+  it('cleans stale default event and claim files when the live bridge starts', async () => {
+    const workspacePath = await createLiveOpsWorkspace();
+    const eventStoreDirectory = join(workspacePath, '.screeps', 'events');
+    const claimStorePath = join(workspacePath, '.screeps', 'ops-claims');
+    const currentEventFileName = `${new Date().toISOString().slice(0, 10)}.jsonl`;
+    stubAuthFetch();
+    MockOpsEventWebSocket.scenarios = [
+      {
+        eventLine:
+          '[tick 1] cpu=0.10 bucket=10000 limit=20 tickLimit=500 budget=full rooms=W51N21:workers=5:spawnEnergy=300/300:construction=4:hostiles=0',
+        type: 'event',
+      },
+    ];
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      await mkdir(eventStoreDirectory, { recursive: true });
+      await mkdir(claimStorePath, { recursive: true });
+      await writeFile(join(eventStoreDirectory, '2020-01-01.jsonl'), '{}\n', 'utf8');
+      await writeFile(join(eventStoreDirectory, currentEventFileName), '{}\n', 'utf8');
+      await writeFile(
+        join(claimStorePath, 'old.json'),
+        JSON.stringify({ claimedAt: '2020-01-01T00:00:00.000Z' }),
+        'utf8',
+      );
+      await writeFile(
+        join(claimStorePath, 'recent.json'),
+        JSON.stringify({ claimedAt: new Date().toISOString() }),
+        'utf8',
+      );
+
+      const liveBridgeModule = await loadOpsEventBridgeLiveModule();
+      await liveBridgeModule.runOpsEventBridgeLiveFrom(
+        workspacePath,
+        ['--store-default', '--max-console-updates', '1', '--timeout-ms', '1000'],
+        { WebSocketConstructor: MockOpsEventWebSocket },
+      );
+
+      await expect(readdir(eventStoreDirectory)).resolves.toEqual([currentEventFileName]);
+      await expect(readdir(claimStorePath)).resolves.toEqual(['recent.json']);
+      expect(joinedLogLines(logSpy)).toContain(
+        '[ops:event-bridge] maintenance={"claimFilesRemoved":1,"eventFilesRemoved":1}',
+      );
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
   it('parses bounded live bridge arguments', async () => {
     const liveBridgeModule = await loadOpsEventBridgeLiveModule();
 
@@ -492,6 +541,7 @@ describe('Screeps live ops event bridge', () => {
         'shard1',
       ]),
     ).toMatchObject({
+      eventStoreDirectory: join('.screeps', 'events'),
       maxConsoleUpdates: 3,
       maxEvents: 2,
       maxReconnects: 0,
