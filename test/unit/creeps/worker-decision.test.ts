@@ -567,7 +567,7 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
-  it('assigns a construction site to only one worker in the same tick', () => {
+  it('assigns multiple workers to the same construction site in the same tick', () => {
     expect(
       planWorkerActions({
         constructionSites: [
@@ -620,9 +620,9 @@ describe('bootstrap worker action decision', () => {
         type: 'buildConstructionSite',
       },
       {
-        controllerId: 'controller-1',
+        constructionSiteId: 'construction-site-1',
         creepName: 'WorkerB',
-        type: 'upgradeController',
+        type: 'buildConstructionSite',
       },
     ]);
   });

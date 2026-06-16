@@ -153,7 +153,6 @@ export const planBootstrapWorkerActions = (
   const reservedPickupEnergyById = new Map<string, number>();
   const reservedWithdrawEnergyById = new Map<string, number>();
   const reservedRefillEnergyById = new Map<string, number>();
-  const reservedConstructionSiteIds = new Set<string>();
   const reservedRepairStructureIds = new Set<string>();
 
   return sortWorkerCreeps(workerWorld.creeps)
@@ -167,7 +166,6 @@ export const planBootstrapWorkerActions = (
         reservedPickupEnergyById,
         reservedWithdrawEnergyById,
         reservedRefillEnergyById,
-        reservedConstructionSiteIds,
         reservedRepairStructureIds,
       ),
     )
@@ -183,7 +181,6 @@ const planBootstrapWorkerAction = (
   reservedPickupEnergyById: Map<string, number>,
   reservedWithdrawEnergyById: Map<string, number>,
   reservedRefillEnergyById: Map<string, number>,
-  reservedConstructionSiteIds: Set<string>,
   reservedRepairStructureIds: Set<string>,
 ): WorkerActionDecision | null => {
   if (workerCreep.freeCapacity > 0) {
@@ -294,12 +291,10 @@ const planBootstrapWorkerAction = (
   const constructionEligibility = selectConstructionEligibility(workerWorld, workerCreep.roomName);
   const constructionSite =
     constructionEligibility?.type === 'constructionAllowed'
-      ? selectConstructionSite(workerWorld, workerCreep.roomName, reservedConstructionSiteIds)
+      ? selectConstructionSite(workerWorld, workerCreep.roomName)
       : undefined;
 
   if (constructionSite !== undefined) {
-    reservedConstructionSiteIds.add(constructionSite.id);
-
     return {
       constructionSiteId: constructionSite.id,
       creepName: workerCreep.name,
@@ -440,14 +435,9 @@ const isBelowRepairRatio = (
 const selectConstructionSite = (
   workerWorld: WorkerWorldSnapshot,
   roomName: string,
-  reservedConstructionSiteIds: ReadonlySet<string>,
 ): WorkerConstructionSiteSnapshot | undefined =>
   workerWorld.constructionSites
-    .filter(
-      (constructionSiteSnapshot) =>
-        constructionSiteSnapshot.roomName === roomName &&
-        !reservedConstructionSiteIds.has(constructionSiteSnapshot.id),
-    )
+    .filter((constructionSiteSnapshot) => constructionSiteSnapshot.roomName === roomName)
     .sort((leftConstructionSite, rightConstructionSite) =>
       leftConstructionSite.id.localeCompare(rightConstructionSite.id),
     )[0];
