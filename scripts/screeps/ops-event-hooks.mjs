@@ -1,7 +1,10 @@
 import { spawn } from 'node:child_process';
 
 const DEFAULT_HOOK_TIMEOUT_MS = 10000;
-const NOTIFY_COMMAND_ENV = 'SCREEPS_OPS_NOTIFY_COMMAND';
+const HOOK_ACTIONS = [
+  { action: 'notify', commandEnv: 'SCREEPS_OPS_NOTIFY_COMMAND' },
+  { action: 'wake_hermes', commandEnv: 'SCREEPS_OPS_WAKE_COMMAND' },
+];
 
 export const runOpsEventHooks = async ({
   decision,
@@ -13,11 +16,15 @@ export const runOpsEventHooks = async ({
 }) => {
   const hookResults = [];
 
-  if (decision.actions.includes('notify')) {
+  for (const hookAction of HOOK_ACTIONS) {
+    if (!decision.actions.includes(hookAction.action)) {
+      continue;
+    }
+
     hookResults.push(
       await runHookAction({
-        action: 'notify',
-        command: env[NOTIFY_COMMAND_ENV],
+        action: hookAction.action,
+        command: env[hookAction.commandEnv],
         decision,
         executeCommand,
         observedAt,

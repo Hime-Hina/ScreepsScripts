@@ -43,7 +43,7 @@ const loadOpsEventHooksModule = async (): Promise<OpsEventHooksModule> => {
 };
 
 describe('Screeps ops event hooks', () => {
-  it('skips notify delivery when no notify command is configured', async () => {
+  it('skips active hooks when their commands are not configured', async () => {
     const hooksModule = await loadOpsEventHooksModule();
 
     await expect(
@@ -55,6 +55,11 @@ describe('Screeps ops event hooks', () => {
     ).resolves.toEqual([
       {
         action: 'notify',
+        reason: 'not-configured',
+        status: 'skipped',
+      },
+      {
+        action: 'wake_hermes',
         reason: 'not-configured',
         status: 'skipped',
       },
@@ -104,6 +109,11 @@ describe('Screeps ops event hooks', () => {
         action: 'notify',
         status: 'delivered',
       },
+      {
+        action: 'wake_hermes',
+        reason: 'not-configured',
+        status: 'skipped',
+      },
     ]);
 
     expect(hookRequests).toHaveLength(1);
@@ -114,6 +124,57 @@ describe('Screeps ops event hooks', () => {
       decision: {
         actions: ['record', 'notify', 'wake_hermes'],
         dedupeKey: 'spawn_missing:shard1:W51N21',
+        suppressed: false,
+      },
+      event: {
+        metrics: {
+          safe: 1,
+          token: '[redacted]',
+        },
+      },
+      observedAt: '2026-06-15T00:00:00.000Z',
+      source: 'screeps-ops-event-bridge',
+    });
+  });
+
+  it('passes redacted event payload to the configured wake command over stdin', async () => {
+    const hooksModule = await loadOpsEventHooksModule();
+    const hookRequests: {
+      readonly command: string;
+      readonly input: string;
+      readonly timeoutMs: number;
+    }[] = [];
+
+    await expect(
+      hooksModule.runOpsEventHooks({
+        decision: {
+          actions: ['record', 'wake_hermes'],
+          dedupeKey: 'worker_below_target:shard1:W51N21',
+          suppressed: false,
+        },
+        env: { SCREEPS_OPS_WAKE_COMMAND: 'wake-hook' },
+        executeCommand: (hookRequest) => {
+          hookRequests.push(hookRequest);
+          return Promise.resolve({ exitCode: 0 });
+        },
+        observedAt: new Date('2026-06-15T00:00:00.000Z'),
+        opsEvent: createOpsEvent({ severity: 'actionable' }),
+      }),
+    ).resolves.toEqual([
+      {
+        action: 'wake_hermes',
+        status: 'delivered',
+      },
+    ]);
+
+    expect(hookRequests).toHaveLength(1);
+    expect(hookRequests[0]?.command).toBe('wake-hook');
+    expect(hookRequests[0]?.timeoutMs).toBe(10000);
+    expect(JSON.parse(hookRequests[0]?.input ?? '{}')).toMatchObject({
+      action: 'wake_hermes',
+      decision: {
+        actions: ['record', 'wake_hermes'],
+        dedupeKey: 'worker_below_target:shard1:W51N21',
         suppressed: false,
       },
       event: {
@@ -143,6 +204,11 @@ describe('Screeps ops event hooks', () => {
         exitCode: 7,
         status: 'failed',
       },
+      {
+        action: 'wake_hermes',
+        reason: 'not-configured',
+        status: 'skipped',
+      },
     ]);
   });
 
@@ -159,6 +225,11 @@ describe('Screeps ops event hooks', () => {
       {
         action: 'notify',
         status: 'delivered',
+      },
+      {
+        action: 'wake_hermes',
+        reason: 'not-configured',
+        status: 'skipped',
       },
     ]);
   });
@@ -177,6 +248,11 @@ describe('Screeps ops event hooks', () => {
         action: 'notify',
         exitCode: 7,
         status: 'failed',
+      },
+      {
+        action: 'wake_hermes',
+        reason: 'not-configured',
+        status: 'skipped',
       },
     ]);
   });

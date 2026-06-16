@@ -27,6 +27,8 @@
 | `pnpm scout:screeps`                    | 只读读取 Screeps API 并按启发式排序起始房间候选                                            |
 | `pnpm ops:event-bridge:screeps`         | 事件驱动运维桥 live 入口：订阅 console websocket、解析 `[HERMES_EVENT]` 并输出本地策略决策 |
 | `pnpm ops:event-bridge:dry-run:screeps` | 事件驱动运维桥 dry-run 入口：解析离线 `[HERMES_EVENT]`、写 JSONL、输出本地策略决策         |
+| `pnpm ops:event-notify:screeps`         | 从 hook stdin 读取 ops event payload，并通过 `hermes send` 发送 Telegram 通知              |
+| `pnpm ops:event-wake-hermes:screeps`    | 从 hook stdin 读取 ops event payload，并后台启动一次 Hermes 事件响应 agent                 |
 | `pnpm test:unit`                        | 运行单元测试                                                                               |
 | `pnpm test:integration`                 | 运行集成测试                                                                               |
 | `pnpm test:system`                      | 构建并运行系统测试                                                                         |
