@@ -245,6 +245,63 @@ describe('Screeps live ops event bridge', () => {
     }
   });
 
+  it('runs a configured wake hook with redacted event payload', async () => {
+    const workspacePath = await createLiveOpsWorkspace();
+    const hookRequests: {
+      readonly command: string;
+      readonly input: string;
+      readonly timeoutMs: number;
+    }[] = [];
+    stubAuthFetch();
+    MockOpsEventWebSocket.scenarios = [{ eventLine: CRITICAL_EVENT_LINE, type: 'event' }];
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    try {
+      const liveBridgeModule = await loadOpsEventBridgeLiveModule();
+      await liveBridgeModule.runOpsEventBridgeLiveFrom(
+        workspacePath,
+        ['--max-events', '1', '--timeout-ms', '1000'],
+        {
+          hookCommandRunner: (hookRequest) => {
+            hookRequests.push(hookRequest);
+            return Promise.resolve({ exitCode: 0 });
+          },
+          hookEnvironment: { SCREEPS_OPS_WAKE_COMMAND: 'wake-hook' },
+          WebSocketConstructor: MockOpsEventWebSocket,
+        },
+      );
+
+      expect(hookRequests).toHaveLength(1);
+      expect(hookRequests[0]?.command).toBe('wake-hook');
+      expect(hookRequests[0]?.timeoutMs).toBe(10000);
+      const hookPayload = JSON.parse(hookRequests[0]?.input ?? '{}') as Record<string, unknown>;
+      expect(hookPayload).toMatchObject({
+        action: 'wake_hermes',
+        decision: {
+          actions: ['record', 'notify', 'wake_hermes'],
+          dedupeKey: 'critical:spawn_missing:shard1:W51N21',
+          suppressed: false,
+        },
+        event: {
+          id: 'critical-1',
+          kind: 'spawn_missing',
+          metrics: {
+            safe: 1,
+            token: '[redacted]',
+          },
+        },
+        source: 'screeps-ops-event-bridge',
+      });
+      expect(joinedLogLines(logSpy)).toContain(
+        '[ops:event-bridge] delivery={"action":"wake_hermes","status":"delivered"}',
+      );
+      expect(hookRequests[0]?.input).not.toContain('secret-token');
+      expect(joinedLogLines(logSpy)).not.toContain('secret-token');
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
   it('does not run notify hooks for duplicate active events in the same claim window', async () => {
     const workspacePath = await createLiveOpsWorkspace();
     const hookRequests: unknown[] = [];

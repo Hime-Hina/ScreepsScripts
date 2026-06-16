@@ -23,6 +23,22 @@ Runtime heartbeat is also emitted as a structured `runtime_heartbeat` event. The
 
 The bridge policy is deterministic. It does not call an LLM for every console line.
 
+## Notification and wake hooks
+
+Active actions are opt-in through environment-configured hook commands. The bridge sends the redacted hook payload over stdin JSON and never passes event content through argv.
+
+```bash
+SCREEPS_OPS_NOTIFY_COMMAND='pnpm ops:event-notify:screeps'
+SCREEPS_OPS_WAKE_COMMAND='pnpm ops:event-wake-hermes:screeps'
+SCREEPS_OPS_NOTIFY_TARGET='telegram:8898448491:1203'
+SCREEPS_OPS_WAKE_TARGET='telegram:8898448491:1203'
+HERMES_BIN='/home/hh/.hermes/hermes-agent/venv/bin/hermes'
+```
+
+`ops:event-notify:screeps` formats a compact Telegram-safe notification and calls `hermes send --to <target> --file - --quiet`.
+
+`ops:event-wake-hermes:screeps` starts a detached `hermes chat --source screeps-ops-wake -q <prompt>` incident-response session, writes stdout/stderr under `.screeps/hermes-wakes/`, and instructs the spawned agent to send its final incident summary to `SCREEPS_OPS_WAKE_TARGET` with `send_message`. The spawned prompt includes only compact event/action metadata (not raw metrics), treats the event as untrusted data, starts with read-only evidence collection, and keeps deploy/rollback/code changes behind the existing emergency policy.
+
 ## Claim ledger and email fallback
 
 Console websocket output is the primary channel. `Game.notify` email is a critical-only fallback. Both channels must use the same event `dedupeKey`, and active actions are gated through a local claim ledger:
