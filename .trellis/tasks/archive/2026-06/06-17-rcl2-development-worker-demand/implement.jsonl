@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/runtime/index.md", "reason": "runtime coding rules"}
+{"file": ".trellis/spec/testing/index.md", "reason": "testing/TDD rules"}
+{"file": "src/colony/bootstrap-economy.ts", "reason": "worker demand policy source"}
+{"file": "src/spawning/spawn-decision.ts", "reason": "spawn planner consuming worker demand"}

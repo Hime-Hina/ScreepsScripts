@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/testing/index.md", "reason": "verification rules"}
+{"file": "package.json", "reason": "available pnpm test/check scripts"}
+{"file": "test/unit/colony/bootstrap-economy.test.ts", "reason": "worker demand regression tests"}
+{"file": "test/unit/spawning/spawn-decision.test.ts", "reason": "spawn integration regression tests"}
