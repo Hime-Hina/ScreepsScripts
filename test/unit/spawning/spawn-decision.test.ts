@@ -178,11 +178,11 @@ describe('bootstrap worker spawn decision', () => {
     });
   });
 
-  it('does not spawn another worker when the bootstrap population is complete', () => {
+  it('does not spawn another worker when the RCL2 development population is complete', () => {
     expect(
       planWorkerSpawn({
         gameTime: 43,
-        workerCreepCount: 3,
+        workerCreepCount: 5,
         spawns: [
           {
             availableEnergy: 300,
@@ -246,6 +246,71 @@ describe('bootstrap worker spawn decision', () => {
     ).toEqual({
       body: ['work', 'carry', 'carry', 'move', 'move'],
       creepName: 'Spawn1-worker-46',
+      spawnName: 'Spawn1',
+    });
+  });
+
+  it('continues spawning up to the RCL2 development worker target after all five extensions are built', () => {
+    expect(
+      planWorkerSpawn({
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            2: 5,
+          },
+        },
+        gameTime: 51,
+        rooms: [
+          {
+            constructionSites: [],
+            controllerLevel: 2,
+            energyStructures: [
+              {
+                availableEnergy: 550,
+                energyCapacity: 550,
+              },
+            ],
+            roomName: 'W1N1',
+            structures: [
+              {
+                structureType: 'spawn',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+            ],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 4,
+          },
+        ],
+        workerCreepCount: 4,
+        spawns: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            isSpawning: false,
+            name: 'Spawn1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual({
+      body: ['work', 'carry', 'carry', 'move', 'move'],
+      creepName: 'Spawn1-worker-51',
       spawnName: 'Spawn1',
     });
   });

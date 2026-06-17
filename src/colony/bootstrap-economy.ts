@@ -1,7 +1,7 @@
 import type { RoomDefenseState } from '../defense/defense-planner';
 
 export const BOOTSTRAP_SURVIVAL_WORKER_COUNT = 3;
-export const RCL2_CONSTRUCTION_WORKER_COUNT = 5;
+export const RCL2_DEVELOPMENT_WORKER_COUNT = 5;
 
 export interface BootstrapControllerSnapshot {
   readonly roomName: string;
@@ -76,8 +76,8 @@ export type BootstrapWorkerDemand =
       readonly type: 'survivalWorkerDemand';
     }
   | {
-      readonly targetWorkerCount: typeof RCL2_CONSTRUCTION_WORKER_COUNT;
-      readonly type: 'rcl2ConstructionWorkerDemand';
+      readonly targetWorkerCount: typeof RCL2_DEVELOPMENT_WORKER_COUNT;
+      readonly type: 'rcl2DevelopmentWorkerDemand';
     };
 
 export interface BootstrapWorkerDemandInput {
@@ -220,10 +220,9 @@ export const selectBootstrapWorkerDemand = (
     demandInput.controllerLevel === 2 &&
     demandInput.controllerDowngradeState.type === 'controllerDowngradeSafe' &&
     demandInput.energyState.type === 'spawnExtensionEnergyStable' &&
-    demandInput.spawnAvailability.type === 'spawnAvailable' &&
-    demandInput.constructionBacklogEnergy > 0
+    demandInput.spawnAvailability.type === 'spawnAvailable'
   ) {
-    return rcl2ConstructionWorkerDemand;
+    return rcl2DevelopmentWorkerDemand;
   }
 
   return survivalWorkerDemand;
@@ -234,7 +233,7 @@ const survivalWorkerDemand: BootstrapWorkerDemand = {
   type: 'survivalWorkerDemand',
 };
 
-const rcl2ConstructionWorkerDemand: BootstrapWorkerDemand = {
-  targetWorkerCount: RCL2_CONSTRUCTION_WORKER_COUNT,
-  type: 'rcl2ConstructionWorkerDemand',
+const rcl2DevelopmentWorkerDemand: BootstrapWorkerDemand = {
+  targetWorkerCount: RCL2_DEVELOPMENT_WORKER_COUNT,
+  type: 'rcl2DevelopmentWorkerDemand',
 };

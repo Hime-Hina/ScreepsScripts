@@ -185,10 +185,10 @@ describe('bootstrap economy contract', () => {
     });
   });
 
-  it('selects RCL2 construction demand only when the room economy is safe', () => {
+  it('selects the RCL2 development demand when the room economy is safe even without construction backlog', () => {
     expect(
       selectBootstrapWorkerDemand({
-        constructionBacklogEnergy: 3000,
+        constructionBacklogEnergy: 0,
         controllerDowngradeState: SAFE_CONTROLLER_STATE,
         controllerLevel: 2,
         energyState: STABLE_ENERGY_STATE,
@@ -197,17 +197,61 @@ describe('bootstrap economy contract', () => {
       }),
     ).toEqual({
       targetWorkerCount: 5,
-      type: 'rcl2ConstructionWorkerDemand',
+      type: 'rcl2DevelopmentWorkerDemand',
     });
+  });
 
+  it('keeps worker demand at the survival floor when expansion safeguards are not met', () => {
     expect(
       selectBootstrapWorkerDemand({
-        constructionBacklogEnergy: 3000,
+        constructionBacklogEnergy: 0,
         controllerDowngradeState: SAFE_CONTROLLER_STATE,
         controllerLevel: 2,
         energyState: STABLE_ENERGY_STATE,
         spawnAvailability: SPAWNING_SPAWN_STATE,
         workerCreepCount: 4,
+      }),
+    ).toEqual({
+      targetWorkerCount: 3,
+      type: 'survivalWorkerDemand',
+    });
+
+    expect(
+      selectBootstrapWorkerDemand({
+        constructionBacklogEnergy: 0,
+        controllerDowngradeState: WARNING_CONTROLLER_STATE,
+        controllerLevel: 2,
+        energyState: STABLE_ENERGY_STATE,
+        spawnAvailability: AVAILABLE_SPAWN_STATE,
+        workerCreepCount: 4,
+      }),
+    ).toEqual({
+      targetWorkerCount: 3,
+      type: 'survivalWorkerDemand',
+    });
+
+    expect(
+      selectBootstrapWorkerDemand({
+        constructionBacklogEnergy: 0,
+        controllerDowngradeState: SAFE_CONTROLLER_STATE,
+        controllerLevel: 2,
+        energyState: UNSTABLE_ENERGY_STATE,
+        spawnAvailability: AVAILABLE_SPAWN_STATE,
+        workerCreepCount: 4,
+      }),
+    ).toEqual({
+      targetWorkerCount: 3,
+      type: 'survivalWorkerDemand',
+    });
+
+    expect(
+      selectBootstrapWorkerDemand({
+        constructionBacklogEnergy: 0,
+        controllerDowngradeState: SAFE_CONTROLLER_STATE,
+        controllerLevel: 2,
+        energyState: STABLE_ENERGY_STATE,
+        spawnAvailability: AVAILABLE_SPAWN_STATE,
+        workerCreepCount: 2,
       }),
     ).toEqual({
       targetWorkerCount: 3,
