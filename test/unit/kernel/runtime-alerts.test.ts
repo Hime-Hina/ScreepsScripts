@@ -155,6 +155,146 @@ describe('runtime alert decisions', () => {
     ).toEqual([]);
   });
 
+  it('does not notify for a one-worker replacement dip when spawn recovery is available', () => {
+    expect(
+      selectRuntimeAlertDecisions({
+        actionFailures: [],
+        defenseWorld: emptyDefenseWorld,
+        gameTime: 51,
+        shardName: 'shard1',
+        spawningWorld: createSpawningWorld({
+          energyStructures: [
+            {
+              availableEnergy: 200,
+              energyCapacity: 300,
+            },
+          ],
+          ticksToDowngrade: 9000,
+          workerCreepCount: 2,
+        }),
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps worker count critical when a one-worker dip has no available recovery spawn', () => {
+    const spawningWorld = createSpawningWorld({
+      energyStructures: [
+        {
+          availableEnergy: 300,
+          energyCapacity: 300,
+        },
+      ],
+      ticksToDowngrade: 9000,
+      workerCreepCount: 2,
+    });
+
+    const alertDecisions = selectRuntimeAlertDecisions({
+      actionFailures: [],
+      defenseWorld: emptyDefenseWorld,
+      gameTime: 51,
+      shardName: 'shard1',
+      spawningWorld: {
+        ...spawningWorld,
+        spawns: [
+          {
+            ...spawningWorld.spawns[0],
+            isSpawning: true,
+          },
+        ],
+      },
+    });
+
+    expect(
+      alertDecisions.map((alertDecision) => ({
+        emailFallback: alertDecision.emailFallback,
+        kind: alertDecision.opsEvent.kind,
+        severity: alertDecision.opsEvent.severity,
+      })),
+    ).toEqual([
+      {
+        emailFallback: true,
+        kind: 'worker_count_low',
+        severity: 'critical',
+      },
+    ]);
+  });
+
+  it('keeps worker count critical when a one-worker dip lacks survival spawn energy', () => {
+    const spawningWorld = createSpawningWorld({
+      energyStructures: [
+        {
+          availableEnergy: 300,
+          energyCapacity: 300,
+        },
+      ],
+      ticksToDowngrade: 9000,
+      workerCreepCount: 2,
+    });
+
+    const alertDecisions = selectRuntimeAlertDecisions({
+      actionFailures: [],
+      defenseWorld: emptyDefenseWorld,
+      gameTime: 51,
+      shardName: 'shard1',
+      spawningWorld: {
+        ...spawningWorld,
+        spawns: [
+          {
+            ...spawningWorld.spawns[0],
+            availableEnergy: 150,
+          },
+        ],
+      },
+    });
+
+    expect(
+      alertDecisions.map((alertDecision) => ({
+        emailFallback: alertDecision.emailFallback,
+        kind: alertDecision.opsEvent.kind,
+        severity: alertDecision.opsEvent.severity,
+      })),
+    ).toEqual([
+      {
+        emailFallback: true,
+        kind: 'worker_count_low',
+        severity: 'critical',
+      },
+    ]);
+  });
+
+  it('keeps worker count critical when the worker population is missing', () => {
+    const alertDecisions = selectRuntimeAlertDecisions({
+      actionFailures: [],
+      defenseWorld: emptyDefenseWorld,
+      gameTime: 51,
+      shardName: 'shard1',
+      spawningWorld: createSpawningWorld({
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+          },
+        ],
+        ticksToDowngrade: 9000,
+        workerCreepCount: 0,
+      }),
+    });
+
+    expect(
+      alertDecisions.map((alertDecision) => ({
+        emailFallback: alertDecision.emailFallback,
+        kind: alertDecision.opsEvent.kind,
+        severity: alertDecision.opsEvent.severity,
+      })),
+    ).toEqual([
+      {
+        emailFallback: true,
+        kind: 'worker_count_low',
+        severity: 'critical',
+      },
+    ]);
+  });
+
   it('does not notify when survival signals are stable', () => {
     expect(
       selectRuntimeAlertDecisions({

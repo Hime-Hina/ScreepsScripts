@@ -1,3 +1,7 @@
+import {
+  BOOTSTRAP_SURVIVAL_WORKER_COUNT,
+  classifyBootstrapControllerDowngradeState,
+} from '../colony/bootstrap-economy';
 import type { DefenseWorldSnapshot } from '../defense/defense-planner';
 import { createRuntimeOpsEvent, formatRuntimeOpsEventLine } from '../runtime/ops-event';
 import type { RuntimeAlertDecision } from '../runtime/screeps-runtime';
@@ -24,8 +28,7 @@ export interface RuntimeAlertDecisionInput {
 }
 
 const RUNTIME_ALERT_GROUP_INTERVAL = 100;
-const CONTROLLER_DOWNGRADE_ALERT_TICKS = 5000;
-const SURVIVAL_WORKER_ALERT_COUNT = 3;
+const SURVIVAL_WORKER_ALERT_COUNT = BOOTSTRAP_SURVIVAL_WORKER_COUNT;
 
 export const selectRuntimeAlertDecisions = (
   alertInput: RuntimeAlertDecisionInput,
@@ -41,7 +44,7 @@ const selectControllerDowngradeAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
   alertInput.spawningWorld.rooms.flatMap((spawningRoom) => {
-    if (spawningRoom.ticksToDowngrade >= CONTROLLER_DOWNGRADE_ALERT_TICKS) {
+    if (!isControllerDowngradeCritical(spawningRoom)) {
       return [];
     }
 
@@ -62,11 +65,19 @@ const selectControllerDowngradeAlerts = (
     ];
   });
 
+const isControllerDowngradeCritical = (
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): boolean =>
+  classifyBootstrapControllerDowngradeState({
+    roomName: spawningRoom.roomName,
+    ticksToDowngrade: spawningRoom.ticksToDowngrade,
+  }).type === 'controllerDowngradeCritical';
+
 const selectWorkerCountAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
   alertInput.spawningWorld.rooms.flatMap((spawningRoom) => {
-    if (spawningRoom.workerCreepCount >= SURVIVAL_WORKER_ALERT_COUNT) {
+    if (!shouldCreateWorkerCountAlert(alertInput.spawningWorld, spawningRoom)) {
       return [];
     }
 
@@ -88,6 +99,50 @@ const selectWorkerCountAlerts = (
     ];
   });
 
+const shouldCreateWorkerCountAlert = (
+  spawningWorld: SpawningWorldSnapshot,
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): boolean => {
+  if (spawningRoom.workerCreepCount >= SURVIVAL_WORKER_ALERT_COUNT) {
+    return false;
+  }
+
+  if (spawningRoom.workerCreepCount <= 0) {
+    return true;
+  }
+
+  if (isControllerDowngradeCritical(spawningRoom)) {
+    return true;
+  }
+
+  return !isRecoverableOneWorkerDip(spawningWorld, spawningRoom);
+};
+
+const isRecoverableOneWorkerDip = (
+  spawningWorld: SpawningWorldSnapshot,
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): boolean =>
+  spawningRoom.workerCreepCount === SURVIVAL_WORKER_ALERT_COUNT - 1 &&
+  hasAvailableSurvivalWorkerSpawn(spawningWorld, spawningRoom.roomName);
+
+const hasAvailableSurvivalWorkerSpawn = (
+  spawningWorld: SpawningWorldSnapshot,
+  roomName: string,
+): boolean => {
+  const survivalWorkerEnergyCost =
+    spawningWorld.bodyPartCosts.work +
+    spawningWorld.bodyPartCosts.carry +
+    spawningWorld.bodyPartCosts.move;
+
+  return spawningWorld.spawns.some(
+    (spawnSnapshot) =>
+      spawnSnapshot.roomName === roomName &&
+      !spawnSnapshot.isSpawning &&
+      spawnSnapshot.energyCapacity >= survivalWorkerEnergyCost &&
+      spawnSnapshot.availableEnergy >= survivalWorkerEnergyCost,
+  );
+};
+
 const selectSpawnEnergyAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
@@ -102,8 +157,8 @@ const selectSpawnEnergyAlerts = (
     );
 
     const hasSurvivalRisk =
-      spawningRoom.workerCreepCount < SURVIVAL_WORKER_ALERT_COUNT ||
-      spawningRoom.ticksToDowngrade < CONTROLLER_DOWNGRADE_ALERT_TICKS;
+      shouldCreateWorkerCountAlert(alertInput.spawningWorld, spawningRoom) ||
+      isControllerDowngradeCritical(spawningRoom);
 
     if (
       totalEnergyCapacity <= 0 ||
