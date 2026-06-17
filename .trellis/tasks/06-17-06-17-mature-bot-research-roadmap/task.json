@@ -1,0 +1,31 @@
+{
+  "id": "06-17-mature-bot-research-roadmap",
+  "name": "06-17-mature-bot-research-roadmap",
+  "title": "Mature Screeps bot research roadmap",
+  "description": "Survey mature open-source Screeps bots and translate proven patterns into bounded codebase improvement tasks.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "hermes",
+  "assignee": "hermes",
+  "createdAt": "2026-06-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-17-06-17-construction-throttling-phased-build",
+    "06-17-06-17-spawn-request-priority-queue",
+    "06-17-06-17-rcl3-tower-extension-planner",
+    "06-17-06-17-room-intel-remote-mining-scoring"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

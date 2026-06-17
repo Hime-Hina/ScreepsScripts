@@ -1,0 +1,9 @@
+{"file": "AGENTS.md", "reason": "Project Trellis and agent workflow instructions."}
+{"file": ".trellis/workflow.md", "reason": "Task lifecycle, planning artifacts, and TDD execution gates."}
+{"file": ".trellis/spec/runtime/index.md", "reason": "Runtime boundary checklist for Screeps code changes."}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Domain ownership and forbidden broad manager/role architecture."}
+{"file": ".trellis/spec/testing/index.md", "reason": "TDD and verification expectations."}
+{"file": ".trellis/spec/runtime/cpu-budget.md", "reason": "Throttling and construction planner performance constraints."}
+{"file": "src/construction/construction-planner.ts", "reason": "Primary implementation target."}
+{"file": "test/unit/construction/construction-planner.test.ts", "reason": "Focused unit tests."}
+{"file": "test/integration/main-loop.test.ts", "reason": "Runtime boundary integration tests."}
