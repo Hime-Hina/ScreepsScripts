@@ -17,6 +17,7 @@ const TEST_FIND_STRUCTURES = 111;
 const TEST_FIND_TOMBSTONES = 118;
 const TEST_STRUCTURE_EXTENSION = 'extension';
 const TEST_STRUCTURE_SPAWN = 'spawn';
+const TEST_STRUCTURE_TOWER = 'tower';
 const TEST_ATTACK = 'attack';
 const TEST_HEAL = 'heal';
 const TEST_MOVE = 'move';
@@ -49,6 +50,9 @@ const TEST_CONSTRUCTION_COST = {
 const TEST_CONTROLLER_STRUCTURES = {
   extension: {
     2: 5,
+  },
+  tower: {
+    2: 0,
   },
 };
 
@@ -139,6 +143,7 @@ describe('compiled Screeps bundle', () => {
       SPAWN_ENERGY_CAPACITY: TEST_SPAWN_ENERGY_CAPACITY,
       STRUCTURE_EXTENSION: TEST_STRUCTURE_EXTENSION,
       STRUCTURE_SPAWN: TEST_STRUCTURE_SPAWN,
+      STRUCTURE_TOWER: TEST_STRUCTURE_TOWER,
       WORK: TEST_WORK,
       console: {
         log: (message: string) => consoleLines.push(message),

@@ -45,6 +45,9 @@ describe('runTick', () => {
           extension: {
             2: 5,
           },
+          tower: {
+            2: 0,
+          },
         },
         ownedRooms: [],
       }),
@@ -257,6 +260,9 @@ describe('runTick', () => {
           controllerStructureLimits: {
             extension: {
               2: 5,
+            },
+            tower: {
+              2: 0,
             },
           },
           ownedRooms: [

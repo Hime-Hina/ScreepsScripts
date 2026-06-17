@@ -3,7 +3,7 @@
   "name": "06-17-rcl3-tower-extension-planner",
   "title": "RCL3 tower and extension planner slice",
   "description": "Prepare next controller milestone by adding conservative RCL3 tower/extension construction planning and tests.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

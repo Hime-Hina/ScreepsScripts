@@ -1,5 +1,5 @@
 export type ConstructionTerrain = 'plain' | 'swamp' | 'wall';
-export type ConstructionStructureType = 'container' | 'extension' | 'road';
+export type ConstructionStructureType = 'container' | 'extension' | 'road' | 'tower';
 
 export interface ConstructionPositionSnapshot {
   readonly x: number;
@@ -37,6 +37,7 @@ export interface ConstructionOwnedRoomSnapshot {
 export interface ConstructionWorldSnapshot {
   readonly controllerStructureLimits: Readonly<{
     readonly extension: Readonly<Record<number, number>>;
+    readonly tower: Readonly<Record<number, number>>;
   }>;
   readonly ownedRooms: readonly ConstructionOwnedRoomSnapshot[];
 }
@@ -80,6 +81,12 @@ const planOwnedRoomConstruction = (
 
   if (extensionDecisions.length > 0) {
     return extensionDecisions;
+  }
+
+  const towerDecisions = planRclTowerSite(ownedRoom, controllerStructureLimits);
+
+  if (towerDecisions.length > 0) {
+    return towerDecisions;
   }
 
   return planEarlyLogisticsSites(ownedRoom);
@@ -129,6 +136,38 @@ const planRclExtensionSites = (
   }
 
   return extensionDecisions;
+};
+
+const planRclTowerSite = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+  controllerStructureLimits: ConstructionWorldSnapshot['controllerStructureLimits'],
+): readonly ConstructionDecision[] => {
+  const towerLimit = controllerStructureLimits.tower[ownedRoom.controllerLevel] ?? 0;
+
+  if (towerLimit <= 0) {
+    return [];
+  }
+
+  const existingTowerCount =
+    countStructureType(ownedRoom, 'tower') + countConstructionSiteType(ownedRoom, 'tower');
+
+  if (existingTowerCount >= towerLimit) {
+    return [];
+  }
+
+  const terrainByPositionKey = createTerrainByPositionKey(ownedRoom.terrain);
+  const unavailablePositionKeys = collectUnavailablePositionKeys(ownedRoom);
+  const controllerCorePosition = ownedRoom.controllerPosition ?? ownedRoom.spawnPosition;
+  const towerPosition = [...listNearSpawnCandidatePositions(ownedRoom.spawnPosition)]
+    .filter((candidatePosition) => isBuildableTile(candidatePosition, terrainByPositionKey))
+    .filter(
+      (candidatePosition) => !unavailablePositionKeys.has(serializePosition(candidatePosition)),
+    )
+    .sort(compareTowerCandidatePositions(ownedRoom.spawnPosition, controllerCorePosition))[0];
+
+  return towerPosition === undefined
+    ? []
+    : [createConstructionSiteDecision(ownedRoom.roomName, towerPosition, 'tower')];
 };
 
 const planEarlyLogisticsSites = (
@@ -200,13 +239,25 @@ const planEarlyLogisticsSites = (
 };
 
 const countExtensionStructures = (ownedRoom: ConstructionOwnedRoomSnapshot): number =>
-  ownedRoom.structures.filter(
-    (structureSnapshot) => structureSnapshot.structureType === 'extension',
-  ).length;
+  countStructureType(ownedRoom, 'extension');
 
 const countExtensionConstructionSites = (ownedRoom: ConstructionOwnedRoomSnapshot): number =>
+  countConstructionSiteType(ownedRoom, 'extension');
+
+const countStructureType = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+  structureType: ConstructionStructureType,
+): number =>
+  ownedRoom.structures.filter(
+    (structureSnapshot) => structureSnapshot.structureType === structureType,
+  ).length;
+
+const countConstructionSiteType = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+  structureType: ConstructionStructureType,
+): number =>
   ownedRoom.constructionSites.filter(
-    (constructionSiteSnapshot) => constructionSiteSnapshot.structureType === 'extension',
+    (constructionSiteSnapshot) => constructionSiteSnapshot.structureType === structureType,
   ).length;
 
 const listLogisticsTargets = (
@@ -431,6 +482,27 @@ const comparePositionsByDistanceTo =
 
     return leftPosition.x - rightPosition.x;
   };
+
+const compareTowerCandidatePositions = (
+  spawnPosition: ConstructionPositionSnapshot,
+  controllerCorePosition: ConstructionPositionSnapshot,
+) => {
+  const compareByControllerDistance = comparePositionsByDistanceTo(controllerCorePosition);
+
+  return (
+    leftPosition: ConstructionPositionSnapshot,
+    rightPosition: ConstructionPositionSnapshot,
+  ): number => {
+    const leftSpawnRange = measureRange(leftPosition, spawnPosition);
+    const rightSpawnRange = measureRange(rightPosition, spawnPosition);
+
+    if (leftSpawnRange !== rightSpawnRange) {
+      return leftSpawnRange - rightSpawnRange;
+    }
+
+    return compareByControllerDistance(leftPosition, rightPosition);
+  };
+};
 
 const measureRange = (
   leftPosition: ConstructionPositionSnapshot,

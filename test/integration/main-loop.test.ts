@@ -15,6 +15,7 @@ const TEST_STRUCTURE_EXTENSION = 'extension';
 const TEST_STRUCTURE_RAMPART = 'rampart';
 const TEST_STRUCTURE_ROAD = 'road';
 const TEST_STRUCTURE_SPAWN = 'spawn';
+const TEST_STRUCTURE_TOWER = 'tower';
 const TEST_STRUCTURE_WALL = 'constructedWall';
 const TEST_ATTACK = 'attack';
 const TEST_HEAL = 'heal';
@@ -47,7 +48,14 @@ const TEST_CONSTRUCTION_COST = {
 };
 const TEST_CONTROLLER_STRUCTURES = {
   extension: {
+    1: 0,
     2: 5,
+    3: 10,
+  },
+  tower: {
+    1: 0,
+    2: 0,
+    3: 1,
   },
 };
 
@@ -123,6 +131,7 @@ describe('Screeps main loop', () => {
     vi.stubGlobal('STRUCTURE_RAMPART', TEST_STRUCTURE_RAMPART);
     vi.stubGlobal('STRUCTURE_ROAD', TEST_STRUCTURE_ROAD);
     vi.stubGlobal('STRUCTURE_SPAWN', TEST_STRUCTURE_SPAWN);
+    vi.stubGlobal('STRUCTURE_TOWER', TEST_STRUCTURE_TOWER);
     vi.stubGlobal('STRUCTURE_WALL', TEST_STRUCTURE_WALL);
     vi.stubGlobal('SPAWN_ENERGY_CAPACITY', TEST_SPAWN_ENERGY_CAPACITY);
     vi.stubGlobal('EXTENSION_ENERGY_CAPACITY', TEST_EXTENSION_ENERGY_CAPACITY);
@@ -1217,6 +1226,208 @@ describe('Screeps main loop', () => {
       [10, 11, TEST_STRUCTURE_ROAD],
       [10, 12, TEST_STRUCTURE_ROAD],
     ]);
+  });
+
+  it('creates the first RCL3 tower construction site through the runtime boundary', async () => {
+    const constructionSiteRequests: unknown[] = [];
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 3,
+      my: true,
+      pos: {
+        x: 10,
+        y: 14,
+      },
+    };
+    const firstSpawn = {
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const extensionStructures = [
+      {
+        id: 'extension-1',
+        pos: {
+          roomName: 'W1N1',
+          x: 9,
+          y: 9,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-2',
+        pos: {
+          roomName: 'W1N1',
+          x: 10,
+          y: 9,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-3',
+        pos: {
+          roomName: 'W1N1',
+          x: 11,
+          y: 9,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-4',
+        pos: {
+          roomName: 'W1N1',
+          x: 9,
+          y: 10,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-5',
+        pos: {
+          roomName: 'W1N1',
+          x: 11,
+          y: 10,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-6',
+        pos: {
+          roomName: 'W1N1',
+          x: 9,
+          y: 11,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-7',
+        pos: {
+          roomName: 'W1N1',
+          x: 10,
+          y: 11,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-8',
+        pos: {
+          roomName: 'W1N1',
+          x: 11,
+          y: 11,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-9',
+        pos: {
+          roomName: 'W1N1',
+          x: 8,
+          y: 8,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+      {
+        id: 'extension-10',
+        pos: {
+          roomName: 'W1N1',
+          x: 9,
+          y: 8,
+        },
+        structureType: TEST_STRUCTURE_EXTENSION,
+        store: {
+          getCapacity: () => 50,
+          getUsedCapacity: () => 50,
+        },
+      },
+    ];
+    const roomTerrain = {
+      get: () => 0,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.62),
+      getObjectById: () => null,
+      notify: () => undefined,
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          createConstructionSite: (...request: unknown[]) => constructionSiteRequests.push(request),
+          find: (findType: number) => {
+            if (findType === TEST_FIND_STRUCTURES || findType === TEST_FIND_MY_STRUCTURES) {
+              return [firstSpawn, ...extensionStructures];
+            }
+
+            return [];
+          },
+          getTerrain: () => roomTerrain,
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 14,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(constructionSiteRequests).toEqual([[10, 12, TEST_STRUCTURE_TOWER]]);
   });
 
   it('refills an extension through the runtime boundary', async () => {

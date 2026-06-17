@@ -172,6 +172,7 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
 const captureConstructionWorld = (): ConstructionWorldSnapshot => ({
   controllerStructureLimits: {
     extension: CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION],
+    tower: CONTROLLER_STRUCTURES[STRUCTURE_TOWER],
   },
   ownedRooms: Object.values(Game.rooms).flatMap((room) => {
     if (room.controller?.my !== true) {
