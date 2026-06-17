@@ -117,4 +117,51 @@ describe('creep intent resolver', () => {
       },
     ]);
   });
+
+  it('preserves input order when priority and source are equal', () => {
+    const resolvedIntents = resolveCreepIntents([
+      intent({
+        creepName: 'Worker1',
+        decision: {
+          targetId: 'site-1',
+          type: 'build',
+        },
+        priority: 50,
+        reason: 'z-last explanation text must not affect ordering',
+        source: 'construction',
+      }),
+      intent({
+        creepName: 'Worker1',
+        decision: {
+          targetId: 'controller-1',
+          type: 'upgrade',
+        },
+        priority: 50,
+        reason: 'a-first explanation text must not affect ordering',
+        source: 'construction',
+      }),
+    ]);
+
+    expect(resolvedIntents).toHaveLength(1);
+    expect(resolvedIntents[0]?.decision.type).toBe('build');
+    expect(resolvedIntents[0]?.rejectedIntents).toEqual([
+      {
+        intent: intent({
+          creepName: 'Worker1',
+          decision: {
+            targetId: 'controller-1',
+            type: 'upgrade',
+          },
+          priority: 50,
+          reason: 'a-first explanation text must not affect ordering',
+          source: 'construction',
+        }),
+        reason: 'tieBreak',
+      },
+    ]);
+  });
+
+  it('returns no resolved intents when no intents are provided', () => {
+    expect(resolveCreepIntents([])).toEqual([]);
+  });
 });

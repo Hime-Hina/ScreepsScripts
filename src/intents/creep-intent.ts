@@ -2,6 +2,7 @@ export interface CreepIntent<TDecision> {
   readonly creepName: string;
   readonly decision: TDecision;
   readonly priority: number;
+  /** Human-readable explanation; not used for resolver ordering. */
   readonly reason: string;
   readonly source: string;
 }
@@ -48,7 +49,10 @@ const resolveSingleCreepIntent = <TDecision>(
   creepName: string,
   intents: readonly CreepIntent<TDecision>[],
 ): ResolvedCreepIntent<TDecision> => {
-  const rankedIntents = [...intents].sort(compareCreepIntentPriority);
+  const rankedIntents = intents
+    .map((intent, inputIndex) => ({ inputIndex, intent }))
+    .sort(compareRankedCreepIntentPriority)
+    .map(({ intent }) => intent);
   const [selectedIntent, ...rejectedIntents] = rankedIntents;
 
   if (selectedIntent === undefined) {
@@ -64,6 +68,19 @@ const resolveSingleCreepIntent = <TDecision>(
     })),
     selectedIntent,
   };
+};
+
+const compareRankedCreepIntentPriority = <TDecision>(
+  left: { readonly inputIndex: number; readonly intent: CreepIntent<TDecision> },
+  right: { readonly inputIndex: number; readonly intent: CreepIntent<TDecision> },
+): number => {
+  const intentComparison = compareCreepIntentPriority(left.intent, right.intent);
+
+  if (intentComparison !== 0) {
+    return intentComparison;
+  }
+
+  return left.inputIndex - right.inputIndex;
 };
 
 const compareCreepIntentPriority = <TDecision>(
@@ -82,5 +99,5 @@ const compareCreepIntentPriority = <TDecision>(
     return sourceComparison;
   }
 
-  return left.reason.localeCompare(right.reason);
+  return 0;
 };
