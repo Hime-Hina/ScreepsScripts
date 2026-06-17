@@ -39,7 +39,7 @@ flowchart LR
 
 `src/spawning/` 拥有 spawn 决策。当前 bootstrap worker decision 在 300 energy 可用时优先选择 `[WORK, CARRY, CARRY, MOVE, MOVE]`，在只有 200 energy 可用时保留 `[WORK, CARRY, MOVE]` emergency worker，并由 runtime boundary 执行 `spawnCreep`。
 
-`src/construction/` 拥有纯 construction planner。当前 planner 为 RCL2 owned room 规划缺失的 5 个 extension construction site，跳过 spawn、source、controller、已有结构、已有 construction site、edge 和 wall tile，并由 runtime boundary 执行 `Room.createConstructionSite`。
+`src/construction/` 拥有纯 construction planner。当前 planner 会先为 RCL2 owned room 规划缺失的 5 个 extension construction site；当 extension buildout 满足后，再基于 runtime snapshot 中的 source/controller/terrain 规划 source-adjacent container、controller-adjacent container，以及 spawn 到这些 anchor 的最短 early logistics roads。planner 会跳过 spawn、source、controller、已有结构、已有 construction site、edge 和 wall tile，并由 runtime boundary 执行 `Room.createConstructionSite`。
 
 `src/creeps/` 拥有 bootstrap worker action 决策。当前 worker 按 creep name 和 source id 在同房间 source 之间做确定性分配；满能量后优先补能 spawn/extension；controller downgrade safe 时 build construction site 优先于 upgrade controller；controller downgrade recovering/warning 时同房间按 creep name 排序的第一个满能 worker upgrade 后其他满能 worker 可 build；critical 时所有满能 worker upgrade。P2 critical repair fallback 只维护已有 spawn、extension、container 和 road，优先级低于 spawn/extension refill 与 P0 controller downgrade guard，高于 ordinary build。runtime boundary 捕获 owned controller `level` 和 `ticksToDowngrade`、owned room 结构 hits 快照，执行 harvest、transfer、repair、build 和 upgradeController，并在 out of range 时执行 moveTo。
 

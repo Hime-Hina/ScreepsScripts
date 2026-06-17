@@ -198,13 +198,18 @@ const captureConstructionWorld = (): ConstructionWorldSnapshot => ({
           ...toPositionSnapshot(constructionSite),
         })),
         controllerLevel: room.controller.level,
+        controllerPosition: toPositionSnapshot(room.controller),
         roomName: room.name,
+        sources: room.find(FIND_SOURCES).map((source) => ({
+          id: source.id,
+          ...toPositionSnapshot(source),
+        })),
         spawnPosition: toPositionSnapshot(roomSpawn),
         structures: room.find(FIND_STRUCTURES).map((structure) => ({
           structureType: structure.structureType,
           ...toPositionSnapshot(structure),
         })),
-        terrain: captureTerrainAroundPosition(room, roomSpawn.pos, 2),
+        terrain: captureRoomInteriorTerrain(room),
       },
     ];
   }),
@@ -806,20 +811,12 @@ const toPositionSnapshot = (
   y: roomObject.pos.y,
 });
 
-const captureTerrainAroundPosition = (
-  room: Room,
-  centerPosition: RoomPosition,
-  radius: number,
-): readonly ConstructionTerrainSnapshot[] => {
+const captureRoomInteriorTerrain = (room: Room): readonly ConstructionTerrainSnapshot[] => {
   const roomTerrain = room.getTerrain();
   const terrainSnapshots: ConstructionTerrainSnapshot[] = [];
 
-  for (let y = centerPosition.y - radius; y <= centerPosition.y + radius; y += 1) {
-    for (let x = centerPosition.x - radius; x <= centerPosition.x + radius; x += 1) {
-      if (x <= 0 || x >= 49 || y <= 0 || y >= 49) {
-        continue;
-      }
-
+  for (let y = 1; y <= 48; y += 1) {
+    for (let x = 1; x <= 48; x += 1) {
       terrainSnapshots.push({
         terrain: decodeTerrain(roomTerrain.get(x, y)),
         x,

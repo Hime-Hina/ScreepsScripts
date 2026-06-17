@@ -266,6 +266,200 @@ describe('room construction planner', () => {
   it('does not plan extensions before RCL2', () => {
     expect(planConstruction(rcl1ConstructionWorld)).toEqual([]);
   });
+
+  it('plans source and controller containers with minimal roads once extension buildout is satisfied', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [
+              { x: 6, y: 10 },
+              { x: 10, y: 14 },
+            ],
+            constructionSites: [],
+            controllerLevel: 2,
+            controllerPosition: { x: 10, y: 14 },
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 6,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+            ],
+            terrain: createPlainTerrainRectangle(5, 9, 11, 14),
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'container',
+        type: 'createConstructionSite',
+        x: 7,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'container',
+        type: 'createConstructionSite',
+        x: 10,
+        y: 13,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 9,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 8,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 10,
+        y: 11,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 10,
+        y: 12,
+      },
+    ]);
+  });
+
+  it('skips blocked adjacent tiles when choosing a source container candidate', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [{ x: 12, y: 10 }],
+            constructionSites: [
+              {
+                structureType: 'road',
+                x: 11,
+                y: 10,
+              },
+            ],
+            controllerLevel: 2,
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 12,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+            ],
+            terrain: [
+              { terrain: 'wall', x: 11, y: 9 },
+              ...createPlainTerrainRectangle(11, 9, 13, 11).filter(
+                (terrainTile) => terrainTile.x !== 11 || terrainTile.y !== 9,
+              ),
+            ],
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'container',
+        type: 'createConstructionSite',
+        x: 11,
+        y: 11,
+      },
+    ]);
+  });
+
+  it('uses an existing source-adjacent container as the road anchor', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [{ x: 6, y: 10 }],
+            constructionSites: [],
+            controllerLevel: 2,
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 6,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+              {
+                structureType: 'container',
+                x: 7,
+                y: 10,
+              },
+            ],
+            terrain: createPlainTerrainRectangle(6, 9, 10, 10),
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 9,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 8,
+        y: 10,
+      },
+    ]);
+  });
 });
 
 const openTerrainAroundSpawn10: readonly ConstructionTerrainSnapshot[] = [
@@ -298,10 +492,21 @@ const openTerrainAroundSpawn10: readonly ConstructionTerrainSnapshot[] = [
 const rcl1ConstructionWorld: Omit<ConstructionWorldSnapshot, 'controllerStructureLimits'> = {
   ownedRooms: [
     {
-      blockedPositions: [],
+      blockedPositions: [
+        { x: 12, y: 10 },
+        { x: 13, y: 10 },
+      ],
       constructionSites: [],
       controllerLevel: 1,
+      controllerPosition: { x: 13, y: 10 },
       roomName: 'W1N1',
+      sources: [
+        {
+          id: 'source-1',
+          x: 12,
+          y: 10,
+        },
+      ],
       spawnPosition: { x: 10, y: 10 },
       structures: [
         {
@@ -313,4 +518,25 @@ const rcl1ConstructionWorld: Omit<ConstructionWorldSnapshot, 'controllerStructur
       terrain: openTerrainAroundSpawn10,
     },
   ],
+};
+
+const createPlainTerrainRectangle = (
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): readonly ConstructionTerrainSnapshot[] => {
+  const terrainSnapshots: ConstructionTerrainSnapshot[] = [];
+
+  for (let y = startY; y <= endY; y += 1) {
+    for (let x = startX; x <= endX; x += 1) {
+      terrainSnapshots.push({
+        terrain: 'plain',
+        x,
+        y,
+      });
+    }
+  }
+
+  return terrainSnapshots;
 };

@@ -1,4 +1,5 @@
 export type ConstructionTerrain = 'plain' | 'swamp' | 'wall';
+export type ConstructionStructureType = 'container' | 'extension' | 'road';
 
 export interface ConstructionPositionSnapshot {
   readonly x: number;
@@ -7,6 +8,10 @@ export interface ConstructionPositionSnapshot {
 
 export interface ConstructionTerrainSnapshot extends ConstructionPositionSnapshot {
   readonly terrain: ConstructionTerrain;
+}
+
+export interface ConstructionSourceSnapshot extends ConstructionPositionSnapshot {
+  readonly id: string;
 }
 
 export interface ConstructionStructureSnapshot extends ConstructionPositionSnapshot {
@@ -21,7 +26,9 @@ export interface ConstructionOwnedRoomSnapshot {
   readonly blockedPositions: readonly ConstructionPositionSnapshot[];
   readonly constructionSites: readonly ConstructionSiteSnapshot[];
   readonly controllerLevel: number;
+  readonly controllerPosition?: ConstructionPositionSnapshot;
   readonly roomName: string;
+  readonly sources?: readonly ConstructionSourceSnapshot[];
   readonly spawnPosition: ConstructionPositionSnapshot;
   readonly structures: readonly ConstructionStructureSnapshot[];
   readonly terrain: readonly ConstructionTerrainSnapshot[];
@@ -38,20 +45,43 @@ export type ConstructionDecision = CreateConstructionSiteDecision;
 
 export interface CreateConstructionSiteDecision {
   readonly roomName: string;
-  readonly structureType: 'extension';
+  readonly structureType: ConstructionStructureType;
   readonly type: 'createConstructionSite';
   readonly x: number;
   readonly y: number;
 }
 
 const NEAR_SPAWN_CANDIDATE_RADIUS = 2;
+const ADJACENT_POSITION_OFFSETS = [
+  { x: -1, y: -1 },
+  { x: 0, y: -1 },
+  { x: 1, y: -1 },
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+  { x: -1, y: 1 },
+  { x: 0, y: 1 },
+  { x: 1, y: 1 },
+] as const satisfies readonly ConstructionPositionSnapshot[];
 
 export const planRoomConstruction = (
   constructionWorld: ConstructionWorldSnapshot,
 ): readonly ConstructionDecision[] =>
   constructionWorld.ownedRooms.flatMap((ownedRoom) =>
-    planRclExtensionSites(ownedRoom, constructionWorld.controllerStructureLimits),
+    planOwnedRoomConstruction(ownedRoom, constructionWorld.controllerStructureLimits),
   );
+
+const planOwnedRoomConstruction = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+  controllerStructureLimits: ConstructionWorldSnapshot['controllerStructureLimits'],
+): readonly ConstructionDecision[] => {
+  const extensionDecisions = planRclExtensionSites(ownedRoom, controllerStructureLimits);
+
+  if (extensionDecisions.length > 0) {
+    return extensionDecisions;
+  }
+
+  return planEarlyLogisticsSites(ownedRoom);
+};
 
 const planRclExtensionSites = (
   ownedRoom: ConstructionOwnedRoomSnapshot,
@@ -71,9 +101,7 @@ const planRclExtensionSites = (
     return [];
   }
 
-  const terrainByPositionKey = new Map(
-    ownedRoom.terrain.map((terrainTile) => [serializePosition(terrainTile), terrainTile.terrain]),
-  );
+  const terrainByPositionKey = createTerrainByPositionKey(ownedRoom.terrain);
   const unavailablePositionKeys = collectUnavailablePositionKeys(ownedRoom);
   const extensionDecisions: ConstructionDecision[] = [];
 
@@ -82,29 +110,93 @@ const planRclExtensionSites = (
       return extensionDecisions;
     }
 
-    const candidatePositionKey = serializePosition(candidatePosition);
-
-    const candidateTerrain = terrainByPositionKey.get(candidatePositionKey);
-
-    if (candidateTerrain === undefined || candidateTerrain === 'wall') {
+    if (!isBuildableTile(candidatePosition, terrainByPositionKey)) {
       continue;
     }
+
+    const candidatePositionKey = serializePosition(candidatePosition);
 
     if (unavailablePositionKeys.has(candidatePositionKey)) {
       continue;
     }
 
-    extensionDecisions.push({
-      roomName: ownedRoom.roomName,
-      structureType: 'extension',
-      type: 'createConstructionSite',
-      x: candidatePosition.x,
-      y: candidatePosition.y,
-    });
+    extensionDecisions.push(
+      createConstructionSiteDecision(ownedRoom.roomName, candidatePosition, 'extension'),
+    );
     unavailablePositionKeys.add(candidatePositionKey);
   }
 
   return extensionDecisions;
+};
+
+const planEarlyLogisticsSites = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly ConstructionDecision[] => {
+  if (ownedRoom.controllerLevel < 2) {
+    return [];
+  }
+
+  const logisticsTargets = listLogisticsTargets(ownedRoom);
+
+  if (logisticsTargets.length === 0) {
+    return [];
+  }
+
+  const terrainByPositionKey = createTerrainByPositionKey(ownedRoom.terrain);
+  const unavailablePositionKeys = collectUnavailablePositionKeys(ownedRoom);
+  const pathBlockedPositionKeys = collectPathBlockedPositionKeys(ownedRoom);
+  const anchorPlans = logisticsTargets.flatMap((targetPosition) => {
+    const existingAnchorPosition = selectExistingAdjacentAnchorPosition(ownedRoom, targetPosition);
+
+    if (existingAnchorPosition !== null) {
+      return [
+        {
+          anchorPosition: existingAnchorPosition,
+          createContainer: false,
+        },
+      ];
+    }
+
+    const plannedAnchorPosition = selectAdjacentAnchorPosition({
+      spawnPosition: ownedRoom.spawnPosition,
+      targetPosition,
+      terrainByPositionKey,
+      unavailablePositionKeys,
+    });
+
+    if (plannedAnchorPosition === null) {
+      return [];
+    }
+
+    unavailablePositionKeys.add(serializePosition(plannedAnchorPosition));
+
+    return [
+      {
+        anchorPosition: plannedAnchorPosition,
+        createContainer: true,
+      },
+    ];
+  });
+  const anchorPositionKeys = new Set(
+    anchorPlans.map((anchorPlan) => serializePosition(anchorPlan.anchorPosition)),
+  );
+  const containerDecisions = anchorPlans.flatMap((anchorPlan) =>
+    anchorPlan.createContainer
+      ? [createConstructionSiteDecision(ownedRoom.roomName, anchorPlan.anchorPosition, 'container')]
+      : [],
+  );
+
+  return [
+    ...containerDecisions,
+    ...planRoadDecisions({
+      anchorPositionKeys,
+      anchorPositions: anchorPlans.map((anchorPlan) => anchorPlan.anchorPosition),
+      ownedRoom,
+      pathBlockedPositionKeys,
+      terrainByPositionKey,
+      unavailablePositionKeys,
+    }),
+  ];
 };
 
 const countExtensionStructures = (ownedRoom: ConstructionOwnedRoomSnapshot): number =>
@@ -117,8 +209,109 @@ const countExtensionConstructionSites = (ownedRoom: ConstructionOwnedRoomSnapsho
     (constructionSiteSnapshot) => constructionSiteSnapshot.structureType === 'extension',
   ).length;
 
-const collectUnavailablePositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot): Set<string> => {
-  const unavailablePositionKeys = new Set<string>([
+const listLogisticsTargets = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly ConstructionPositionSnapshot[] => {
+  const sourceTargets = [...(ownedRoom.sources ?? [])].sort(
+    comparePositionsByDistanceTo(ownedRoom.spawnPosition),
+  );
+
+  return ownedRoom.controllerPosition === undefined
+    ? sourceTargets
+    : [...sourceTargets, ownedRoom.controllerPosition];
+};
+
+const selectExistingAdjacentAnchorPosition = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+  targetPosition: ConstructionPositionSnapshot,
+): ConstructionPositionSnapshot | null => {
+  const existingContainerPositions = [
+    ...ownedRoom.structures.filter(
+      (structureSnapshot) => structureSnapshot.structureType === 'container',
+    ),
+    ...ownedRoom.constructionSites.filter(
+      (constructionSiteSnapshot) => constructionSiteSnapshot.structureType === 'container',
+    ),
+  ]
+    .filter((positionSnapshot) => isAdjacentPosition(positionSnapshot, targetPosition))
+    .sort(comparePositionsByDistanceTo(ownedRoom.spawnPosition));
+
+  return existingContainerPositions[0] ?? null;
+};
+
+const selectAdjacentAnchorPosition = ({
+  spawnPosition,
+  targetPosition,
+  terrainByPositionKey,
+  unavailablePositionKeys,
+}: {
+  readonly spawnPosition: ConstructionPositionSnapshot;
+  readonly targetPosition: ConstructionPositionSnapshot;
+  readonly terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>;
+  readonly unavailablePositionKeys: ReadonlySet<string>;
+}): ConstructionPositionSnapshot | null => {
+  const adjacentCandidates = listAdjacentCandidatePositions(targetPosition)
+    .filter((positionSnapshot) => isBuildableTile(positionSnapshot, terrainByPositionKey))
+    .filter((positionSnapshot) => !unavailablePositionKeys.has(serializePosition(positionSnapshot)))
+    .sort(comparePositionsByDistanceTo(spawnPosition));
+
+  return adjacentCandidates[0] ?? null;
+};
+
+const planRoadDecisions = ({
+  anchorPositionKeys,
+  anchorPositions,
+  ownedRoom,
+  pathBlockedPositionKeys,
+  terrainByPositionKey,
+  unavailablePositionKeys,
+}: {
+  readonly anchorPositionKeys: ReadonlySet<string>;
+  readonly anchorPositions: readonly ConstructionPositionSnapshot[];
+  readonly ownedRoom: ConstructionOwnedRoomSnapshot;
+  readonly pathBlockedPositionKeys: ReadonlySet<string>;
+  readonly terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>;
+  readonly unavailablePositionKeys: ReadonlySet<string>;
+}): readonly ConstructionDecision[] => {
+  const plannedRoadPositionKeys = new Set<string>();
+  const roadDecisions: ConstructionDecision[] = [];
+
+  for (const anchorPosition of anchorPositions) {
+    const roadPath = findShortestPath({
+      anchorPositionKeys,
+      pathBlockedPositionKeys,
+      spawnPosition: ownedRoom.spawnPosition,
+      targetPosition: anchorPosition,
+      terrainByPositionKey,
+    });
+
+    for (const roadPosition of roadPath.slice(1, -1)) {
+      const roadPositionKey = serializePosition(roadPosition);
+
+      if (
+        plannedRoadPositionKeys.has(roadPositionKey) ||
+        unavailablePositionKeys.has(roadPositionKey)
+      ) {
+        continue;
+      }
+
+      roadDecisions.push(createConstructionSiteDecision(ownedRoom.roomName, roadPosition, 'road'));
+      plannedRoadPositionKeys.add(roadPositionKey);
+    }
+  }
+
+  return roadDecisions;
+};
+
+const createTerrainByPositionKey = (
+  terrainSnapshots: readonly ConstructionTerrainSnapshot[],
+): ReadonlyMap<string, ConstructionTerrain> =>
+  new Map(
+    terrainSnapshots.map((terrainTile) => [serializePosition(terrainTile), terrainTile.terrain]),
+  );
+
+const collectUnavailablePositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot): Set<string> =>
+  new Set<string>([
     serializePosition(ownedRoom.spawnPosition),
     ...ownedRoom.blockedPositions.map((blockedPosition) => serializePosition(blockedPosition)),
     ...ownedRoom.structures.map((structureSnapshot) => serializePosition(structureSnapshot)),
@@ -127,8 +320,17 @@ const collectUnavailablePositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot
     ),
   ]);
 
-  return unavailablePositionKeys;
-};
+const collectPathBlockedPositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot): Set<string> =>
+  new Set<string>([
+    ...ownedRoom.blockedPositions.map((blockedPosition) => serializePosition(blockedPosition)),
+    serializePosition(ownedRoom.spawnPosition),
+    ...ownedRoom.structures
+      .filter((structureSnapshot) => structureSnapshot.structureType !== 'road')
+      .map((structureSnapshot) => serializePosition(structureSnapshot)),
+    ...ownedRoom.constructionSites
+      .filter((constructionSiteSnapshot) => constructionSiteSnapshot.structureType !== 'road')
+      .map((constructionSiteSnapshot) => serializePosition(constructionSiteSnapshot)),
+  ]);
 
 const listNearSpawnCandidatePositions = (
   spawnPosition: ConstructionPositionSnapshot,
@@ -159,11 +361,189 @@ const listNearSpawnCandidatePositions = (
   return candidatePositions;
 };
 
+const listAdjacentCandidatePositions = (
+  centerPosition: ConstructionPositionSnapshot,
+): readonly ConstructionPositionSnapshot[] =>
+  ADJACENT_POSITION_OFFSETS.map((offset) => ({
+    x: centerPosition.x + offset.x,
+    y: centerPosition.y + offset.y,
+  })).filter(isBuildableRoomInterior);
+
+const isBuildableTile = (
+  positionSnapshot: ConstructionPositionSnapshot,
+  terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>,
+): boolean => {
+  const candidateTerrain = terrainByPositionKey.get(serializePosition(positionSnapshot));
+
+  return candidateTerrain !== undefined && candidateTerrain !== 'wall';
+};
+
 const isBuildableRoomInterior = (positionSnapshot: ConstructionPositionSnapshot): boolean =>
   positionSnapshot.x > 0 &&
   positionSnapshot.x < 49 &&
   positionSnapshot.y > 0 &&
   positionSnapshot.y < 49;
+
+const isAdjacentPosition = (
+  leftPosition: ConstructionPositionSnapshot,
+  rightPosition: ConstructionPositionSnapshot,
+): boolean =>
+  Math.max(
+    Math.abs(leftPosition.x - rightPosition.x),
+    Math.abs(leftPosition.y - rightPosition.y),
+  ) === 1;
+
+const comparePositionsByDistanceTo =
+  (targetPosition: ConstructionPositionSnapshot) =>
+  (
+    leftPosition: ConstructionPositionSnapshot,
+    rightPosition: ConstructionPositionSnapshot,
+  ): number => {
+    const leftRange = measureRange(leftPosition, targetPosition);
+    const rightRange = measureRange(rightPosition, targetPosition);
+
+    if (leftRange !== rightRange) {
+      return leftRange - rightRange;
+    }
+
+    const leftManhattanDistance = measureManhattanDistance(leftPosition, targetPosition);
+    const rightManhattanDistance = measureManhattanDistance(rightPosition, targetPosition);
+
+    if (leftManhattanDistance !== rightManhattanDistance) {
+      return leftManhattanDistance - rightManhattanDistance;
+    }
+
+    if (leftPosition.y !== rightPosition.y) {
+      return leftPosition.y - rightPosition.y;
+    }
+
+    return leftPosition.x - rightPosition.x;
+  };
+
+const measureRange = (
+  leftPosition: ConstructionPositionSnapshot,
+  rightPosition: ConstructionPositionSnapshot,
+): number =>
+  Math.max(Math.abs(leftPosition.x - rightPosition.x), Math.abs(leftPosition.y - rightPosition.y));
+
+const measureManhattanDistance = (
+  leftPosition: ConstructionPositionSnapshot,
+  rightPosition: ConstructionPositionSnapshot,
+): number =>
+  Math.abs(leftPosition.x - rightPosition.x) + Math.abs(leftPosition.y - rightPosition.y);
+
+const findShortestPath = ({
+  anchorPositionKeys,
+  pathBlockedPositionKeys,
+  spawnPosition,
+  targetPosition,
+  terrainByPositionKey,
+}: {
+  readonly anchorPositionKeys: ReadonlySet<string>;
+  readonly pathBlockedPositionKeys: ReadonlySet<string>;
+  readonly spawnPosition: ConstructionPositionSnapshot;
+  readonly targetPosition: ConstructionPositionSnapshot;
+  readonly terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>;
+}): readonly ConstructionPositionSnapshot[] => {
+  const targetPositionKey = serializePosition(targetPosition);
+  const spawnPositionKey = serializePosition(spawnPosition);
+  const queuedPositionKeys = new Set<string>([spawnPositionKey]);
+  const previousPositionKeyByPositionKey = new Map<string, string | null>([
+    [spawnPositionKey, null],
+  ]);
+  const positionByKey = new Map<string, ConstructionPositionSnapshot>([
+    [spawnPositionKey, spawnPosition],
+  ]);
+  const queue: ConstructionPositionSnapshot[] = [spawnPosition];
+
+  while (queue.length > 0) {
+    const currentPosition = queue.shift();
+
+    if (currentPosition === undefined) {
+      break;
+    }
+
+    const currentPositionKey = serializePosition(currentPosition);
+
+    if (currentPositionKey === targetPositionKey) {
+      return reconstructPath({
+        positionByKey,
+        previousPositionKeyByPositionKey,
+        targetPositionKey,
+      });
+    }
+
+    for (const adjacentPosition of [...listAdjacentCandidatePositions(currentPosition)].sort(
+      comparePositionsByDistanceTo(targetPosition),
+    )) {
+      if (!isBuildableTile(adjacentPosition, terrainByPositionKey)) {
+        continue;
+      }
+
+      const adjacentPositionKey = serializePosition(adjacentPosition);
+      const isBlockedByAnchor =
+        adjacentPositionKey !== targetPositionKey && anchorPositionKeys.has(adjacentPositionKey);
+      const isBlockedByStructure =
+        adjacentPositionKey !== targetPositionKey &&
+        pathBlockedPositionKeys.has(adjacentPositionKey);
+
+      if (
+        isBlockedByAnchor ||
+        isBlockedByStructure ||
+        queuedPositionKeys.has(adjacentPositionKey)
+      ) {
+        continue;
+      }
+
+      queuedPositionKeys.add(adjacentPositionKey);
+      previousPositionKeyByPositionKey.set(adjacentPositionKey, currentPositionKey);
+      positionByKey.set(adjacentPositionKey, adjacentPosition);
+      queue.push(adjacentPosition);
+    }
+  }
+
+  return [];
+};
+
+const reconstructPath = ({
+  positionByKey,
+  previousPositionKeyByPositionKey,
+  targetPositionKey,
+}: {
+  readonly positionByKey: ReadonlyMap<string, ConstructionPositionSnapshot>;
+  readonly previousPositionKeyByPositionKey: ReadonlyMap<string, string | null>;
+  readonly targetPositionKey: string;
+}): readonly ConstructionPositionSnapshot[] => {
+  const path: ConstructionPositionSnapshot[] = [];
+  let currentPositionKey: string | null = targetPositionKey;
+
+  while (currentPositionKey !== null) {
+    const positionSnapshot = positionByKey.get(currentPositionKey);
+
+    if (positionSnapshot === undefined) {
+      return [];
+    }
+
+    path.push(positionSnapshot);
+    currentPositionKey = previousPositionKeyByPositionKey.get(currentPositionKey) ?? null;
+  }
+
+  path.reverse();
+
+  return path;
+};
+
+const createConstructionSiteDecision = (
+  roomName: string,
+  positionSnapshot: ConstructionPositionSnapshot,
+  structureType: ConstructionStructureType,
+): CreateConstructionSiteDecision => ({
+  roomName,
+  structureType,
+  type: 'createConstructionSite',
+  x: positionSnapshot.x,
+  y: positionSnapshot.y,
+});
 
 const serializePosition = (positionSnapshot: ConstructionPositionSnapshot): string =>
   `${positionSnapshot.x}:${positionSnapshot.y}`;
