@@ -12,18 +12,24 @@ const TEST_CONTROLLER_RECOVERING_TICKS = 8500;
 const TEST_CONTROLLER_WARNING_TICKS = 7999;
 const TEST_CONTROLLER_CRITICAL_TICKS = 4999;
 
-const planWorkerActions = (
-  workerWorld: Omit<
-    WorkerWorldSnapshot,
-    'constructionEligibilities' | 'energyPickups' | 'energyWithdrawals' | 'repairTargets'
-  > &
-    Partial<
-      Pick<
-        WorkerWorldSnapshot,
-        'constructionEligibilities' | 'energyPickups' | 'energyWithdrawals' | 'repairTargets'
-      >
-    >,
-) => {
+type TestWorkerEnergyMode = 'harvesting' | 'working';
+type TestWorkerCreepSnapshot = Omit<WorkerWorldSnapshot['creeps'][number], 'energyMode'> & {
+  readonly energyMode?: TestWorkerEnergyMode;
+};
+type TestWorkerWorldSnapshot = Omit<
+  WorkerWorldSnapshot,
+  'constructionEligibilities' | 'creeps' | 'energyPickups' | 'energyWithdrawals' | 'repairTargets'
+> &
+  Partial<
+    Pick<
+      WorkerWorldSnapshot,
+      'constructionEligibilities' | 'energyPickups' | 'energyWithdrawals' | 'repairTargets'
+    >
+  > & {
+    readonly creeps: readonly TestWorkerCreepSnapshot[];
+  };
+
+const planWorkerActions = (workerWorld: TestWorkerWorldSnapshot) => {
   const {
     constructionEligibilities = [
       {
@@ -34,15 +40,22 @@ const planWorkerActions = (
     energyPickups = [],
     energyWithdrawals = [],
     repairTargets = [],
+    creeps: inputCreeps,
     ...workerWorldSnapshot
   } = workerWorld;
+  const creeps = inputCreeps.map((workerCreep) => ({
+    energyMode:
+      workerCreep.energyMode ?? (workerCreep.freeCapacity <= 0 ? 'working' : 'harvesting'),
+    ...workerCreep,
+  }));
 
   return planBootstrapWorkerActions({
+    ...workerWorldSnapshot,
     constructionEligibilities,
+    creeps,
     energyPickups,
     energyWithdrawals,
     repairTargets,
-    ...workerWorldSnapshot,
   });
 };
 
@@ -514,6 +527,206 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
+  it('keeps a partial-energy working worker building instead of returning to harvest', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 45,
+            energyMode: 'working',
+            freeCapacity: 5,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'construction-site-1',
+        creepName: 'Worker1',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('keeps a partial-capacity harvesting worker collecting energy', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 45,
+            energyMode: 'harvesting',
+            freeCapacity: 5,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        sourceId: 'source-1',
+        type: 'harvestSource',
+      },
+    ]);
+  });
+
+  it('treats a full harvesting worker as ready to work', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            energyMode: 'harvesting',
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'construction-site-1',
+        creepName: 'Worker1',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('treats an empty working worker as ready to harvest', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            energyMode: 'working',
+            freeCapacity: 50,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        sourceId: 'source-1',
+        type: 'harvestSource',
+      },
+    ]);
+  });
+
   it('builds the lowest-id construction site before upgrading when energy structures are full', () => {
     expect(
       planWorkerActions({
@@ -561,6 +774,130 @@ describe('bootstrap worker action decision', () => {
     ).toEqual([
       {
         constructionSiteId: 'construction-site-a',
+        creepName: 'Worker1',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('prefers source-side road construction over arbitrary lower-id road sites', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'aaa-remote-road',
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 20,
+            y: 20,
+          },
+          {
+            id: 'zzz-source-road',
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 4,
+            y: 10,
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 2,
+            y: 10,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'zzz-source-road',
+        creepName: 'Worker1',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('continues a progressed equivalent frontier site before starting another road', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'aaa-empty-road',
+            progress: 0,
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 4,
+            y: 10,
+          },
+          {
+            id: 'zzz-progressed-road',
+            progress: 50,
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 2,
+            y: 12,
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 2,
+            y: 10,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'zzz-progressed-road',
         creepName: 'Worker1',
         type: 'buildConstructionSite',
       },

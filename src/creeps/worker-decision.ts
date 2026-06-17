@@ -4,8 +4,11 @@ import {
   type RoomConstructionEligibility,
 } from '../colony/bootstrap-economy';
 
+export type WorkerEnergyMode = 'harvesting' | 'working';
+
 export interface WorkerCreepSnapshot {
   readonly energy: number;
+  readonly energyMode: WorkerEnergyMode;
   readonly freeCapacity: number;
   readonly name: string;
   readonly roomName: string;
@@ -14,6 +17,8 @@ export interface WorkerCreepSnapshot {
 export interface WorkerSourceSnapshot {
   readonly id: string;
   readonly roomName: string;
+  readonly x?: number;
+  readonly y?: number;
 }
 
 export interface WorkerControllerSnapshot {
@@ -25,7 +30,12 @@ export interface WorkerControllerSnapshot {
 
 export interface WorkerConstructionSiteSnapshot {
   readonly id: string;
+  readonly progress?: number;
+  readonly progressTotal?: number;
   readonly roomName: string;
+  readonly structureType?: string;
+  readonly x?: number;
+  readonly y?: number;
 }
 
 export interface WorkerEnergyStructureSnapshot {
@@ -186,7 +196,7 @@ const planBootstrapWorkerAction = (
   reservedConstructionSiteIds: Set<string>,
   reservedRepairStructureIds: Set<string>,
 ): WorkerActionDecision | null => {
-  if (workerCreep.freeCapacity > 0) {
+  if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
     const energyPickup = selectEnergyPickup(
       workerWorld,
       workerCreep.roomName,
@@ -322,6 +332,18 @@ const planBootstrapWorkerAction = (
   };
 };
 
+const selectWorkerEnergyMode = (workerCreep: WorkerCreepSnapshot): WorkerEnergyMode => {
+  if (workerCreep.energy <= 0) {
+    return 'harvesting';
+  }
+
+  if (workerCreep.freeCapacity <= 0) {
+    return 'working';
+  }
+
+  return workerCreep.energyMode;
+};
+
 const shouldUpgradeControllerBeforeBuild = (
   workerCreep: WorkerCreepSnapshot,
   controllerDowngradeState: ControllerDowngradeState,
@@ -448,9 +470,110 @@ const selectConstructionSite = (
         constructionSiteSnapshot.roomName === roomName &&
         !reservedConstructionSiteIds.has(constructionSiteSnapshot.id),
     )
-    .sort((leftConstructionSite, rightConstructionSite) =>
-      leftConstructionSite.id.localeCompare(rightConstructionSite.id),
-    )[0];
+    .sort(compareConstructionSitesForBuild(workerWorld))[0];
+
+const compareConstructionSitesForBuild =
+  (workerWorld: WorkerWorldSnapshot) =>
+  (
+    leftConstructionSite: WorkerConstructionSiteSnapshot,
+    rightConstructionSite: WorkerConstructionSiteSnapshot,
+  ): number => {
+    const leftPriority = measureConstructionSiteBuildPriority(workerWorld, leftConstructionSite);
+    const rightPriority = measureConstructionSiteBuildPriority(workerWorld, rightConstructionSite);
+
+    if (leftPriority.structurePriority !== rightPriority.structurePriority) {
+      return leftPriority.structurePriority - rightPriority.structurePriority;
+    }
+
+    if (leftPriority.nearestSourceRange !== rightPriority.nearestSourceRange) {
+      return leftPriority.nearestSourceRange - rightPriority.nearestSourceRange;
+    }
+
+    if (leftPriority.progress !== rightPriority.progress) {
+      return rightPriority.progress - leftPriority.progress;
+    }
+
+    return compareConstructionSitePosition(leftConstructionSite, rightConstructionSite);
+  };
+
+const measureConstructionSiteBuildPriority = (
+  workerWorld: WorkerWorldSnapshot,
+  constructionSite: WorkerConstructionSiteSnapshot,
+): {
+  readonly nearestSourceRange: number;
+  readonly progress: number;
+  readonly structurePriority: number;
+} => ({
+  nearestSourceRange:
+    constructionSite.structureType === 'road'
+      ? measureNearestSourceRange(workerWorld, constructionSite)
+      : 0,
+  progress: constructionSite.progress ?? 0,
+  structurePriority: measureConstructionSiteStructurePriority(constructionSite),
+});
+
+const measureConstructionSiteStructurePriority = (
+  constructionSite: WorkerConstructionSiteSnapshot,
+): number => {
+  switch (constructionSite.structureType) {
+    case 'extension':
+    case 'container':
+      return 0;
+
+    case 'road':
+      return 1;
+
+    case undefined:
+    default:
+      return 2;
+  }
+};
+
+const measureNearestSourceRange = (
+  workerWorld: WorkerWorldSnapshot,
+  constructionSite: WorkerConstructionSiteSnapshot,
+): number => {
+  if (constructionSite.x === undefined || constructionSite.y === undefined) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const sourceRanges = workerWorld.sources
+    .filter(
+      (sourceSnapshot) =>
+        sourceSnapshot.roomName === constructionSite.roomName &&
+        sourceSnapshot.x !== undefined &&
+        sourceSnapshot.y !== undefined,
+    )
+    .map((sourceSnapshot) =>
+      measureRange(
+        { x: constructionSite.x!, y: constructionSite.y! },
+        { x: sourceSnapshot.x!, y: sourceSnapshot.y! },
+      ),
+    );
+
+  return Math.min(...sourceRanges, Number.POSITIVE_INFINITY);
+};
+
+const compareConstructionSitePosition = (
+  leftConstructionSite: WorkerConstructionSiteSnapshot,
+  rightConstructionSite: WorkerConstructionSiteSnapshot,
+): number => {
+  if (leftConstructionSite.y !== rightConstructionSite.y) {
+    return (
+      (leftConstructionSite.y ?? Number.POSITIVE_INFINITY) -
+      (rightConstructionSite.y ?? Number.POSITIVE_INFINITY)
+    );
+  }
+
+  if (leftConstructionSite.x !== rightConstructionSite.x) {
+    return (
+      (leftConstructionSite.x ?? Number.POSITIVE_INFINITY) -
+      (rightConstructionSite.x ?? Number.POSITIVE_INFINITY)
+    );
+  }
+
+  return leftConstructionSite.id.localeCompare(rightConstructionSite.id);
+};
 
 const selectConstructionEligibility = (
   workerWorld: WorkerWorldSnapshot,
@@ -505,6 +628,12 @@ const selectDowngradeWorkers = (workerWorld: WorkerWorldSnapshot): ReadonlyMap<s
 
 const isFullEnergyWorker = (workerCreep: WorkerCreepSnapshot): boolean =>
   workerCreep.energy > 0 && workerCreep.freeCapacity === 0;
+
+const measureRange = (
+  leftPosition: { readonly x: number; readonly y: number },
+  rightPosition: { readonly x: number; readonly y: number },
+): number =>
+  Math.max(Math.abs(leftPosition.x - rightPosition.x), Math.abs(leftPosition.y - rightPosition.y));
 
 const sortWorkerCreeps = (
   workerCreeps: readonly WorkerCreepSnapshot[],

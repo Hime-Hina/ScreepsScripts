@@ -53,7 +53,7 @@ export interface CreateConstructionSiteDecision {
 }
 
 const NEAR_SPAWN_CANDIDATE_RADIUS = 2;
-const MAX_NEW_ROAD_SITES_PER_ROOM = 5;
+const MAX_NEW_ROAD_SITES_PER_ROOM = 2;
 const MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS = 10;
 const ADJACENT_POSITION_OFFSETS = [
   { x: -1, y: -1 },
@@ -336,7 +336,7 @@ const planRoadDecisions = ({
       terrainByPositionKey,
     });
 
-    for (const roadPosition of roadPath.slice(1, -1)) {
+    for (const roadPosition of roadPath.slice(1, -1).reverse()) {
       const roadPositionKey = serializePosition(roadPosition);
 
       if (

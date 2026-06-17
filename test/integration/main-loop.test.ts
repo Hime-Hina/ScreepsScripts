@@ -1221,10 +1221,8 @@ describe('Screeps main loop', () => {
     expect(constructionSiteRequests).toEqual([
       [7, 10, TEST_STRUCTURE_CONTAINER],
       [10, 13, TEST_STRUCTURE_CONTAINER],
-      [9, 11, TEST_STRUCTURE_ROAD],
       [8, 10, TEST_STRUCTURE_ROAD],
-      [10, 11, TEST_STRUCTURE_ROAD],
-      [10, 12, TEST_STRUCTURE_ROAD],
+      [9, 11, TEST_STRUCTURE_ROAD],
     ]);
   });
 
@@ -1510,7 +1508,7 @@ describe('Screeps main loop', () => {
     expect(transferTargets).toEqual([extensionTarget]);
   });
 
-  it('builds a construction site through the runtime boundary', async () => {
+  it('keeps a partial-energy working creep building through the runtime boundary', async () => {
     const buildTargets: unknown[] = [];
     const constructionSiteTarget = {
       id: 'site-1',
@@ -1553,13 +1551,16 @@ describe('Screeps main loop', () => {
       },
       harvest: () => 0,
       moveTo: () => undefined,
+      memory: {
+        working: true,
+      },
       name: 'Worker1',
       room: {
         name: 'W1N1',
       },
       store: {
-        getFreeCapacity: () => 0,
-        getUsedCapacity: () => 50,
+        getFreeCapacity: () => 5,
+        getUsedCapacity: () => 45,
       },
       transfer: () => 0,
       upgradeController: () => 0,
@@ -1632,6 +1633,9 @@ describe('Screeps main loop', () => {
     mainModule.loop();
 
     expect(buildTargets).toEqual([constructionSiteTarget]);
+    expect(workerCreep.memory).toEqual({
+      working: true,
+    });
   });
 
   it('captures structure hits and repairs a critical road through the runtime boundary', async () => {

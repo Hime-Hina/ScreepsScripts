@@ -20,6 +20,7 @@ import type {
 import {
   isWorkerRepairStructureType,
   type WorkerActionDecision,
+  type WorkerEnergyMode,
   type WorkerRepairTargetSnapshot,
   type WorkerWorldSnapshot,
 } from '../creeps/worker-decision';
@@ -313,7 +314,12 @@ const captureWorkerWorld = (
   constructionSites: Object.values(Game.rooms).flatMap((room) =>
     room.find(FIND_MY_CONSTRUCTION_SITES).map((constructionSite) => ({
       id: constructionSite.id,
+      progress: constructionSite.progress,
+      progressTotal: constructionSite.progressTotal,
       roomName: constructionSite.pos.roomName,
+      structureType: constructionSite.structureType,
+      x: constructionSite.pos.x,
+      y: constructionSite.pos.y,
     })),
   ),
   controllers: Object.values(Game.rooms).flatMap((room) => {
@@ -332,12 +338,7 @@ const captureWorkerWorld = (
       },
     ];
   }),
-  creeps: Object.values(Game.creeps).map((creep) => ({
-    energy: creep.store.getUsedCapacity(RESOURCE_ENERGY),
-    freeCapacity: creep.store.getFreeCapacity(RESOURCE_ENERGY),
-    name: creep.name,
-    roomName: creep.room.name,
-  })),
+  creeps: Object.values(Game.creeps).map(captureWorkerCreepSnapshot),
   energyStructures: Object.values(Game.rooms).flatMap((room) =>
     room
       .find(FIND_MY_STRUCTURES)
@@ -354,6 +355,8 @@ const captureWorkerWorld = (
     room.find(FIND_SOURCES).map((source) => ({
       id: source.id,
       roomName: room.name,
+      x: source.pos?.x,
+      y: source.pos?.y,
     })),
   ),
 });
@@ -410,12 +413,7 @@ const captureSurvivalWorkerWorld = (
       },
     ];
   }),
-  creeps: Object.values(Game.creeps).map((creep) => ({
-    energy: creep.store.getUsedCapacity(RESOURCE_ENERGY),
-    freeCapacity: creep.store.getFreeCapacity(RESOURCE_ENERGY),
-    name: creep.name,
-    roomName: creep.room.name,
-  })),
+  creeps: Object.values(Game.creeps).map(captureWorkerCreepSnapshot),
   energyStructures: Object.values(Game.rooms).flatMap((room) =>
     room
       .find(FIND_MY_STRUCTURES)
@@ -432,9 +430,62 @@ const captureSurvivalWorkerWorld = (
     room.find(FIND_SOURCES).map((source) => ({
       id: source.id,
       roomName: room.name,
+      x: source.pos?.x,
+      y: source.pos?.y,
     })),
   ),
 });
+
+const captureWorkerCreepSnapshot = (creep: Creep): WorkerWorldSnapshot['creeps'][number] => {
+  const energy = creep.store.getUsedCapacity(RESOURCE_ENERGY);
+  const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+  const energyMode = selectAndPersistWorkerEnergyMode(creep, energy, freeCapacity);
+
+  return {
+    energy,
+    energyMode,
+    freeCapacity,
+    name: creep.name,
+    roomName: creep.room.name,
+  };
+};
+
+const selectAndPersistWorkerEnergyMode = (
+  creep: Creep,
+  energy: number,
+  freeCapacity: number,
+): WorkerEnergyMode => {
+  const workerEnergyMode = selectWorkerEnergyMode(creep, energy, freeCapacity);
+  const creepMemory = readMutableCreepMemory(creep);
+
+  creepMemory['working'] = workerEnergyMode === 'working';
+
+  return workerEnergyMode;
+};
+
+const selectWorkerEnergyMode = (
+  creep: Creep,
+  energy: number,
+  freeCapacity: number,
+): WorkerEnergyMode => {
+  if (energy <= 0) {
+    return 'harvesting';
+  }
+
+  if (freeCapacity <= 0) {
+    return 'working';
+  }
+
+  return readMutableCreepMemory(creep)['working'] === true ? 'working' : 'harvesting';
+};
+
+const readMutableCreepMemory = (creep: Creep): Record<string, unknown> => {
+  const creepWithMemory = creep as unknown as { memory?: Record<string, unknown> };
+
+  creepWithMemory.memory ??= {};
+
+  return creepWithMemory.memory;
+};
 
 const toDefenseCoreStructureSnapshot = (
   structure: AnyOwnedStructure,

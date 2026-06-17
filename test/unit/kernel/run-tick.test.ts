@@ -398,6 +398,7 @@ describe('runTick', () => {
           creeps: [
             {
               energy: 50,
+              energyMode: 'working',
               freeCapacity: 0,
               name: 'Worker1',
               roomName: 'W1N1',
@@ -581,6 +582,7 @@ describe('runTick', () => {
           creeps: [
             {
               energy: 50,
+              energyMode: 'working',
               freeCapacity: 0,
               name: 'Worker1',
               roomName: 'W1N1',

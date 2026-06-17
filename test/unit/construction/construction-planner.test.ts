@@ -578,13 +578,6 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'road',
         type: 'createConstructionSite',
-        x: 9,
-        y: 10,
-      },
-      {
-        roomName: 'W1N1',
-        structureType: 'road',
-        type: 'createConstructionSite',
         x: 8,
         y: 10,
       },
@@ -592,15 +585,8 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'road',
         type: 'createConstructionSite',
-        x: 10,
-        y: 11,
-      },
-      {
-        roomName: 'W1N1',
-        structureType: 'road',
-        type: 'createConstructionSite',
-        x: 10,
-        y: 12,
+        x: 9,
+        y: 10,
       },
     ]);
   });
@@ -661,28 +647,7 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'road',
         type: 'createConstructionSite',
-        x: 9,
-        y: 10,
-      },
-      {
-        roomName: 'W1N1',
-        structureType: 'road',
-        type: 'createConstructionSite',
-        x: 8,
-        y: 10,
-      },
-      {
-        roomName: 'W1N1',
-        structureType: 'road',
-        type: 'createConstructionSite',
-        x: 7,
-        y: 10,
-      },
-      {
-        roomName: 'W1N1',
-        structureType: 'road',
-        type: 'createConstructionSite',
-        x: 6,
+        x: 4,
         y: 10,
       },
       {
@@ -690,6 +655,62 @@ describe('room construction planner', () => {
         structureType: 'road',
         type: 'createConstructionSite',
         x: 5,
+        y: 10,
+      },
+    ]);
+  });
+
+  it('continues a source route frontier after existing source-side road sites', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [{ x: 2, y: 10 }],
+            constructionSites: [{ structureType: 'road', x: 4, y: 10 }],
+            controllerLevel: 2,
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 2,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'container',
+                x: 3,
+                y: 10,
+              },
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+            ],
+            terrain: createPlainTerrainRectangle(2, 9, 10, 10),
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 5,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 6,
         y: 10,
       },
     ]);
@@ -930,14 +951,14 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'road',
         type: 'createConstructionSite',
-        x: 9,
+        x: 8,
         y: 10,
       },
       {
         roomName: 'W1N1',
         structureType: 'road',
         type: 'createConstructionSite',
-        x: 8,
+        x: 9,
         y: 10,
       },
     ]);

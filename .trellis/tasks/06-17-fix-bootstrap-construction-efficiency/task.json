@@ -3,7 +3,7 @@
   "name": "fix-bootstrap-construction-efficiency",
   "title": "Fix bootstrap construction efficiency",
   "description": "Fix two related live inefficiencies: workers returning to harvest after one build tick, and road construction sites being spread across many routes instead of a source-first contiguous frontier.",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": "screeps-bootstrap-economy",
   "package": null,

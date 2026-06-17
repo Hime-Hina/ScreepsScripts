@@ -144,10 +144,14 @@ The exact names will depend on the implemented behavior; the rule is that the ow
 - The RCL2 extension target is total existing extension structures plus extension construction sites = `5`.
 - Candidate site order must be deterministic. The current rule is Chebyshev range `1` around spawn, then range `2`; each range sorts by `y`, then `x`.
 - Planner must reject room edge, wall/unknown terrain, spawn tile, blocked positions, existing structures, and existing construction sites.
-- `src/creeps/` receives snapshots only: creeps, sources, owned controllers with `level` and `ticksToDowngrade`, energy structures, supported repair targets, and construction sites.
+- `src/creeps/` receives snapshots only: creeps with runtime-normalized energy mode, sources, owned controllers with `level` and `ticksToDowngrade`, energy structures, supported repair targets, and construction sites.
 - Supported P2 repair targets are existing spawn, extension, container, and road structures in owned rooms. Do not include walls or ramparts in this contract.
 - Repair target snapshots include captured runtime `hits` and `hitsMax`; worker policy must not maintain a local official structure hits table.
-- Worker priority is harvest when free capacity exists; otherwise refill underfilled spawn/extension; otherwise apply controller downgrade guard; otherwise repair critical supported structures; otherwise build construction sites; otherwise upgrade.
+- Worker energy mode uses hysteresis: `harvesting` workers keep collecting until full, `working` workers keep spending energy until empty. Full creeps are treated as `working`; empty creeps are treated as `harvesting`.
+- Harvesting worker priority is pickup dropped energy, then withdraw available energy, then harvest assigned source.
+- Working worker priority is refill underfilled spawn/extension; otherwise apply controller downgrade guard; otherwise repair critical supported structures; otherwise build construction sites; otherwise upgrade.
+- Worker construction-site selection must be strategic and deterministic, not arbitrary id order: bootstrap infrastructure comes before roads, source-side road frontier comes before remote/controller-side roads, and progressed equivalent sites continue before starting equivalent new ones.
+- Early logistics road planning should create a small source-first frontier from source/container anchor toward spawn; avoid large route fan-out across source and controller paths in the same planning pass.
 - Controller downgrade guard classifies owned controller `ticksToDowngrade`: `< 5000` critical, `< 8000` warning, `< 9000` recovering, `>= 9000` safe.
 - In critical state, all full-energy workers in the room upgrade controller before build. In warning or recovering state, the first full-energy worker by creep name upgrades before build. In safe state, build construction site remains before upgrade controller.
 - Runtime resolves Screeps objects and executes `Room.createConstructionSite`, `Creep.transfer`, `Creep.repair`, `Creep.build`, `Creep.harvest`, and `Creep.upgradeController`.
@@ -159,7 +163,10 @@ The exact names will depend on the implemented behavior; the rule is that the ow
 | RCL < 2 | Planner returns no construction decisions |
 | Existing extensions plus extension sites >= 5 | Planner returns no new extension decisions |
 | Candidate is edge, wall, occupied, blocked, or already has a site | Planner skips the candidate |
-| Worker has free carry capacity | Worker harvest decision wins over refill/build/upgrade |
+| Worker is in `harvesting` mode with partial carry capacity | Worker continues collecting energy instead of switching to build/upgrade |
+| Worker is in `working` mode with partial energy | Worker continues refill/repair/build/upgrade instead of returning to harvest |
+| Worker is full | Worker is treated as `working` even if previous mode was `harvesting` |
+| Worker is empty | Worker is treated as `harvesting` even if previous mode was `working` |
 | Worker has energy and an underfilled spawn/extension exists | Worker emits `refillEnergyStructure` |
 | Worker has energy, no refill target, a safe controller, and a construction site exists | Worker emits `buildConstructionSite` |
 | Controller is recovering or warning with no refill target | First full-energy worker by creep name emits `upgradeController`; later full-energy workers may build |
