@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/testing/index.md", "reason": "verification rules"}
+{"file": "package.json", "reason": "available pnpm test/check scripts"}
+{"file": "test/unit/construction/construction-planner.test.ts", "reason": "construction planner tests"}

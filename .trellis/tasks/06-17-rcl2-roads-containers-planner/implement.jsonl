@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/runtime/index.md", "reason": "runtime coding rules"}
+{"file": ".trellis/spec/testing/index.md", "reason": "testing/TDD rules"}
+{"file": "src/construction/construction-planner.ts", "reason": "construction planner source"}
+{"file": "src/runtime/screeps-runtime.ts", "reason": "construction snapshot extraction and site execution"}
