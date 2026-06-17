@@ -110,6 +110,71 @@ const planSurvivalWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
 };
 
 describe('bootstrap worker spawn decision', () => {
+  it('uses a 550-energy RCL2 worker body when the full extension capacity is ready', () => {
+    expect(
+      planWorkerSpawn({
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            2: 5,
+          },
+        },
+        gameTime: 52,
+        rooms: [
+          {
+            constructionSites: [],
+            controllerLevel: 2,
+            energyStructures: [
+              {
+                availableEnergy: 550,
+                energyCapacity: 550,
+              },
+            ],
+            roomName: 'W1N1',
+            structures: [
+              {
+                structureType: 'spawn',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+            ],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 4,
+          },
+        ],
+        workerCreepCount: 4,
+        spawns: [
+          {
+            availableEnergy: 550,
+            energyCapacity: 550,
+            isSpawning: false,
+            name: 'Spawn1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual({
+      body: ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+      creepName: 'Spawn1-worker-52',
+      spawnName: 'Spawn1',
+    });
+  });
+
   it('uses the balanced 300-energy early worker body', () => {
     expect(
       planWorkerSpawn({

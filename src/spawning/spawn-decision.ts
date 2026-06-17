@@ -61,6 +61,7 @@ export interface SpawnDecision {
 
 const INITIAL_WORKER_BODY = ['work', 'carry', 'move'] as const satisfies readonly SpawnBodyPart[];
 const EARLY_WORKER_BODIES = [
+  ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
   ['work', 'carry', 'carry', 'move', 'move'],
   INITIAL_WORKER_BODY,
 ] as const satisfies readonly (readonly SpawnBodyPart[])[];
