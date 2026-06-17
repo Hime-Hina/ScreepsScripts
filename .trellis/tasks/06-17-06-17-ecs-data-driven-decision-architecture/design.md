@@ -7,7 +7,7 @@ Draft discussed with local Codex and user. Current planning artifacts live on te
 ## User/Codex decisions
 
 - ECS should be mentioned only as a high-level analogy in documentation; code naming should not use generic ECS terms.
-- `src/intents/` may be created ahead of the first conflict-heavy behavior, but only as a small typed contract/resolver boundary, not a framework.
+- `src/intents/` may be created ahead of the first conflict-heavy behavior, but only as a small typed contract/resolver boundary, not a framework. This task adds the minimal `CreepIntent<TDecision>` resolver contract.
 - Future world projection remains an open design concept to explain before implementation.
 - `UnknownRoomPolicy` should be explained before deciding whether it needs a separate audit task.
 
@@ -29,7 +29,7 @@ runtime capture -> typed snapshots -> pure planners -> typed outputs -> explicit
 | Component | Documentation analogy only for typed fact clusters | Do not use generic `Component` interfaces; prefer domain names such as `RoomDefenseState` |
 | System | Documentation analogy only for pure planners | Do not use `System` suffix; keep domain verbs such as `planRoomConstruction`, `select*`, `score*` |
 | Decision | Domain output that runtime can execute or kernel can route | Keep `*Decision` for final or near-final action outputs |
-| Intent | Competing action proposal that needs conflict resolution | `src/intents/` may be created early as a small contract/resolver boundary; do not add framework machinery |
+| Intent | Competing action proposal that needs conflict resolution | `src/intents/` may exist early as a small contract/resolver boundary; do not add framework machinery |
 | Request | Demand/request queued for a later selector, e.g. spawn request | Keep `*Request` for queued demand models |
 | Resolver | Deterministic conflict selector from intents/requests to decisions | Add only beside a concrete conflict class |
 

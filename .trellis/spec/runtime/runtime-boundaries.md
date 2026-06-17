@@ -60,8 +60,9 @@ Put complexity where the decision is owned:
 - Tick orchestration belongs in `src/kernel/`.
 - Screeps API capture belongs in `src/runtime/`.
 - Spawn decisions belong in `src/spawning/`; room, creep, logistics, and combat decisions belong in future domain modules named after those Screeps concepts.
+- Cross-domain actor conflicts belong in `src/intents/` as typed intents and deterministic resolver functions. Keep strategy in the owning domain and final Screeps API calls in `src/runtime/`.
 
-Forbidden module names include `utils`, `helpers`, `manager`, `handler`, and other context-dependent names.
+Forbidden module names include `utils`, `helpers`, `manager`, `handler`, `entities`, `components`, `systems`, and other context-dependent or generic framework names.
 
 ## Comments
 

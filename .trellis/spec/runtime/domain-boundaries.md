@@ -12,6 +12,7 @@ Future game modules must be named after Screeps domain concepts and own complete
 | Screeps global capture | `src/runtime/` |
 | Tick orchestration | `src/kernel/` |
 | Persistent memory boundary | `src/memory/` |
+| Cross-domain action conflict resolution | `src/intents/` |
 | Room economy safety and bootstrap demand | `src/colony/` |
 | Construction planning decision | `src/construction/` |
 | Initial spawning decision | `src/spawning/` |
@@ -26,7 +27,8 @@ Use these boundaries when the behavior exists:
 | Colony | Room-level goals, resource priorities, high-level work allocation | Raw Screeps globals |
 | Construction | Room construction planning decisions and site placement requests | Raw Screeps globals or creep build execution |
 | Spawning | Future spawn queues and richer body selection | Creep execution |
-| Creeps | Per-creep action execution from assigned intent | Colony-wide prioritization |
+| Creeps | Per-creep action planning and decision contracts | Colony-wide prioritization or cross-domain conflict arbitration |
+| Intents | Narrow action-conflict records and deterministic resolvers | Screeps API execution, domain strategy, or a generic ECS framework |
 | Logistics | Energy/resource movement decisions | Combat or market policy |
 | Pathing | Path search, cost matrix policy, route cache | Creep business goals |
 | Defense | Threat classification, tower/rampart/defender policy | Generic room scanning |
@@ -37,6 +39,7 @@ Only create a domain module when a task adds behavior that belongs there.
 Standard domain directory names:
 
 - `src/memory/`
+- `src/intents/`
 - `src/colony/`
 - `src/construction/`
 - `src/spawning/`
@@ -46,23 +49,25 @@ Standard domain directory names:
 - `src/defense/`
 - `src/market/`
 
-These names are reserved for the domain concepts above. Do not create a domain directory until the first accepted behavior in that domain exists.
+These names are reserved for the domain concepts above. Do not create a domain directory until the first accepted behavior in that domain exists. `src/intents/` may exist early as the explicit conflict-resolution boundary, but it must remain limited to typed intents and resolver functions.
 
 ## Data Flow
 
 Preferred runtime flow:
 
 ```text
-runtime snapshot -> memory state -> kernel -> domain decision -> action request -> runtime execution
+runtime snapshot -> memory state -> kernel -> domain decision/request/intent -> resolver where needed -> runtime execution
 ```
 
-Raw Screeps objects are captured at the runtime boundary. Domain modules produce decisions or action requests. Runtime-owned execution applies Screeps actions.
+Raw Screeps objects are captured at the runtime boundary. Domain modules produce decisions, requests, or intents from typed data. Runtime-owned execution applies Screeps actions.
+
+ECS may be used as a documentation analogy for this data flow, but production code must not adopt generic `Entity`, `Component`, or `System` naming. Use Screeps domain names and the project terms `Snapshot`, `WorldSnapshot`, `Decision`, `Request`, `Intent`, and `Resolver`.
 
 ## Action Resolution
 
 Only one owner resolves final per-tick actions. Multiple domain modules must not directly execute Screeps actions against the same creep, spawn, or structure.
 
-Future action contracts should make conflicts explicit, for example:
+Action contracts must make conflicts explicit. Use direct `*Decision` outputs while a single domain owns an actor. Use `*Intent` only when more than one domain can compete for the same creep, spawn, or structure. For example:
 
 ```typescript
 export interface CreepIntent {
@@ -76,7 +81,7 @@ export interface SpawnDecision {
 }
 ```
 
-The exact fields will be defined when implemented. Shared types such as `ColonyState`, `SpawnDecision`, and `CreepIntent` belong at the boundary that owns their invariant, not in a generic shared folder.
+Shared types such as `ColonyState`, `SpawnDecision`, and `CreepIntent` belong at the boundary that owns their invariant. Creep/spawn conflict arbitration belongs in `src/intents/`; domain strategy remains in the domain owner.
 
 ## Forbidden Boundaries
 
@@ -86,7 +91,11 @@ Do not create:
 - `src/helpers`
 - `src/managers`
 - `src/handlers`
+- `src/entities`
+- `src/components`
+- `src/systems`
 - A primary `src/Roles/*` architecture
+- A generic ECS registry, query DSL, or scheduler framework
 - Mode-based wrappers that route unrelated behavior through flags
 
 If naming a module is hard, stop and clarify the domain concept before editing.

@@ -15,6 +15,7 @@ These rules apply to project-owned TypeScript under `src/`.
 | --- | --- |
 | [Runtime Boundaries](./runtime-boundaries.md) | Adding or changing tick flow, Screeps globals, or runtime adapters |
 | [Memory Schema](./memory-schema.md) | Reading or writing Screeps `Memory` |
+| [Data-driven Decision Architecture](./decision-architecture.md) | Adding or naming snapshots, decisions, requests, intents, resolvers, or future world projections |
 | [Domain Boundaries](./domain-boundaries.md) | Adding room, colony, spawn, creep, logistics, pathing, defense, or market behavior |
 | [CPU and Performance Budget](./cpu-budget.md) | Adding pathfinding, room scanning, caching, throttling, or CPU-sensitive logic |
 | [TypeScript Rules](./typescript-rules.md) | Adding source, test, config, generated, or WASM-related code |
@@ -26,6 +27,7 @@ These rules apply to project-owned TypeScript under `src/`.
 - `src/runtime/` owns direct reads from Screeps globals such as `Game` and `console`.
 - `src/kernel/` owns tick-level orchestration and receives explicit runtime inputs.
 - Raw Screeps `Memory` must be decoded, migrated, and written through a single boundary owner before internal modules use it.
+- Domain logic is data-driven: runtime captures typed snapshots, pure planners emit typed decisions/requests/intents, explicit resolvers arbitrate conflicts, and runtime executes final side effects.
 - New strategy modules are added only for an accepted behavior slice and must not recreate the deleted role-folder design without a new ADR.
 
 ## Quality Check

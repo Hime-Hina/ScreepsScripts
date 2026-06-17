@@ -1,8 +1,11 @@
 {"file":".trellis/tasks/06-17-06-17-ecs-data-driven-decision-architecture/prd.md","reason":"Planning requirements and acceptance criteria."}
 {"file":".trellis/tasks/06-17-06-17-ecs-data-driven-decision-architecture/design.md","reason":"Draft vocabulary and open discussion points."}
 {"file":".trellis/tasks/06-17-06-17-ecs-data-driven-decision-architecture/implement.md","reason":"Draft task train and discussion gate."}
+{"file":".trellis/spec/runtime/decision-architecture.md","reason":"Check naming contract and docs-only ECS analogy."}
 {"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Check consistency with existing domain boundary constraints."}
 {"file":".trellis/spec/runtime/runtime-boundaries.md","reason":"Check no production code bypasses runtime boundary."}
 {"file":"docs/architecture.md","reason":"Check architecture documentation after planned updates."}
+{"file":"src/intents/creep-intent.ts","reason":"Check resolver contract remains narrow and generic over decisions."}
+{"file":"test/unit/intents/creep-intent.test.ts","reason":"Check resolver behavior tests."}
 {"file":"src/kernel/run-tick.ts","reason":"Check orchestration naming and resolver placement implications."}
 {"file":"src/runtime/screeps-runtime.ts","reason":"Check runtime capture/execution boundary implications."}

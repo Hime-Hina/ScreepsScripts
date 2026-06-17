@@ -22,6 +22,8 @@ flowchart LR
   Spawning --> SpawnDecision["SpawnDecision"]
   Creeps --> WorkerDecision["WorkerActionDecision"]
   Defense --> DefenseDecision["DefenseDecision"]
+  Kernel --> Intents["src/intents（需要冲突仲裁时）"]
+  Intents --> WorkerDecision
   ConstructionDecision --> Actions["运行时动作执行"]
   SpawnDecision --> Actions["运行时动作执行"]
   WorkerDecision --> Actions
@@ -34,6 +36,31 @@ flowchart LR
 `src/runtime/` 拥有对 Screeps 全局对象的直接访问权。策略模块应从该边界接收明确输入，而不是自行读取全局对象。该边界也负责捕获 `Game.cpu` snapshot、执行 critical `Game.notify` fallback 和输出结构化 tick heartbeat。
 
 `src/kernel/` 拥有 tick 级编排。当前实现记录 tick telemetry，把 runtime 快照交给 defense、construction、spawning 和 creeps 边界产出可测试的决策，并通过 runtime boundary 执行 safe mode、construction、spawn 和 worker action。kernel 根据 CPU bucket 选择 full 或 survival-only tick budget；低 bucket 时保留 defense、emergency spawn 和 controller upgrade，跳过非关键 construction/repair。runtime operation 按 defense、spawn、critical worker、construction、non-critical worker 分组隔离，关键组失败会先通知再抛出，非关键组失败会通知并继续当前 tick。
+
+## 数据驱动决策
+
+项目采用类型化、数据驱动的决策架构：
+
+```text
+runtime capture -> typed snapshots -> pure planners -> typed decisions / requests / intents -> explicit resolver where needed -> runtime execution
+```
+
+ECS 只作为文档类比：房间、creep、spawn、source、structure 类似有稳定身份的对象；位置、能量、body、controller、防御风险、construction backlog 类似事实组件；`plan*` / `select*` / `score*` 纯函数类似系统。但生产 TypeScript 不使用通用 `Entity`、`Component`、`System` 命名，也不引入 ECS registry、query DSL 或 scheduler framework。
+
+代码命名使用项目词汇：
+
+| 术语             | 含义                                                   |
+| ---------------- | ------------------------------------------------------ |
+| `*Snapshot`      | runtime 或窄 read model 捕获的不可变事实               |
+| `*WorldSnapshot` | 单个 planner/scorer 的完整输入根，不是全局 world store |
+| `*Decision`      | 可由 kernel/runtime 路由或执行的确定输出               |
+| `*Request`       | 等待 owner 选择或翻译的排队需求                        |
+| `*Intent`        | 多个领域可能竞争同一 actor/resource 时的候选动作       |
+| `resolve*`       | 从 intents/requests 到最终 decision 的确定性仲裁函数   |
+
+`src/intents/` 是提前保留的冲突仲裁边界。它只放 typed intent 和 resolver，例如 `CreepIntent<TDecision>` 与 `resolveCreepIntents()`；不拥有领域策略，不执行 Screeps API。当前 `src/creeps/` 仍可直接输出 `WorkerActionDecision`，只有当 defense/logistics/creeps 等多个领域同时竞争同一个 creep 行动时，才把候选动作提升为 `CreepIntent`。
+
+未来如果多个领域重复组合同一批跨领域事实，可以新增只读 world projection，例如 `creepsByRoom`、`constructionBacklogByRoom`、`hostileRiskByRoom`、`spawnCapacityByRoom`、`remoteIntelByRoom`。该层只是每 tick 的类型化投影，不是可变全局状态；在出现真实重复和 ownership 模糊前不实现。
 
 `src/memory/` 负责原始 `Memory` 的校验、schema version、迁移入口和写回。当前 schema 只有项目 root 与 `schemaVersion`，在 creep、room、spawn 状态进入前先建立单一持久化边界。
 
