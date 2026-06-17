@@ -40,6 +40,8 @@ const createSpawningWorld = (
       ticksToDowngrade: 4999,
       workerCreepCount: 2,
       ...roomOverrides,
+      sourceCount: roomOverrides.sourceCount ?? 2,
+      workerCreepWorkParts: roomOverrides.workerCreepWorkParts ?? 2,
     },
   ],
   spawns: [

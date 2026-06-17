@@ -229,9 +229,10 @@ runtime.executeConstructionDecisions(constructionDecisions);
 ### 3. Contracts
 
 - Bootstrap survival floor is `3` generic workers.
-- RCL2 construction expansion target is `5` generic workers.
+- RCL2 development worker demand is source/backlog/body-throughput driven and capped at `10` generic workers for the current universal-worker phase.
+- Dynamic demand inputs are captured source count, construction backlog energy, current worker WORK-part total, and planned worker body WORK parts.
 - Construction is allowed only when controller downgrade state is safe, spawn/extension energy is stable, survival worker population is stable, and `RoomDefenseState` is `roomSafe`.
-- RCL2 construction worker demand is allowed only when controller downgrade state is safe, spawn/extension energy is stable, a spawn is available, and construction backlog exists.
+- RCL2 development worker demand is allowed when controller downgrade state is safe and spawn/extension energy is stable. Spawn busy state only blocks execution for that tick; it must not suppress the demand calculation.
 - Controller downgrade thresholds are project policy and are classified by the colony economy contract; do not duplicate the numeric thresholds in spawning or worker modules.
 - Per-tick worker target reservations remain planner-local and must not persist to `Memory`.
 
@@ -240,8 +241,9 @@ runtime.executeConstructionDecisions(constructionDecisions);
 | Condition | Required Behavior |
 | --- | --- |
 | Worker count below `3` | Spawning may request a survival worker when a spawn can build one |
-| Worker count `3` to `4`, RCL2, safe controller, stable energy, available spawn, and backlog | Spawning may request workers up to target `5` |
-| Controller not safe, energy unstable, spawn already spawning, or no backlog | Demand remains at survival floor `3` |
+| Safe RCL2 room has source throughput or construction backlog pressure above the current population | Spawning may request workers up to the dynamic capped development target |
+| Safe RCL2 room already meets the dynamic capped development target | Spawning emits no additional development worker request |
+| Controller not safe, energy unstable, or non-RCL2 room | Demand remains at survival floor `3` |
 | Construction deferred for survival | Full-energy workers refill or upgrade instead of building |
 | Construction deferred for defense | Full-energy workers refill or upgrade instead of building |
 | Dropped/tombstone/ruin/store energy exists in the worker room | Empty workers prefer pickup/withdraw before source harvest |
@@ -251,14 +253,14 @@ runtime.executeConstructionDecisions(constructionDecisions);
 
 - Good: runtime captures `BODYPART_COST`, `CONTROLLER_STRUCTURES`, dropped resources, tombstones, ruins, and owned stores, then passes narrow snapshots into pure planners.
 - Good: `src/colony/` classifies controller safety once and both spawning and worker decisions consume that contract.
-- Base: a safe RCL2 room with full spawn/extension energy and extension backlog grows from 3 to 5 generic workers.
+- Base: a safe RCL2 room with full spawn/extension energy grows generic workers from the survival floor toward the source/backlog/body-throughput target.
 - Bad: worker or spawning modules duplicate controller downgrade threshold numbers or read Screeps globals directly.
 - Bad: build pause is represented by a boolean/options/mode flag instead of `RoomConstructionEligibility`.
 
 ### 6. Tests Required
 
-- Unit tests for `selectBootstrapWorkerDemand` must cover survival floor, RCL2 construction target, unsafe controller, unstable energy, unavailable spawn, and no backlog.
-- Unit tests for `planBootstrapWorkerSpawn` must prove body cost, construction cost, and RCL structure limits come from captured official constants.
+- Unit tests for `selectBootstrapWorkerDemand` must cover survival floor, source-throughput development target, construction-backlog development target, planned body WORK-part sensitivity, unsafe controller, unstable energy, and non-RCL2 rooms.
+- Unit tests for `planBootstrapWorkerSpawn` must prove body cost, construction cost, RCL structure limits, source count, and worker WORK-part totals come from captured official runtime data.
 - Unit tests for `planBootstrapWorkerActions` must prove construction deferred workers fall back to refill/upgrade and target reservations prevent same-tick over-assignment.
 - Integration tests must prove runtime captures dropped/tombstone/ruin/store energy and executes `pickup` / `withdraw` through the runtime boundary.
 - Bundle smoke must define every Screeps constant read by compiled runtime code.

@@ -123,12 +123,13 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     roomName: room.name,
+    sourceCount: room.find(FIND_SOURCES).length,
     structures: room.find(FIND_STRUCTURES).map((structure) => ({
       structureType: structure.structureType,
     })),
     ticksToDowngrade: room.controller?.ticksToDowngrade ?? 0,
-    workerCreepCount: Object.values(Game.creeps).filter((creep) => creep.room.name === room.name)
-      .length,
+    workerCreepCount: countRoomWorkerCreeps(room.name),
+    workerCreepWorkParts: countRoomWorkerWorkParts(room.name),
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
     availableEnergy: readSpawnRoomEnergyAvailable(spawn),
@@ -157,9 +158,11 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     roomName: room.name,
+    sourceCount: room.find(FIND_SOURCES).length,
     structures: [],
     ticksToDowngrade: room.controller?.ticksToDowngrade ?? 0,
     workerCreepCount: countRoomWorkerCreeps(room.name),
+    workerCreepWorkParts: countRoomWorkerWorkParts(room.name),
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
     availableEnergy: readSpawnRoomEnergyAvailable(spawn),
@@ -588,6 +591,16 @@ const toWorkerRepairTargetSnapshot = (
 
 const countRoomWorkerCreeps = (roomName: string): number =>
   Object.values(Game.creeps).filter((creep) => creep.room.name === roomName).length;
+
+const countRoomWorkerWorkParts = (roomName: string): number =>
+  Object.values(Game.creeps)
+    .filter((creep) => creep.room.name === roomName)
+    .reduce(
+      (totalWorkParts, creep) =>
+        totalWorkParts +
+        (creep.body ?? []).filter((bodyPart) => bodyPart.type === WORK && bodyPart.hits > 0).length,
+      0,
+    );
 
 const captureRoomEnergyWithdrawals = (room: Room): WorkerWorldSnapshot['energyWithdrawals'] => {
   const energyWithdrawalsById = new Map<string, WorkerWorldSnapshot['energyWithdrawals'][number]>();

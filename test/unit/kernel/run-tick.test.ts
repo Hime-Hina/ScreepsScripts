@@ -96,6 +96,7 @@ describe('runTick', () => {
               },
             ],
             roomName: 'W1N1',
+            sourceCount: 2,
             structures: [
               {
                 structureType: 'spawn',
@@ -103,6 +104,7 @@ describe('runTick', () => {
             ],
             ticksToDowngrade: 9000,
             workerCreepCount: 0,
+            workerCreepWorkParts: 0,
           },
         ],
         spawns: [
@@ -342,6 +344,7 @@ describe('runTick', () => {
                 },
               ],
               roomName: 'W1N1',
+              sourceCount: 2,
               structures: [
                 {
                   structureType: 'spawn',
@@ -349,6 +352,7 @@ describe('runTick', () => {
               ],
               ticksToDowngrade: 9000,
               workerCreepCount: 0,
+              workerCreepWorkParts: 0,
             },
           ],
           spawns: [
@@ -537,6 +541,7 @@ describe('runTick', () => {
                 },
               ],
               roomName: 'W1N1',
+              sourceCount: 2,
               structures: [
                 {
                   structureType: 'spawn',
@@ -544,6 +549,7 @@ describe('runTick', () => {
               ],
               ticksToDowngrade: 4000,
               workerCreepCount: 0,
+              workerCreepWorkParts: 0,
             },
           ],
           spawns: [

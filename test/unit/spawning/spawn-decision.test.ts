@@ -14,6 +14,9 @@ const TEST_BODY_PART_COSTS = {
 } as const;
 
 type TestSpawnSnapshot = Omit<SpawnSnapshot, 'roomName'> & Partial<Pick<SpawnSnapshot, 'roomName'>>;
+type SpawningRoomSnapshot = SpawningWorldSnapshot['rooms'][number];
+type TestSpawningRoomSnapshot = Omit<SpawningRoomSnapshot, 'sourceCount' | 'workerCreepWorkParts'> &
+  Partial<Pick<SpawningRoomSnapshot, 'sourceCount' | 'workerCreepWorkParts'>>;
 
 interface TestSpawningWorldSnapshot extends Omit<
   SpawningWorldSnapshot,
@@ -22,13 +25,41 @@ interface TestSpawningWorldSnapshot extends Omit<
   readonly bodyPartCosts?: SpawningWorldSnapshot['bodyPartCosts'];
   readonly constructionCosts?: SpawningWorldSnapshot['constructionCosts'];
   readonly controllerStructureLimits?: SpawningWorldSnapshot['controllerStructureLimits'];
-  readonly rooms?: SpawningWorldSnapshot['rooms'];
+  readonly rooms?: readonly TestSpawningRoomSnapshot[];
   readonly spawns: readonly TestSpawnSnapshot[];
   readonly workerCreepCount: number;
 }
 
+const normalizeRoomSnapshot = (roomSnapshot: TestSpawningRoomSnapshot): SpawningRoomSnapshot => ({
+  ...roomSnapshot,
+  sourceCount: roomSnapshot.sourceCount ?? 2,
+  workerCreepWorkParts: roomSnapshot.workerCreepWorkParts ?? roomSnapshot.workerCreepCount,
+});
+
 const planWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
   const roomName = spawningWorld.spawns[0]?.roomName ?? 'W1N1';
+  const defaultRooms: readonly TestSpawningRoomSnapshot[] = [
+    {
+      constructionSites: [],
+      controllerLevel: 2,
+      energyStructures: [
+        {
+          availableEnergy: 300,
+          energyCapacity: 300,
+        },
+      ],
+      roomName,
+      sourceCount: 2,
+      structures: [
+        {
+          structureType: 'spawn',
+        },
+      ],
+      ticksToDowngrade: 9000,
+      workerCreepCount: spawningWorld.workerCreepCount,
+      workerCreepWorkParts: spawningWorld.workerCreepCount,
+    },
+  ];
 
   return planBootstrapWorkerSpawn({
     bodyPartCosts: TEST_BODY_PART_COSTS,
@@ -40,27 +71,8 @@ const planWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
         2: 0,
       },
     },
-    rooms: [
-      {
-        constructionSites: [],
-        controllerLevel: 2,
-        energyStructures: [
-          {
-            availableEnergy: 300,
-            energyCapacity: 300,
-          },
-        ],
-        roomName,
-        structures: [
-          {
-            structureType: 'spawn',
-          },
-        ],
-        ticksToDowngrade: 9000,
-        workerCreepCount: spawningWorld.workerCreepCount,
-      },
-    ],
     ...spawningWorld,
+    rooms: (spawningWorld.rooms ?? defaultRooms).map(normalizeRoomSnapshot),
     spawns: spawningWorld.spawns.map((spawnSnapshot) => ({
       roomName,
       ...spawnSnapshot,
@@ -70,6 +82,28 @@ const planWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
 
 const planSurvivalWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
   const roomName = spawningWorld.spawns[0]?.roomName ?? 'W1N1';
+  const defaultRooms: readonly TestSpawningRoomSnapshot[] = [
+    {
+      constructionSites: [],
+      controllerLevel: 2,
+      energyStructures: [
+        {
+          availableEnergy: 300,
+          energyCapacity: 300,
+        },
+      ],
+      roomName,
+      sourceCount: 2,
+      structures: [
+        {
+          structureType: 'spawn',
+        },
+      ],
+      ticksToDowngrade: 9000,
+      workerCreepCount: spawningWorld.workerCreepCount,
+      workerCreepWorkParts: spawningWorld.workerCreepCount,
+    },
+  ];
 
   return planBootstrapSurvivalWorkerSpawn({
     bodyPartCosts: TEST_BODY_PART_COSTS,
@@ -81,27 +115,8 @@ const planSurvivalWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
         2: 0,
       },
     },
-    rooms: [
-      {
-        constructionSites: [],
-        controllerLevel: 2,
-        energyStructures: [
-          {
-            availableEnergy: 300,
-            energyCapacity: 300,
-          },
-        ],
-        roomName,
-        structures: [
-          {
-            structureType: 'spawn',
-          },
-        ],
-        ticksToDowngrade: 9000,
-        workerCreepCount: spawningWorld.workerCreepCount,
-      },
-    ],
     ...spawningWorld,
+    rooms: (spawningWorld.rooms ?? defaultRooms).map(normalizeRoomSnapshot),
     spawns: spawningWorld.spawns.map((spawnSnapshot) => ({
       roomName,
       ...spawnSnapshot,
@@ -111,8 +126,8 @@ const planSurvivalWorkerSpawn = (spawningWorld: TestSpawningWorldSnapshot) => {
 
 const createRoomSnapshot = (
   roomName: string,
-  overrides: Partial<SpawningWorldSnapshot['rooms'][number]> = {},
-): SpawningWorldSnapshot['rooms'][number] => ({
+  overrides: Partial<TestSpawningRoomSnapshot> = {},
+): TestSpawningRoomSnapshot => ({
   constructionSites: [],
   controllerLevel: 2,
   energyStructures: [
@@ -122,6 +137,7 @@ const createRoomSnapshot = (
     },
   ],
   roomName,
+  sourceCount: 2,
   structures: [
     {
       structureType: 'spawn',
@@ -129,6 +145,7 @@ const createRoomSnapshot = (
   ],
   ticksToDowngrade: 9000,
   workerCreepCount: 0,
+  workerCreepWorkParts: 0,
   ...overrides,
 });
 
@@ -485,11 +502,11 @@ describe('bootstrap worker spawn decision', () => {
     });
   });
 
-  it('does not spawn another worker when the RCL2 development population is complete', () => {
+  it('does not spawn another worker when the adaptive RCL2 development population is saturated', () => {
     expect(
       planWorkerSpawn({
         gameTime: 43,
-        workerCreepCount: 5,
+        workerCreepCount: 10,
         spawns: [
           {
             availableEnergy: 300,
@@ -672,7 +689,7 @@ describe('bootstrap worker spawn decision', () => {
     });
   });
 
-  it('stops at the RCL2 construction worker target', () => {
+  it('continues spawning a W51N21-like RCL2 room above the old fixed worker target', () => {
     expect(
       planWorkerSpawn({
         constructionCosts: {
@@ -688,39 +705,60 @@ describe('bootstrap worker spawn decision', () => {
           {
             constructionSites: [
               {
-                remainingWork: 3000,
-                structureType: 'extension',
+                remainingWork: 33509,
+                structureType: 'road',
               },
             ],
             controllerLevel: 2,
             energyStructures: [
               {
-                availableEnergy: 300,
-                energyCapacity: 300,
+                availableEnergy: 550,
+                energyCapacity: 550,
               },
             ],
             roomName: 'W1N1',
+            sourceCount: 2,
             structures: [
               {
                 structureType: 'spawn',
               },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
+              {
+                structureType: 'extension',
+              },
             ],
             ticksToDowngrade: 9000,
             workerCreepCount: 5,
+            workerCreepWorkParts: 10,
           },
         ],
         workerCreepCount: 5,
         spawns: [
           {
-            availableEnergy: 300,
-            energyCapacity: 300,
+            availableEnergy: 550,
+            energyCapacity: 550,
             isSpawning: false,
             name: 'Spawn1',
             roomName: 'W1N1',
           },
         ],
       }),
-    ).toBeNull();
+    ).toEqual({
+      body: ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+      creepName: 'Spawn1-worker-47',
+      spawnName: 'Spawn1',
+    });
   });
 
   it('keeps survival-only spawning at the survival worker floor during construction backlog', () => {

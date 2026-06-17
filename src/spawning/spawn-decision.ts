@@ -3,7 +3,6 @@ import {
   classifyBootstrapControllerDowngradeState,
   classifySpawnExtensionEnergyState,
   selectBootstrapWorkerDemand,
-  type BootstrapSpawnAvailability,
 } from '../colony/bootstrap-economy';
 
 export type SpawnBodyPart = 'work' | 'carry' | 'move';
@@ -35,9 +34,11 @@ export interface SpawningRoomSnapshot {
   readonly controllerLevel: number;
   readonly energyStructures: readonly SpawningEnergyStructureSnapshot[];
   readonly roomName: string;
+  readonly sourceCount: number;
   readonly structures: readonly SpawningStructureSnapshot[];
   readonly ticksToDowngrade: number;
   readonly workerCreepCount: number;
+  readonly workerCreepWorkParts: number;
 }
 
 export interface SpawningWorldSnapshot {
@@ -60,6 +61,8 @@ export interface SpawnDecision {
 }
 
 const INITIAL_WORKER_BODY = ['work', 'carry', 'move'] as const satisfies readonly SpawnBodyPart[];
+// Ordered from most capable to emergency body; demand planning and execution both consume
+// the first body affordable by room energy capacity/availability.
 const EARLY_WORKER_BODIES = [
   ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
   ['work', 'carry', 'carry', 'move', 'move'],
@@ -125,8 +128,16 @@ const createBootstrapWorkerRequests = (
       }),
       controllerLevel: spawningRoom.controllerLevel,
       energyState: classifySpawnExtensionEnergyState(spawningRoom),
-      spawnAvailability: classifySpawnAvailability(spawnSnapshot),
+      plannedWorkerWorkParts: countWorkParts(
+        selectLargestWorkerBodyForCapacity(
+          EARLY_WORKER_BODY_CATALOG.rcl2DevelopmentWorker,
+          spawnSnapshot.energyCapacity,
+          spawningWorld.bodyPartCosts,
+        ),
+      ),
+      sourceCount: spawningRoom.sourceCount,
       workerCreepCount: spawningRoom.workerCreepCount,
+      workerCreepWorkParts: spawningRoom.workerCreepWorkParts,
     });
 
     if (spawningRoom.workerCreepCount >= workerDemand.targetWorkerCount) {
@@ -281,20 +292,6 @@ const readSpawnSnapshot = (
   return spawnSnapshot;
 };
 
-const classifySpawnAvailability = (spawnSnapshot: SpawnSnapshot): BootstrapSpawnAvailability => {
-  if (spawnSnapshot.isSpawning) {
-    return {
-      roomName: spawnSnapshot.roomName,
-      type: 'spawnAlreadySpawning',
-    };
-  }
-
-  return {
-    roomName: spawnSnapshot.roomName,
-    type: 'spawnAvailable',
-  };
-};
-
 const calculateConstructionBacklogEnergy = (
   spawningRoom: SpawningRoomSnapshot,
   spawningWorld: SpawningWorldSnapshot,
@@ -343,6 +340,23 @@ const selectSpawnRequestBody = (
 
   return null;
 };
+
+const selectLargestWorkerBodyForCapacity = (
+  bodyOptions: readonly (readonly SpawnBodyPart[])[],
+  energyCapacity: number,
+  bodyPartCosts: Readonly<Record<SpawnBodyPart, number>>,
+): readonly SpawnBodyPart[] => {
+  for (const workerBody of bodyOptions) {
+    if (energyCapacity >= calculateSpawnBodyCost(workerBody, bodyPartCosts)) {
+      return workerBody;
+    }
+  }
+
+  return [];
+};
+
+const countWorkParts = (spawnBody: readonly SpawnBodyPart[]): number =>
+  spawnBody.filter((bodyPart) => bodyPart === 'work').length;
 
 const calculateSpawnBodyCost = (
   spawnBody: readonly SpawnBodyPart[],

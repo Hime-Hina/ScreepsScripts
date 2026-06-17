@@ -6,6 +6,7 @@ import {
   classifySpawnExtensionEnergyState,
   selectBootstrapWorkerDemand,
   selectRoomConstructionEligibility,
+  type BootstrapWorkerDemandInput,
 } from '../../../src/colony/bootstrap-economy';
 
 const SAFE_CONTROLLER_STATE = {
@@ -28,16 +29,6 @@ const UNSTABLE_ENERGY_STATE = {
   type: 'spawnExtensionEnergyUnstable',
 } as const;
 
-const AVAILABLE_SPAWN_STATE = {
-  roomName: 'W1N1',
-  type: 'spawnAvailable',
-} as const;
-
-const SPAWNING_SPAWN_STATE = {
-  roomName: 'W1N1',
-  type: 'spawnAlreadySpawning',
-} as const;
-
 const STABLE_POPULATION_STATE = {
   roomName: 'W1N1',
   type: 'survivalWorkerPopulationStable',
@@ -52,6 +43,20 @@ const UNSAFE_ROOM_DEFENSE_STATE = {
   roomName: 'W1N1',
   type: 'roomUnsafe',
 } as const;
+
+const createDemandInput = (
+  overrides: Partial<BootstrapWorkerDemandInput> = {},
+): BootstrapWorkerDemandInput => ({
+  constructionBacklogEnergy: 0,
+  controllerDowngradeState: SAFE_CONTROLLER_STATE,
+  controllerLevel: 2,
+  energyState: STABLE_ENERGY_STATE,
+  plannedWorkerWorkParts: 2,
+  sourceCount: 2,
+  workerCreepCount: 4,
+  workerCreepWorkParts: 8,
+  ...overrides,
+});
 
 describe('bootstrap economy contract', () => {
   it('classifies controller downgrade safety from project policy thresholds', () => {
@@ -185,74 +190,114 @@ describe('bootstrap economy contract', () => {
     });
   });
 
-  it('selects the RCL2 development demand when the room economy is safe even without construction backlog', () => {
+  it('selects source-throughput RCL2 development demand when the room economy is safe', () => {
+    expect(selectBootstrapWorkerDemand(createDemandInput())).toEqual({
+      targetWorkerCount: 10,
+      type: 'rcl2DevelopmentWorkerDemand',
+    });
+  });
+
+  it('keeps safe RCL2 development demand near the cap without spawn-availability gating', () => {
     expect(
-      selectBootstrapWorkerDemand({
-        constructionBacklogEnergy: 0,
-        controllerDowngradeState: SAFE_CONTROLLER_STATE,
-        controllerLevel: 2,
-        energyState: STABLE_ENERGY_STATE,
-        spawnAvailability: AVAILABLE_SPAWN_STATE,
-        workerCreepCount: 4,
-      }),
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          constructionBacklogEnergy: 0,
+          workerCreepCount: 9,
+        }),
+      ),
     ).toEqual({
-      targetWorkerCount: 5,
+      targetWorkerCount: 10,
+      type: 'rcl2DevelopmentWorkerDemand',
+    });
+  });
+
+  it('uses construction backlog to demand more than the survival floor when source demand is lower', () => {
+    expect(
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          constructionBacklogEnergy: 33509,
+          sourceCount: 0,
+          workerCreepCount: 5,
+          workerCreepWorkParts: 10,
+        }),
+      ),
+    ).toEqual({
+      targetWorkerCount: 6,
+      type: 'rcl2DevelopmentWorkerDemand',
+    });
+  });
+
+  it('uses planned body WORK parts when estimating source saturation demand', () => {
+    expect(
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          plannedWorkerWorkParts: 2,
+          sourceCount: 1,
+          workerCreepCount: 4,
+          workerCreepWorkParts: 8,
+        }),
+      ),
+    ).toEqual({
+      targetWorkerCount: 6,
+      type: 'rcl2DevelopmentWorkerDemand',
+    });
+
+    expect(
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          plannedWorkerWorkParts: 1,
+          sourceCount: 1,
+          workerCreepCount: 4,
+          workerCreepWorkParts: 4,
+        }),
+      ),
+    ).toEqual({
+      targetWorkerCount: 10,
       type: 'rcl2DevelopmentWorkerDemand',
     });
   });
 
   it('keeps worker demand at the survival floor when expansion safeguards are not met', () => {
     expect(
-      selectBootstrapWorkerDemand({
-        constructionBacklogEnergy: 0,
-        controllerDowngradeState: SAFE_CONTROLLER_STATE,
-        controllerLevel: 2,
-        energyState: STABLE_ENERGY_STATE,
-        spawnAvailability: SPAWNING_SPAWN_STATE,
-        workerCreepCount: 4,
-      }),
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          controllerDowngradeState: WARNING_CONTROLLER_STATE,
+        }),
+      ),
     ).toEqual({
       targetWorkerCount: 3,
       type: 'survivalWorkerDemand',
     });
 
     expect(
-      selectBootstrapWorkerDemand({
-        constructionBacklogEnergy: 0,
-        controllerDowngradeState: WARNING_CONTROLLER_STATE,
-        controllerLevel: 2,
-        energyState: STABLE_ENERGY_STATE,
-        spawnAvailability: AVAILABLE_SPAWN_STATE,
-        workerCreepCount: 4,
-      }),
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          energyState: UNSTABLE_ENERGY_STATE,
+        }),
+      ),
     ).toEqual({
       targetWorkerCount: 3,
       type: 'survivalWorkerDemand',
     });
 
     expect(
-      selectBootstrapWorkerDemand({
-        constructionBacklogEnergy: 0,
-        controllerDowngradeState: SAFE_CONTROLLER_STATE,
-        controllerLevel: 2,
-        energyState: UNSTABLE_ENERGY_STATE,
-        spawnAvailability: AVAILABLE_SPAWN_STATE,
-        workerCreepCount: 4,
-      }),
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          controllerLevel: 1,
+        }),
+      ),
     ).toEqual({
       targetWorkerCount: 3,
       type: 'survivalWorkerDemand',
     });
 
     expect(
-      selectBootstrapWorkerDemand({
-        constructionBacklogEnergy: 0,
-        controllerDowngradeState: SAFE_CONTROLLER_STATE,
-        controllerLevel: 2,
-        energyState: STABLE_ENERGY_STATE,
-        spawnAvailability: AVAILABLE_SPAWN_STATE,
-        workerCreepCount: 2,
-      }),
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          workerCreepCount: 2,
+          workerCreepWorkParts: 2,
+        }),
+      ),
     ).toEqual({
       targetWorkerCount: 3,
       type: 'survivalWorkerDemand',

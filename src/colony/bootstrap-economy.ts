@@ -1,7 +1,13 @@
 import type { RoomDefenseState } from '../defense/defense-planner';
 
 export const BOOTSTRAP_SURVIVAL_WORKER_COUNT = 3;
-export const RCL2_DEVELOPMENT_WORKER_COUNT = 5;
+const RCL2_DEVELOPMENT_WORKER_MAX = 10;
+const SOURCE_ENERGY_PER_TICK = 10;
+const WORKER_UPTIME_RATIO = 0.8;
+const ENERGY_SPEND_PER_WORK_PART = 1.1;
+const BUILD_POWER_PER_WORK_PART = 5;
+const BUILD_DUTY_RATIO = 0.65;
+const BACKLOG_CLEAR_TICKS = 2500;
 
 export interface BootstrapControllerSnapshot {
   readonly roomName: string;
@@ -36,16 +42,6 @@ export type SpawnExtensionEnergyState =
       readonly type: 'spawnExtensionEnergyUnstable';
     };
 
-export type BootstrapSpawnAvailability =
-  | {
-      readonly roomName: string;
-      readonly type: 'spawnAvailable';
-    }
-  | {
-      readonly roomName: string;
-      readonly type: 'spawnAlreadySpawning';
-    };
-
 export type BootstrapWorkerPopulationState =
   | {
       readonly roomName: string;
@@ -76,7 +72,7 @@ export type BootstrapWorkerDemand =
       readonly type: 'survivalWorkerDemand';
     }
   | {
-      readonly targetWorkerCount: typeof RCL2_DEVELOPMENT_WORKER_COUNT;
+      readonly targetWorkerCount: number;
       readonly type: 'rcl2DevelopmentWorkerDemand';
     };
 
@@ -85,8 +81,10 @@ export interface BootstrapWorkerDemandInput {
   readonly controllerDowngradeState: BootstrapControllerDowngradeState;
   readonly controllerLevel: number;
   readonly energyState: SpawnExtensionEnergyState;
-  readonly spawnAvailability: BootstrapSpawnAvailability;
+  readonly plannedWorkerWorkParts: number;
+  readonly sourceCount: number;
   readonly workerCreepCount: number;
+  readonly workerCreepWorkParts: number;
 }
 
 export interface SpawnExtensionEnergySnapshot {
@@ -217,23 +215,89 @@ export const selectBootstrapWorkerDemand = (
   }
 
   if (
-    demandInput.controllerLevel === 2 &&
-    demandInput.controllerDowngradeState.type === 'controllerDowngradeSafe' &&
-    demandInput.energyState.type === 'spawnExtensionEnergyStable' &&
-    demandInput.spawnAvailability.type === 'spawnAvailable'
+    demandInput.controllerLevel !== 2 ||
+    demandInput.controllerDowngradeState.type !== 'controllerDowngradeSafe' ||
+    demandInput.energyState.type !== 'spawnExtensionEnergyStable'
   ) {
-    return rcl2DevelopmentWorkerDemand;
+    return survivalWorkerDemand;
   }
 
-  return survivalWorkerDemand;
+  return {
+    targetWorkerCount: calculateRcl2DevelopmentWorkerTarget(demandInput),
+    type: 'rcl2DevelopmentWorkerDemand',
+  };
 };
+
+const calculateRcl2DevelopmentWorkerTarget = (demandInput: BootstrapWorkerDemandInput): number => {
+  const effectiveWorkerWorkParts = calculateEffectiveWorkerWorkParts(demandInput);
+  const sourceSaturationWorkerTarget = calculateSourceSaturationWorkerTarget(
+    demandInput.sourceCount,
+    effectiveWorkerWorkParts,
+  );
+  const constructionBacklogWorkerTarget = calculateConstructionBacklogWorkerTarget(
+    demandInput.constructionBacklogEnergy,
+    effectiveWorkerWorkParts,
+  );
+
+  return clampWorkerTarget(
+    Math.max(
+      BOOTSTRAP_SURVIVAL_WORKER_COUNT,
+      sourceSaturationWorkerTarget,
+      constructionBacklogWorkerTarget,
+    ),
+  );
+};
+
+const calculateEffectiveWorkerWorkParts = (demandInput: BootstrapWorkerDemandInput): number => {
+  const currentAverageWorkerWorkParts =
+    demandInput.workerCreepCount > 0
+      ? Math.ceil(demandInput.workerCreepWorkParts / demandInput.workerCreepCount)
+      : 0;
+
+  return Math.max(demandInput.plannedWorkerWorkParts, currentAverageWorkerWorkParts, 1);
+};
+
+const calculateSourceSaturationWorkerTarget = (
+  sourceCount: number,
+  effectiveWorkerWorkParts: number,
+): number => {
+  if (sourceCount <= 0) {
+    return BOOTSTRAP_SURVIVAL_WORKER_COUNT;
+  }
+
+  return Math.ceil(
+    (sourceCount * SOURCE_ENERGY_PER_TICK) /
+      (effectiveWorkerWorkParts * ENERGY_SPEND_PER_WORK_PART * WORKER_UPTIME_RATIO),
+  );
+};
+
+const calculateConstructionBacklogWorkerTarget = (
+  constructionBacklogEnergy: number,
+  effectiveWorkerWorkParts: number,
+): number => {
+  if (constructionBacklogEnergy <= 0) {
+    return BOOTSTRAP_SURVIVAL_WORKER_COUNT;
+  }
+
+  return (
+    BOOTSTRAP_SURVIVAL_WORKER_COUNT +
+    Math.ceil(
+      constructionBacklogEnergy /
+        (BUILD_POWER_PER_WORK_PART *
+          effectiveWorkerWorkParts *
+          BUILD_DUTY_RATIO *
+          BACKLOG_CLEAR_TICKS),
+    )
+  );
+};
+
+const clampWorkerTarget = (targetWorkerCount: number): number =>
+  Math.min(
+    Math.max(targetWorkerCount, BOOTSTRAP_SURVIVAL_WORKER_COUNT),
+    RCL2_DEVELOPMENT_WORKER_MAX,
+  );
 
 const survivalWorkerDemand: BootstrapWorkerDemand = {
   targetWorkerCount: BOOTSTRAP_SURVIVAL_WORKER_COUNT,
   type: 'survivalWorkerDemand',
-};
-
-const rcl2DevelopmentWorkerDemand: BootstrapWorkerDemand = {
-  targetWorkerCount: RCL2_DEVELOPMENT_WORKER_COUNT,
-  type: 'rcl2DevelopmentWorkerDemand',
 };

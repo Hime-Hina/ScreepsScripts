@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Runtime/domain boundary rules"}
+{"file": "src/colony/bootstrap-economy.ts", "reason": "Worker demand selector under change"}
+{"file": "src/spawning/spawn-decision.ts", "reason": "Spawn request and body planning under change"}
+{"file": "src/runtime/screeps-runtime.ts", "reason": "Runtime spawning snapshot capture under change"}
