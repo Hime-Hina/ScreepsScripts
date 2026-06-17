@@ -52,6 +52,8 @@ export interface CreateConstructionSiteDecision {
 }
 
 const NEAR_SPAWN_CANDIDATE_RADIUS = 2;
+const MAX_NEW_ROAD_SITES_PER_ROOM = 5;
+const MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS = 10;
 const ADJACENT_POSITION_OFFSETS = [
   { x: -1, y: -1 },
   { x: 0, y: -1 },
@@ -185,18 +187,16 @@ const planEarlyLogisticsSites = (
       ? [createConstructionSiteDecision(ownedRoom.roomName, anchorPlan.anchorPosition, 'container')]
       : [],
   );
+  const roadDecisions = planRoadDecisions({
+    anchorPositionKeys,
+    anchorPositions: anchorPlans.map((anchorPlan) => anchorPlan.anchorPosition),
+    ownedRoom,
+    pathBlockedPositionKeys,
+    terrainByPositionKey,
+    unavailablePositionKeys,
+  });
 
-  return [
-    ...containerDecisions,
-    ...planRoadDecisions({
-      anchorPositionKeys,
-      anchorPositions: anchorPlans.map((anchorPlan) => anchorPlan.anchorPosition),
-      ownedRoom,
-      pathBlockedPositionKeys,
-      terrainByPositionKey,
-      unavailablePositionKeys,
-    }),
-  ];
+  return [...containerDecisions, ...limitLowPriorityRoadDecisions(ownedRoom, roadDecisions)];
 };
 
 const countExtensionStructures = (ownedRoom: ConstructionOwnedRoomSnapshot): number =>
@@ -301,6 +301,18 @@ const planRoadDecisions = ({
   }
 
   return roadDecisions;
+};
+
+const limitLowPriorityRoadDecisions = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+  roadDecisions: readonly ConstructionDecision[],
+): readonly ConstructionDecision[] => {
+  // Cap low-priority road fan-out so early logistics anchors land before a large road backlog.
+  if (ownedRoom.constructionSites.length >= MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS) {
+    return [];
+  }
+
+  return roadDecisions.slice(0, MAX_NEW_ROAD_SITES_PER_ROOM);
 };
 
 const createTerrainByPositionKey = (

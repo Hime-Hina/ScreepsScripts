@@ -350,6 +350,233 @@ describe('room construction planner', () => {
     ]);
   });
 
+  it('caps long logistics road plans after high-priority container anchors', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [
+              { x: 2, y: 10 },
+              { x: 10, y: 18 },
+            ],
+            constructionSites: [],
+            controllerLevel: 2,
+            controllerPosition: { x: 10, y: 18 },
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 2,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+            ],
+            terrain: createPlainTerrainRectangle(2, 9, 10, 18),
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'container',
+        type: 'createConstructionSite',
+        x: 3,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'container',
+        type: 'createConstructionSite',
+        x: 10,
+        y: 17,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 9,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 8,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 7,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 6,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'road',
+        type: 'createConstructionSite',
+        x: 5,
+        y: 10,
+      },
+    ]);
+  });
+
+  it('suppresses low-priority roads when the room already has a large active site backlog', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [
+              { x: 2, y: 10 },
+              { x: 10, y: 18 },
+            ],
+            constructionSites: [
+              { structureType: 'road', x: 20, y: 20 },
+              { structureType: 'road', x: 21, y: 20 },
+              { structureType: 'road', x: 22, y: 20 },
+              { structureType: 'road', x: 23, y: 20 },
+              { structureType: 'road', x: 24, y: 20 },
+              { structureType: 'road', x: 25, y: 20 },
+              { structureType: 'road', x: 26, y: 20 },
+              { structureType: 'road', x: 27, y: 20 },
+              { structureType: 'road', x: 28, y: 20 },
+              { structureType: 'road', x: 29, y: 20 },
+            ],
+            controllerLevel: 2,
+            controllerPosition: { x: 10, y: 18 },
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 2,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+            ],
+            terrain: createPlainTerrainRectangle(2, 9, 10, 20),
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'container',
+        type: 'createConstructionSite',
+        x: 3,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'container',
+        type: 'createConstructionSite',
+        x: 10,
+        y: 17,
+      },
+    ]);
+  });
+
+  it('still plans missing extensions when active road backlog is above the road throttle', () => {
+    expect(
+      planConstruction({
+        ownedRooms: [
+          {
+            blockedPositions: [],
+            constructionSites: [
+              { structureType: 'road', x: 20, y: 20 },
+              { structureType: 'road', x: 21, y: 20 },
+              { structureType: 'road', x: 22, y: 20 },
+              { structureType: 'road', x: 23, y: 20 },
+              { structureType: 'road', x: 24, y: 20 },
+              { structureType: 'road', x: 25, y: 20 },
+              { structureType: 'road', x: 26, y: 20 },
+              { structureType: 'road', x: 27, y: 20 },
+              { structureType: 'road', x: 28, y: 20 },
+              { structureType: 'road', x: 29, y: 20 },
+            ],
+            controllerLevel: 2,
+            roomName: 'W1N1',
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+            ],
+            terrain: openTerrainAroundSpawn10,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 9,
+        y: 9,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 10,
+        y: 9,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 11,
+        y: 9,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 9,
+        y: 10,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 11,
+        y: 10,
+      },
+    ]);
+  });
+
   it('skips blocked adjacent tiles when choosing a source container candidate', () => {
     expect(
       planConstruction({
