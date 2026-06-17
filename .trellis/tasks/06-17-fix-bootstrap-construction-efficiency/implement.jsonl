@@ -1,0 +1,6 @@
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Defines runtime/construction/creep domain boundaries and current RCL2 worker/construction contracts that this task must update."}
+{"file":".trellis/spec/runtime/runtime-boundaries.md","reason":"Defines Screeps global and Memory access restrictions; required for worker mode persistence design."}
+{"file":".trellis/spec/runtime/decision-architecture.md","reason":"Defines snapshot/decision/resolver terminology and forbids generic ECS/framework drift."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"Required RED-GREEN-REFACTOR workflow for behavior bug fixes."}
+{"file":".trellis/spec/testing/behavior-slices.md","reason":"Guidance for splitting worker-mode and road-frontier behavior into testable slices."}
+{"file":".trellis/tasks/06-17-fix-bootstrap-construction-efficiency/research/live-observation.md","reason":"Task-local evidence for the live inefficiency and code-level diagnosis."}

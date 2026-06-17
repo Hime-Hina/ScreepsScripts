@@ -1,0 +1,5 @@
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Review that worker/construction changes preserve domain ownership and update stale contracts."}
+{"file":".trellis/spec/runtime/runtime-boundaries.md","reason":"Review that Screeps Memory and globals remain runtime-owned."}
+{"file":".trellis/spec/runtime/decision-architecture.md","reason":"Review that implementation stays in snapshot/decision style and does not add generic ECS/framework names."}
+{"file":".trellis/spec/testing/completion-definition.md","reason":"Completion gate for tests, checks, documentation, and task archival readiness."}
+{"file":".trellis/tasks/06-17-fix-bootstrap-construction-efficiency/research/live-observation.md","reason":"Review final behavior against the original live symptoms."}
