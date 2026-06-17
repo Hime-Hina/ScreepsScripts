@@ -3,7 +3,7 @@
   "name": "06-17-room-intel-remote-mining-scoring",
   "title": "Room intel and remote mining candidate scoring",
   "description": "Add deterministic room intel/scout scoring for future remote mining decisions, read-only first.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
