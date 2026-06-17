@@ -185,7 +185,6 @@ const planEarlyLogisticsSites = (
 
   const terrainByPositionKey = createTerrainByPositionKey(ownedRoom.terrain);
   const unavailablePositionKeys = collectUnavailablePositionKeys(ownedRoom);
-  const pathBlockedPositionKeys = collectPathBlockedPositionKeys(ownedRoom);
   const anchorPlans = logisticsTargets.flatMap((targetPosition) => {
     const existingAnchorPosition = selectExistingAdjacentAnchorPosition(ownedRoom, targetPosition);
 
@@ -226,6 +225,11 @@ const planEarlyLogisticsSites = (
       ? [createConstructionSiteDecision(ownedRoom.roomName, anchorPlan.anchorPosition, 'container')]
       : [],
   );
+  if (!canPlanLowPriorityRoads(ownedRoom)) {
+    return containerDecisions;
+  }
+
+  const pathBlockedPositionKeys = collectPathBlockedPositionKeys(ownedRoom);
   const roadDecisions = planRoadDecisions({
     anchorPositionKeys,
     anchorPositions: anchorPlans.map((anchorPlan) => anchorPlan.anchorPosition),
@@ -359,12 +363,15 @@ const limitLowPriorityRoadDecisions = (
   roadDecisions: readonly ConstructionDecision[],
 ): readonly ConstructionDecision[] => {
   // Cap low-priority road fan-out so early logistics anchors land before a large road backlog.
-  if (ownedRoom.constructionSites.length >= MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS) {
+  if (!canPlanLowPriorityRoads(ownedRoom)) {
     return [];
   }
 
   return roadDecisions.slice(0, MAX_NEW_ROAD_SITES_PER_ROOM);
 };
+
+const canPlanLowPriorityRoads = (ownedRoom: ConstructionOwnedRoomSnapshot): boolean =>
+  ownedRoom.constructionSites.length < MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS;
 
 const createTerrainByPositionKey = (
   terrainSnapshots: readonly ConstructionTerrainSnapshot[],

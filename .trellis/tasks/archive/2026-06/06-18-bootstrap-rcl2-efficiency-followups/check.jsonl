@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "test/integration/main-loop.test.ts", "reason": "Runtime boundary integration tests and fake Screeps constants."}
+{"file": "test/e2e/compiled-loop.test.ts", "reason": "Compiled loop e2e fake Screeps constants."}
+{"file": "test/unit/creeps/worker-decision.test.ts", "reason": "Worker target selection and construction reservation unit tests."}
+{"file": "test/unit/construction/construction-planner.test.ts", "reason": "Construction backlog and road planning unit tests."}
+{"file": "test/unit/spawning/spawn-decision.test.ts", "reason": "Spawn body selection unit tests."}
+{"file": "package.json", "reason": "Verification, deploy, live status, and readback scripts."}

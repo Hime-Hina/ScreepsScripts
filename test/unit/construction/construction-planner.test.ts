@@ -782,6 +782,57 @@ describe('room construction planner', () => {
     ]);
   });
 
+  it('does not prepare road search when road backlog suppresses low-priority roads', () => {
+    const accessLimitedContainer = createAccessLimitedStructure('container', 3, 10, 6);
+
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [],
+            constructionSites: [
+              { structureType: 'road', x: 20, y: 20 },
+              { structureType: 'road', x: 21, y: 20 },
+              { structureType: 'road', x: 22, y: 20 },
+              { structureType: 'road', x: 23, y: 20 },
+              { structureType: 'road', x: 24, y: 20 },
+              { structureType: 'road', x: 25, y: 20 },
+              { structureType: 'road', x: 26, y: 20 },
+              { structureType: 'road', x: 27, y: 20 },
+              { structureType: 'road', x: 28, y: 20 },
+              { structureType: 'road', x: 29, y: 20 },
+            ],
+            controllerLevel: 2,
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 2,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+              accessLimitedContainer.structure,
+            ],
+            terrain: [],
+          },
+        ],
+      }),
+    ).toEqual([]);
+    expect(accessLimitedContainer.getAccessCount()).toBeLessThanOrEqual(6);
+  });
+
   it('still plans missing extensions when active road backlog is above the road throttle', () => {
     expect(
       planConstruction({
@@ -1021,6 +1072,37 @@ const rcl1ConstructionWorld: Omit<ConstructionWorldSnapshot, 'controllerStructur
       terrain: openTerrainAroundSpawn10,
     },
   ],
+};
+
+const createAccessLimitedStructure = (
+  structureType: string,
+  x: number,
+  y: number,
+  maxAccessCount: number,
+) => {
+  let accessCount = 0;
+  const readPositionCoordinate = (coordinate: number): number => {
+    accessCount += 1;
+
+    if (accessCount > maxAccessCount) {
+      throw new Error('road search unexpectedly read the existing anchor position');
+    }
+
+    return coordinate;
+  };
+
+  return {
+    getAccessCount: () => accessCount,
+    structure: {
+      get x() {
+        return readPositionCoordinate(x);
+      },
+      get y() {
+        return readPositionCoordinate(y);
+      },
+      structureType,
+    },
+  };
 };
 
 const createPlainTerrainRectangle = (

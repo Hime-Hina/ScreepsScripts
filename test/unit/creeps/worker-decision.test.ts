@@ -149,6 +149,62 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
+  it('assigns harvesting sources by room position before id tie-breakers', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'WorkerA',
+            roomName: 'W1N1',
+          },
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'WorkerB',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [],
+        sources: [
+          {
+            id: 'source-z-near',
+            roomName: 'W1N1',
+            x: 10,
+            y: 5,
+          },
+          {
+            id: 'source-a-far',
+            roomName: 'W1N1',
+            x: 10,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'WorkerA',
+        sourceId: 'source-z-near',
+        type: 'harvestSource',
+      },
+      {
+        creepName: 'WorkerB',
+        sourceId: 'source-a-far',
+        type: 'harvestSource',
+      },
+    ]);
+  });
+
   it('picks up dropped energy before harvesting a source', () => {
     expect(
       planWorkerActions({
@@ -188,6 +244,116 @@ describe('bootstrap worker action decision', () => {
       {
         creepName: 'Worker1',
         resourceId: 'dropped-energy-1',
+        type: 'pickupEnergy',
+      },
+    ]);
+  });
+
+  it('picks up the largest dropped energy pile before using id as a tie-breaker', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Worker1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyPickups: [
+          {
+            amount: 10,
+            id: 'aaa-small-dropped-energy',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+          {
+            amount: 100,
+            id: 'zzz-large-dropped-energy',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+        energyStructures: [],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        resourceId: 'zzz-large-dropped-energy',
+        type: 'pickupEnergy',
+      },
+    ]);
+  });
+
+  it('uses distance before id when dropped energy amounts are tied', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Worker1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyPickups: [
+          {
+            amount: 50,
+            id: 'aaa-far-dropped-energy',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+          {
+            amount: 50,
+            id: 'zzz-near-dropped-energy',
+            roomName: 'W1N1',
+            x: 10,
+            y: 11,
+          },
+        ],
+        energyStructures: [],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        resourceId: 'zzz-near-dropped-energy',
         type: 'pickupEnergy',
       },
     ]);
@@ -347,6 +513,120 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
+  it('prefers structure withdrawals over tombstones before using id as a tie-breaker', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Worker1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [],
+        energyWithdrawals: [
+          {
+            availableEnergy: 100,
+            id: 'aaa-tombstone',
+            roomName: 'W1N1',
+            targetType: 'tombstone',
+            x: 9,
+            y: 10,
+          },
+          {
+            availableEnergy: 100,
+            id: 'zzz-container',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 20,
+            y: 20,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        structureId: 'zzz-container',
+        type: 'withdrawEnergy',
+      },
+    ]);
+  });
+
+  it('uses available energy before distance and id for same-type withdrawals', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Worker1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [],
+        energyWithdrawals: [
+          {
+            availableEnergy: 25,
+            id: 'aaa-small-container',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 10,
+            y: 11,
+          },
+          {
+            availableEnergy: 100,
+            id: 'zzz-large-container',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 20,
+            y: 20,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        structureId: 'zzz-large-container',
+        type: 'withdrawEnergy',
+      },
+    ]);
+  });
+
   it('keeps an empty worker on its assigned source while another worker refills energy', () => {
     expect(
       planWorkerActions({
@@ -411,7 +691,7 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
-  it('refills the lowest-id depleted energy structure before building or upgrading', () => {
+  it('refills a depleted spawn before an equivalent extension instead of sorting by id', () => {
     expect(
       planWorkerActions({
         constructionSites: [
@@ -442,18 +722,25 @@ describe('bootstrap worker action decision', () => {
             energyCapacity: 300,
             id: 'spawn-z',
             roomName: 'W1N1',
+            structureType: 'spawn',
+            x: 12,
+            y: 10,
           },
           {
             availableEnergy: 0,
             energyCapacity: 50,
             id: 'extension-a',
             roomName: 'W1N1',
+            structureType: 'extension',
+            x: 11,
+            y: 10,
           },
           {
             availableEnergy: 50,
             energyCapacity: 50,
             id: 'extension-full',
             roomName: 'W1N1',
+            structureType: 'extension',
           },
         ],
         sources: [
@@ -466,7 +753,65 @@ describe('bootstrap worker action decision', () => {
     ).toEqual([
       {
         creepName: 'Worker1',
-        structureId: 'extension-a',
+        structureId: 'spawn-z',
+        type: 'refillEnergyStructure',
+      },
+    ]);
+  });
+
+  it('refills the largest same-type energy gap before distance and id tie-breakers', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 40,
+            energyCapacity: 50,
+            id: 'aaa-small-gap-extension',
+            roomName: 'W1N1',
+            structureType: 'extension',
+            x: 10,
+            y: 10,
+          },
+          {
+            availableEnergy: 0,
+            energyCapacity: 50,
+            id: 'zzz-large-gap-extension',
+            roomName: 'W1N1',
+            structureType: 'extension',
+            x: 20,
+            y: 20,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        structureId: 'zzz-large-gap-extension',
         type: 'refillEnergyStructure',
       },
     ]);
@@ -904,12 +1249,163 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
-  it('assigns a construction site to only one worker in the same tick', () => {
+  it('uses each worker assigned source when choosing equivalent source-side containers', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'source-a-container',
+            progress: 0,
+            roomName: 'W1N1',
+            structureType: 'container',
+            x: 3,
+            y: 10,
+          },
+          {
+            id: 'source-b-container',
+            progress: 100,
+            roomName: 'W1N1',
+            structureType: 'container',
+            x: 21,
+            y: 10,
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'WorkerA',
+            roomName: 'W1N1',
+          },
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'WorkerB',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-a',
+            roomName: 'W1N1',
+            x: 2,
+            y: 10,
+          },
+          {
+            id: 'source-b',
+            roomName: 'W1N1',
+            x: 20,
+            y: 10,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'source-a-container',
+        creepName: 'WorkerA',
+        type: 'buildConstructionSite',
+      },
+      {
+        constructionSiteId: 'source-b-container',
+        creepName: 'WorkerB',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('prefers the assigned source road frontier over another progressed source route', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'source-a-road',
+            progress: 0,
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 4,
+            y: 10,
+          },
+          {
+            id: 'source-b-road',
+            progress: 200,
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 22,
+            y: 10,
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'WorkerA',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-a',
+            roomName: 'W1N1',
+            x: 2,
+            y: 10,
+          },
+          {
+            id: 'source-b',
+            roomName: 'W1N1',
+            x: 20,
+            y: 10,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'source-a-road',
+        creepName: 'WorkerA',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('lets multiple workers build the same best construction site while remaining work is available', () => {
     expect(
       planWorkerActions({
         constructionSites: [
           {
             id: 'construction-site-1',
+            progress: 100,
+            progressTotal: 5000,
             roomName: 'W1N1',
           },
         ],
@@ -957,9 +1453,77 @@ describe('bootstrap worker action decision', () => {
         type: 'buildConstructionSite',
       },
       {
-        controllerId: 'controller-1',
+        constructionSiteId: 'construction-site-1',
         creepName: 'WorkerB',
-        type: 'upgradeController',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('stops assigning additional builders once reserved work covers remaining site work', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'nearly-complete-site',
+            progress: 4900,
+            progressTotal: 4925,
+            roomName: 'W1N1',
+          },
+          {
+            id: 'next-site',
+            progress: 0,
+            progressTotal: 5000,
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'WorkerA',
+            roomName: 'W1N1',
+          },
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'WorkerB',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'nearly-complete-site',
+        creepName: 'WorkerA',
+        type: 'buildConstructionSite',
+      },
+      {
+        constructionSiteId: 'next-site',
+        creepName: 'WorkerB',
+        type: 'buildConstructionSite',
       },
     ]);
   });
@@ -1155,6 +1719,143 @@ describe('bootstrap worker action decision', () => {
       {
         creepName: 'Worker1',
         structureId: 'road-1',
+        type: 'repairStructure',
+      },
+    ]);
+  });
+
+  it('prefers a critical container repair over an id-first road repair', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        repairTargets: [
+          {
+            hits: 1,
+            hitsMax: 5000,
+            id: 'aaa-road',
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 10,
+            y: 11,
+          },
+          {
+            hits: 1000,
+            hitsMax: 5000,
+            id: 'zzz-container',
+            roomName: 'W1N1',
+            structureType: 'container',
+            x: 20,
+            y: 20,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        structureId: 'zzz-container',
+        type: 'repairStructure',
+      },
+    ]);
+  });
+
+  it('uses lower hits ratio before distance and id for same-type repairs', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        repairTargets: [
+          {
+            hits: 900,
+            hitsMax: 5000,
+            id: 'aaa-healthier-road',
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 10,
+            y: 11,
+          },
+          {
+            hits: 100,
+            hitsMax: 5000,
+            id: 'zzz-worse-road',
+            roomName: 'W1N1',
+            structureType: 'road',
+            x: 20,
+            y: 20,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        structureId: 'zzz-worse-road',
         type: 'repairStructure',
       },
     ]);

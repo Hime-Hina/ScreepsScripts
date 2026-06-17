@@ -12,6 +12,8 @@ export interface WorkerCreepSnapshot {
   readonly freeCapacity: number;
   readonly name: string;
   readonly roomName: string;
+  readonly x?: number;
+  readonly y?: number;
 }
 
 export interface WorkerSourceSnapshot {
@@ -43,18 +45,34 @@ export interface WorkerEnergyStructureSnapshot {
   readonly energyCapacity: number;
   readonly id: string;
   readonly roomName: string;
+  readonly structureType?: string;
+  readonly x?: number;
+  readonly y?: number;
 }
 
 export interface WorkerEnergyPickupSnapshot {
   readonly amount: number;
   readonly id: string;
   readonly roomName: string;
+  readonly x?: number;
+  readonly y?: number;
 }
+
+export type WorkerEnergyWithdrawTargetType =
+  | 'container'
+  | 'ruin'
+  | 'storage'
+  | 'structure'
+  | 'terminal'
+  | 'tombstone';
 
 export interface WorkerEnergyWithdrawSnapshot {
   readonly availableEnergy: number;
   readonly id: string;
   readonly roomName: string;
+  readonly targetType?: WorkerEnergyWithdrawTargetType;
+  readonly x?: number;
+  readonly y?: number;
 }
 
 export type WorkerRepairStructureType = 'container' | 'extension' | 'road' | 'spawn';
@@ -138,6 +156,7 @@ export type ControllerDowngradeState = BootstrapControllerDowngradeState & {
 
 const CONTAINER_CRITICAL_HITS_RATIO = 0.25;
 const ROAD_CRITICAL_HITS_RATIO = 0.2;
+const SOURCE_LOCAL_CONSTRUCTION_RANGE = 5;
 
 export const isWorkerRepairStructureType = (
   structureType: string,
@@ -163,7 +182,7 @@ export const planBootstrapWorkerActions = (
   const reservedPickupEnergyById = new Map<string, number>();
   const reservedWithdrawEnergyById = new Map<string, number>();
   const reservedRefillEnergyById = new Map<string, number>();
-  const reservedConstructionSiteIds = new Set<string>();
+  const reservedConstructionWorkById = new Map<string, number>();
   const reservedRepairStructureIds = new Set<string>();
 
   return sortWorkerCreeps(workerWorld.creeps)
@@ -177,7 +196,7 @@ export const planBootstrapWorkerActions = (
         reservedPickupEnergyById,
         reservedWithdrawEnergyById,
         reservedRefillEnergyById,
-        reservedConstructionSiteIds,
+        reservedConstructionWorkById,
         reservedRepairStructureIds,
       ),
     )
@@ -193,13 +212,13 @@ const planBootstrapWorkerAction = (
   reservedPickupEnergyById: Map<string, number>,
   reservedWithdrawEnergyById: Map<string, number>,
   reservedRefillEnergyById: Map<string, number>,
-  reservedConstructionSiteIds: Set<string>,
+  reservedConstructionWorkById: Map<string, number>,
   reservedRepairStructureIds: Set<string>,
 ): WorkerActionDecision | null => {
   if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
     const energyPickup = selectEnergyPickup(
       workerWorld,
-      workerCreep.roomName,
+      workerCreep,
       workerCreep.freeCapacity,
       reservedPickupEnergyById,
     );
@@ -216,7 +235,7 @@ const planBootstrapWorkerAction = (
 
     const energyWithdrawal = selectEnergyWithdrawal(
       workerWorld,
-      workerCreep.roomName,
+      workerCreep,
       workerCreep.freeCapacity,
       reservedWithdrawEnergyById,
     );
@@ -254,7 +273,7 @@ const planBootstrapWorkerAction = (
 
   const depletedEnergyStructure = selectDepletedEnergyStructure(
     workerWorld,
-    workerCreep.roomName,
+    workerCreep,
     reservedRefillEnergyById,
   );
 
@@ -287,7 +306,7 @@ const planBootstrapWorkerAction = (
 
   const repairTarget = selectCriticalRepairTarget(
     workerWorld,
-    workerCreep.roomName,
+    workerCreep,
     reservedRepairStructureIds,
   );
 
@@ -304,11 +323,16 @@ const planBootstrapWorkerAction = (
   const constructionEligibility = selectConstructionEligibility(workerWorld, workerCreep.roomName);
   const constructionSite =
     constructionEligibility?.type === 'constructionAllowed'
-      ? selectConstructionSite(workerWorld, workerCreep.roomName, reservedConstructionSiteIds)
+      ? selectConstructionSite(
+          workerWorld,
+          workerCreep,
+          reservedConstructionWorkById,
+          harvestSourceByCreepName.get(workerCreep.name),
+        )
       : undefined;
 
   if (constructionSite !== undefined) {
-    reservedConstructionSiteIds.add(constructionSite.id);
+    reserveConstructionWork(constructionSite, workerCreep, reservedConstructionWorkById);
 
     return {
       constructionSiteId: constructionSite.id,
@@ -364,54 +388,63 @@ const shouldUpgradeControllerBeforeBuild = (
 
 const selectDepletedEnergyStructure = (
   workerWorld: WorkerWorldSnapshot,
-  roomName: string,
+  workerCreep: WorkerCreepSnapshot,
   reservedRefillEnergyById: ReadonlyMap<string, number>,
 ): WorkerEnergyStructureSnapshot | undefined =>
   workerWorld.energyStructures
     .filter(
       (energyStructureSnapshot) =>
-        energyStructureSnapshot.roomName === roomName &&
-        energyStructureSnapshot.energyCapacity -
-          energyStructureSnapshot.availableEnergy -
-          (reservedRefillEnergyById.get(energyStructureSnapshot.id) ?? 0) >
-          0,
+        energyStructureSnapshot.roomName === workerCreep.roomName &&
+        measureRemainingRefillEnergy(energyStructureSnapshot, reservedRefillEnergyById) > 0,
     )
     .sort((leftEnergyStructure, rightEnergyStructure) =>
-      leftEnergyStructure.id.localeCompare(rightEnergyStructure.id),
+      compareEnergyStructuresForRefill(
+        leftEnergyStructure,
+        rightEnergyStructure,
+        workerCreep,
+        reservedRefillEnergyById,
+      ),
     )[0];
 
 const selectEnergyPickup = (
   workerWorld: WorkerWorldSnapshot,
-  roomName: string,
+  workerCreep: WorkerCreepSnapshot,
   creepFreeCapacity: number,
   reservedPickupEnergyById: ReadonlyMap<string, number>,
 ): WorkerEnergyPickupSnapshot | undefined =>
   workerWorld.energyPickups
     .filter(
       (energyPickup) =>
-        energyPickup.roomName === roomName &&
+        energyPickup.roomName === workerCreep.roomName &&
         energyPickup.amount - (reservedPickupEnergyById.get(energyPickup.id) ?? 0) > 0 &&
         creepFreeCapacity > 0,
     )
-    .sort((leftPickup, rightPickup) => leftPickup.id.localeCompare(rightPickup.id))[0];
+    .sort((leftPickup, rightPickup) =>
+      compareEnergyPickupsForPickup(leftPickup, rightPickup, workerCreep, reservedPickupEnergyById),
+    )[0];
 
 const selectEnergyWithdrawal = (
   workerWorld: WorkerWorldSnapshot,
-  roomName: string,
+  workerCreep: WorkerCreepSnapshot,
   creepFreeCapacity: number,
   reservedWithdrawEnergyById: ReadonlyMap<string, number>,
 ): WorkerEnergyWithdrawSnapshot | undefined =>
   workerWorld.energyWithdrawals
     .filter(
       (energyWithdrawal) =>
-        energyWithdrawal.roomName === roomName &&
+        energyWithdrawal.roomName === workerCreep.roomName &&
         energyWithdrawal.availableEnergy -
           (reservedWithdrawEnergyById.get(energyWithdrawal.id) ?? 0) >
           0 &&
         creepFreeCapacity > 0,
     )
     .sort((leftWithdrawal, rightWithdrawal) =>
-      leftWithdrawal.id.localeCompare(rightWithdrawal.id),
+      compareEnergyWithdrawalsForWithdraw(
+        leftWithdrawal,
+        rightWithdrawal,
+        workerCreep,
+        reservedWithdrawEnergyById,
+      ),
     )[0];
 
 const reserveTargetEnergy = (
@@ -424,20 +457,205 @@ const reserveTargetEnergy = (
   reservedEnergyById.set(targetId, currentReservedEnergy + workerFreeCapacity);
 };
 
+const compareEnergyStructuresForRefill = (
+  leftEnergyStructure: WorkerEnergyStructureSnapshot,
+  rightEnergyStructure: WorkerEnergyStructureSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  reservedRefillEnergyById: ReadonlyMap<string, number>,
+): number => {
+  const leftTypePriority = measureEnergyStructureRefillPriority(leftEnergyStructure);
+  const rightTypePriority = measureEnergyStructureRefillPriority(rightEnergyStructure);
+
+  if (leftTypePriority !== rightTypePriority) {
+    return leftTypePriority - rightTypePriority;
+  }
+
+  const leftRemainingEnergy = measureRemainingRefillEnergy(
+    leftEnergyStructure,
+    reservedRefillEnergyById,
+  );
+  const rightRemainingEnergy = measureRemainingRefillEnergy(
+    rightEnergyStructure,
+    reservedRefillEnergyById,
+  );
+
+  if (leftRemainingEnergy !== rightRemainingEnergy) {
+    return rightRemainingEnergy - leftRemainingEnergy;
+  }
+
+  return compareTargetRangeThenId(leftEnergyStructure, rightEnergyStructure, workerCreep);
+};
+
+const measureRemainingRefillEnergy = (
+  energyStructure: WorkerEnergyStructureSnapshot,
+  reservedRefillEnergyById: ReadonlyMap<string, number>,
+): number =>
+  energyStructure.energyCapacity -
+  energyStructure.availableEnergy -
+  (reservedRefillEnergyById.get(energyStructure.id) ?? 0);
+
+const measureEnergyStructureRefillPriority = (
+  energyStructure: WorkerEnergyStructureSnapshot,
+): number => {
+  switch (energyStructure.structureType) {
+    case 'spawn':
+      return 0;
+
+    case 'extension':
+      return 1;
+
+    case undefined:
+    default:
+      return 2;
+  }
+};
+
+const compareEnergyPickupsForPickup = (
+  leftPickup: WorkerEnergyPickupSnapshot,
+  rightPickup: WorkerEnergyPickupSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  reservedPickupEnergyById: ReadonlyMap<string, number>,
+): number => {
+  const leftRemainingEnergy =
+    leftPickup.amount - (reservedPickupEnergyById.get(leftPickup.id) ?? 0);
+  const rightRemainingEnergy =
+    rightPickup.amount - (reservedPickupEnergyById.get(rightPickup.id) ?? 0);
+
+  if (leftRemainingEnergy !== rightRemainingEnergy) {
+    return rightRemainingEnergy - leftRemainingEnergy;
+  }
+
+  return compareTargetRangeThenId(leftPickup, rightPickup, workerCreep);
+};
+
+const compareEnergyWithdrawalsForWithdraw = (
+  leftWithdrawal: WorkerEnergyWithdrawSnapshot,
+  rightWithdrawal: WorkerEnergyWithdrawSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  reservedWithdrawEnergyById: ReadonlyMap<string, number>,
+): number => {
+  const leftTypePriority = measureEnergyWithdrawalPriority(leftWithdrawal);
+  const rightTypePriority = measureEnergyWithdrawalPriority(rightWithdrawal);
+
+  if (leftTypePriority !== rightTypePriority) {
+    return leftTypePriority - rightTypePriority;
+  }
+
+  const leftRemainingEnergy =
+    leftWithdrawal.availableEnergy - (reservedWithdrawEnergyById.get(leftWithdrawal.id) ?? 0);
+  const rightRemainingEnergy =
+    rightWithdrawal.availableEnergy - (reservedWithdrawEnergyById.get(rightWithdrawal.id) ?? 0);
+
+  if (leftRemainingEnergy !== rightRemainingEnergy) {
+    return rightRemainingEnergy - leftRemainingEnergy;
+  }
+
+  return compareTargetRangeThenId(leftWithdrawal, rightWithdrawal, workerCreep);
+};
+
+const measureEnergyWithdrawalPriority = (
+  energyWithdrawal: WorkerEnergyWithdrawSnapshot,
+): number => {
+  switch (energyWithdrawal.targetType) {
+    case 'container':
+      return 0;
+
+    case 'storage':
+    case 'terminal':
+      return 1;
+
+    case 'structure':
+      return 2;
+
+    case 'tombstone':
+      return 3;
+
+    case 'ruin':
+      return 4;
+
+    case undefined:
+    default:
+      return 5;
+  }
+};
+
+const compareRepairTargetsForRepair = (
+  leftRepairTarget: WorkerRepairTargetSnapshot,
+  rightRepairTarget: WorkerRepairTargetSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+): number => {
+  const leftTypePriority = measureRepairTargetPriority(leftRepairTarget);
+  const rightTypePriority = measureRepairTargetPriority(rightRepairTarget);
+
+  if (leftTypePriority !== rightTypePriority) {
+    return leftTypePriority - rightTypePriority;
+  }
+
+  const leftHitsRatio = leftRepairTarget.hits / leftRepairTarget.hitsMax;
+  const rightHitsRatio = rightRepairTarget.hits / rightRepairTarget.hitsMax;
+
+  if (leftHitsRatio !== rightHitsRatio) {
+    return leftHitsRatio - rightHitsRatio;
+  }
+
+  return compareTargetRangeThenId(leftRepairTarget, rightRepairTarget, workerCreep);
+};
+
+const measureRepairTargetPriority = (repairTarget: WorkerRepairTargetSnapshot): number => {
+  switch (repairTarget.structureType) {
+    case 'container':
+    case 'extension':
+    case 'spawn':
+      return 0;
+
+    case 'road':
+      return 1;
+  }
+};
+
+const compareTargetRangeThenId = (
+  leftTarget: { readonly id: string; readonly x?: number; readonly y?: number },
+  rightTarget: { readonly id: string; readonly x?: number; readonly y?: number },
+  workerCreep: WorkerCreepSnapshot,
+): number => {
+  const leftRange = measureOptionalRange(workerCreep, leftTarget);
+  const rightRange = measureOptionalRange(workerCreep, rightTarget);
+
+  if (leftRange !== rightRange) {
+    return leftRange - rightRange;
+  }
+
+  return leftTarget.id.localeCompare(rightTarget.id);
+};
+
+const measureOptionalRange = (
+  leftPosition: { readonly x?: number; readonly y?: number },
+  rightPosition: { readonly x?: number; readonly y?: number },
+): number =>
+  leftPosition.x === undefined ||
+  leftPosition.y === undefined ||
+  rightPosition.x === undefined ||
+  rightPosition.y === undefined
+    ? Number.POSITIVE_INFINITY
+    : measureRange(
+        { x: leftPosition.x, y: leftPosition.y },
+        { x: rightPosition.x, y: rightPosition.y },
+      );
+
 const selectCriticalRepairTarget = (
   workerWorld: WorkerWorldSnapshot,
-  roomName: string,
+  workerCreep: WorkerCreepSnapshot,
   reservedRepairStructureIds: ReadonlySet<string>,
 ): WorkerRepairTargetSnapshot | undefined =>
   workerWorld.repairTargets
     .filter(
       (repairTarget) =>
-        repairTarget.roomName === roomName &&
+        repairTarget.roomName === workerCreep.roomName &&
         !reservedRepairStructureIds.has(repairTarget.id) &&
         isCriticalRepairTarget(repairTarget),
     )
     .sort((leftRepairTarget, rightRepairTarget) =>
-      leftRepairTarget.id.localeCompare(rightRepairTarget.id),
+      compareRepairTargetsForRepair(leftRepairTarget, rightRepairTarget, workerCreep),
     )[0];
 
 const isCriticalRepairTarget = (repairTarget: WorkerRepairTargetSnapshot): boolean => {
@@ -461,28 +679,75 @@ const isBelowRepairRatio = (
 
 const selectConstructionSite = (
   workerWorld: WorkerWorldSnapshot,
-  roomName: string,
-  reservedConstructionSiteIds: ReadonlySet<string>,
-): WorkerConstructionSiteSnapshot | undefined =>
-  workerWorld.constructionSites
-    .filter(
-      (constructionSiteSnapshot) =>
-        constructionSiteSnapshot.roomName === roomName &&
-        !reservedConstructionSiteIds.has(constructionSiteSnapshot.id),
-    )
-    .sort(compareConstructionSitesForBuild(workerWorld))[0];
+  workerCreep: WorkerCreepSnapshot,
+  reservedConstructionWorkById: ReadonlyMap<string, number>,
+  assignedSource: WorkerSourceSnapshot | undefined,
+): WorkerConstructionSiteSnapshot | undefined => {
+  const candidateConstructionSites = workerWorld.constructionSites.filter(
+    (constructionSiteSnapshot) =>
+      constructionSiteSnapshot.roomName === workerCreep.roomName &&
+      measureRemainingConstructionWork(constructionSiteSnapshot, reservedConstructionWorkById) > 0,
+  );
+  const sourceLocalitySource = candidateConstructionSites.some((constructionSite) =>
+    isSourceLocalConstructionSiteAssignedToSource(workerWorld, constructionSite, assignedSource),
+  )
+    ? assignedSource
+    : undefined;
+
+  return candidateConstructionSites.sort(
+    compareConstructionSitesForBuild(workerWorld, sourceLocalitySource),
+  )[0];
+};
+
+const reserveConstructionWork = (
+  constructionSite: WorkerConstructionSiteSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  reservedConstructionWorkById: Map<string, number>,
+): void => {
+  const currentReservedWork = reservedConstructionWorkById.get(constructionSite.id) ?? 0;
+
+  reservedConstructionWorkById.set(
+    constructionSite.id,
+    currentReservedWork + estimateWorkerConstructionWork(workerCreep),
+  );
+};
+
+const measureRemainingConstructionWork = (
+  constructionSite: WorkerConstructionSiteSnapshot,
+  reservedConstructionWorkById: ReadonlyMap<string, number>,
+): number =>
+  constructionSite.progressTotal === undefined
+    ? Number.POSITIVE_INFINITY
+    : constructionSite.progressTotal -
+      (constructionSite.progress ?? 0) -
+      (reservedConstructionWorkById.get(constructionSite.id) ?? 0);
+
+const estimateWorkerConstructionWork = (workerCreep: WorkerCreepSnapshot): number =>
+  Math.max(workerCreep.energy, 0);
 
 const compareConstructionSitesForBuild =
-  (workerWorld: WorkerWorldSnapshot) =>
+  (workerWorld: WorkerWorldSnapshot, assignedSource: WorkerSourceSnapshot | undefined) =>
   (
     leftConstructionSite: WorkerConstructionSiteSnapshot,
     rightConstructionSite: WorkerConstructionSiteSnapshot,
   ): number => {
-    const leftPriority = measureConstructionSiteBuildPriority(workerWorld, leftConstructionSite);
-    const rightPriority = measureConstructionSiteBuildPriority(workerWorld, rightConstructionSite);
+    const leftPriority = measureConstructionSiteBuildPriority(
+      workerWorld,
+      leftConstructionSite,
+      assignedSource,
+    );
+    const rightPriority = measureConstructionSiteBuildPriority(
+      workerWorld,
+      rightConstructionSite,
+      assignedSource,
+    );
 
     if (leftPriority.structurePriority !== rightPriority.structurePriority) {
       return leftPriority.structurePriority - rightPriority.structurePriority;
+    }
+
+    if (leftPriority.assignedSourceLocality !== rightPriority.assignedSourceLocality) {
+      return leftPriority.assignedSourceLocality - rightPriority.assignedSourceLocality;
     }
 
     if (leftPriority.nearestSourceRange !== rightPriority.nearestSourceRange) {
@@ -499,11 +764,18 @@ const compareConstructionSitesForBuild =
 const measureConstructionSiteBuildPriority = (
   workerWorld: WorkerWorldSnapshot,
   constructionSite: WorkerConstructionSiteSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
 ): {
+  readonly assignedSourceLocality: number;
   readonly nearestSourceRange: number;
   readonly progress: number;
   readonly structurePriority: number;
 } => ({
+  assignedSourceLocality: measureAssignedSourceLocality(
+    workerWorld,
+    constructionSite,
+    assignedSource,
+  ),
   nearestSourceRange:
     constructionSite.structureType === 'road'
       ? measureNearestSourceRange(workerWorld, constructionSite)
@@ -527,6 +799,67 @@ const measureConstructionSiteStructurePriority = (
     default:
       return 2;
   }
+};
+
+const measureAssignedSourceLocality = (
+  workerWorld: WorkerWorldSnapshot,
+  constructionSite: WorkerConstructionSiteSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+): number =>
+  assignedSource !== undefined &&
+  isSourceLocalConstructionSite(workerWorld, constructionSite) &&
+  selectNearestSource(workerWorld, constructionSite)?.id !== assignedSource.id
+    ? 1
+    : 0;
+
+const isSourceLocalConstructionSiteAssignedToSource = (
+  workerWorld: WorkerWorldSnapshot,
+  constructionSite: WorkerConstructionSiteSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+): boolean =>
+  assignedSource !== undefined &&
+  isSourceLocalConstructionSite(workerWorld, constructionSite) &&
+  selectNearestSource(workerWorld, constructionSite)?.id === assignedSource.id;
+
+const isSourceLocalConstructionSite = (
+  workerWorld: WorkerWorldSnapshot,
+  constructionSite: WorkerConstructionSiteSnapshot,
+): boolean =>
+  (constructionSite.structureType === 'container' || constructionSite.structureType === 'road') &&
+  measureNearestSourceRange(workerWorld, constructionSite) <= SOURCE_LOCAL_CONSTRUCTION_RANGE;
+
+const selectNearestSource = (
+  workerWorld: WorkerWorldSnapshot,
+  constructionSite: WorkerConstructionSiteSnapshot,
+): WorkerSourceSnapshot | undefined => {
+  if (constructionSite.x === undefined || constructionSite.y === undefined) {
+    return undefined;
+  }
+
+  return workerWorld.sources
+    .filter((sourceSnapshot) => sourceSnapshot.roomName === constructionSite.roomName)
+    .flatMap((sourceSnapshot) =>
+      sourceSnapshot.x === undefined || sourceSnapshot.y === undefined
+        ? []
+        : [
+            {
+              range: measureRange(
+                { x: constructionSite.x!, y: constructionSite.y! },
+                { x: sourceSnapshot.x, y: sourceSnapshot.y },
+              ),
+              sourceSnapshot,
+            },
+          ],
+    )
+    .sort((leftSourceDistance, rightSourceDistance) => {
+      if (leftSourceDistance.range !== rightSourceDistance.range) {
+        return leftSourceDistance.range - rightSourceDistance.range;
+      }
+
+      return leftSourceDistance.sourceSnapshot.id.localeCompare(
+        rightSourceDistance.sourceSnapshot.id,
+      );
+    })[0]?.sourceSnapshot;
 };
 
 const measureNearestSourceRange = (
@@ -573,6 +906,21 @@ const compareConstructionSitePosition = (
   }
 
   return leftConstructionSite.id.localeCompare(rightConstructionSite.id);
+};
+
+const compareSourcePositions = (
+  leftSource: WorkerSourceSnapshot,
+  rightSource: WorkerSourceSnapshot,
+): number => {
+  if (leftSource.y !== rightSource.y) {
+    return (leftSource.y ?? Number.POSITIVE_INFINITY) - (rightSource.y ?? Number.POSITIVE_INFINITY);
+  }
+
+  if (leftSource.x !== rightSource.x) {
+    return (leftSource.x ?? Number.POSITIVE_INFINITY) - (rightSource.x ?? Number.POSITIVE_INFINITY);
+  }
+
+  return leftSource.id.localeCompare(rightSource.id);
 };
 
 const selectConstructionEligibility = (
@@ -659,7 +1007,7 @@ const assignHarvestSources = (
   for (const roomName of sourceRoomNames) {
     const roomSources = workerWorld.sources
       .filter((sourceSnapshot) => sourceSnapshot.roomName === roomName)
-      .sort((leftSource, rightSource) => leftSource.id.localeCompare(rightSource.id));
+      .sort(compareSourcePositions);
     const roomCreeps = workerWorld.creeps
       .filter((workerCreep) => workerCreep.roomName === roomName)
       .sort((leftCreep, rightCreep) => leftCreep.name.localeCompare(rightCreep.name));

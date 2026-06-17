@@ -1,20 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const TEST_FIND_CONSTRUCTION_SITES = 107;
+const TEST_FIND_CONSTRUCTION_SITES = 111;
 const TEST_FIND_DROPPED_RESOURCES = 106;
 const TEST_FIND_HOSTILE_CREEPS = 103;
-const TEST_FIND_MY_CONSTRUCTION_SITES = 108;
-const TEST_FIND_MY_STRUCTURES = 109;
-const TEST_FIND_MINERALS = 110;
+const TEST_FIND_MY_CONSTRUCTION_SITES = 114;
+const TEST_FIND_MY_STRUCTURES = 108;
+const TEST_FIND_MINERALS = 116;
 const TEST_FIND_RUINS = 123;
 const TEST_FIND_SOURCES = 105;
-const TEST_FIND_STRUCTURES = 111;
+const TEST_FIND_STRUCTURES = 107;
 const TEST_FIND_TOMBSTONES = 118;
 const TEST_STRUCTURE_CONTAINER = 'container';
 const TEST_STRUCTURE_EXTENSION = 'extension';
 const TEST_STRUCTURE_RAMPART = 'rampart';
 const TEST_STRUCTURE_ROAD = 'road';
 const TEST_STRUCTURE_SPAWN = 'spawn';
+const TEST_STRUCTURE_STORAGE = 'storage';
+const TEST_STRUCTURE_TERMINAL = 'terminal';
 const TEST_STRUCTURE_TOWER = 'tower';
 const TEST_STRUCTURE_WALL = 'constructedWall';
 const TEST_ATTACK = 'attack';
@@ -131,6 +133,8 @@ describe('Screeps main loop', () => {
     vi.stubGlobal('STRUCTURE_RAMPART', TEST_STRUCTURE_RAMPART);
     vi.stubGlobal('STRUCTURE_ROAD', TEST_STRUCTURE_ROAD);
     vi.stubGlobal('STRUCTURE_SPAWN', TEST_STRUCTURE_SPAWN);
+    vi.stubGlobal('STRUCTURE_STORAGE', TEST_STRUCTURE_STORAGE);
+    vi.stubGlobal('STRUCTURE_TERMINAL', TEST_STRUCTURE_TERMINAL);
     vi.stubGlobal('STRUCTURE_TOWER', TEST_STRUCTURE_TOWER);
     vi.stubGlobal('STRUCTURE_WALL', TEST_STRUCTURE_WALL);
     vi.stubGlobal('SPAWN_ENERGY_CAPACITY', TEST_SPAWN_ENERGY_CAPACITY);
@@ -299,6 +303,70 @@ describe('Screeps main loop', () => {
     });
     expect(spawnRequests).toEqual([
       [['work', 'carry', 'carry', 'move', 'move'], 'Spawn1-worker-27'],
+    ]);
+  });
+
+  it('uses room-level spawn and extension energy for worker body selection', async () => {
+    const spawnRequests: unknown[] = [];
+    const firstSpawn = {
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+      },
+      spawnCreep: (...spawnArguments: unknown[]) => spawnRequests.push(spawnArguments),
+      spawning: null,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    } as {
+      readonly name: string;
+      readonly pos: { readonly roomName: string };
+      readonly spawnCreep: (...spawnArguments: unknown[]) => number;
+      readonly spawning: null;
+      readonly store: {
+        readonly getCapacity: () => number;
+        readonly getUsedCapacity: () => number;
+      };
+      room?: unknown;
+    };
+    const room = {
+      controller: undefined,
+      energyAvailable: 550,
+      energyCapacityAvailable: 550,
+      find: () => [],
+      name: 'W1N1',
+    };
+    firstSpawn.room = room;
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.58),
+      getObjectById: () => null,
+      notify: () => undefined,
+      rooms: {
+        W1N1: room,
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 28,
+    });
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(spawnRequests).toEqual([
+      [
+        ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+        'Spawn1-worker-28',
+      ],
     ]);
   });
 
@@ -746,6 +814,11 @@ describe('Screeps main loop', () => {
       findType: TEST_FIND_MY_STRUCTURES,
       targetId: 'storage-1',
       targetStructureType: 'storage',
+    },
+    {
+      findType: TEST_FIND_STRUCTURES,
+      targetId: 'container-1',
+      targetStructureType: TEST_STRUCTURE_CONTAINER,
     },
   ])('withdraws captured energy from $targetId through the runtime boundary', async (testCase) => {
     const withdrawTargets: unknown[] = [];

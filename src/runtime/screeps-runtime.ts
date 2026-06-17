@@ -131,8 +131,8 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
       .length,
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
-    availableEnergy: spawn.store.getUsedCapacity(RESOURCE_ENERGY),
-    energyCapacity: SPAWN_ENERGY_CAPACITY,
+    availableEnergy: readSpawnRoomEnergyAvailable(spawn),
+    energyCapacity: readSpawnRoomEnergyCapacityAvailable(spawn),
     isSpawning: spawn.spawning !== null,
     name: spawn.name,
     roomName: spawn.pos.roomName,
@@ -162,13 +162,23 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
     workerCreepCount: countRoomWorkerCreeps(room.name),
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
-    availableEnergy: spawn.store.getUsedCapacity(RESOURCE_ENERGY),
-    energyCapacity: SPAWN_ENERGY_CAPACITY,
+    availableEnergy: readSpawnRoomEnergyAvailable(spawn),
+    energyCapacity: readSpawnRoomEnergyCapacityAvailable(spawn),
     isSpawning: spawn.spawning !== null,
     name: spawn.name,
     roomName: spawn.pos.roomName,
   })),
 });
+
+const readSpawnRoomEnergyAvailable = (spawn: StructureSpawn): number =>
+  spawn.room?.energyAvailable ??
+  Game.rooms[spawn.pos.roomName]?.energyAvailable ??
+  spawn.store.getUsedCapacity(RESOURCE_ENERGY);
+
+const readSpawnRoomEnergyCapacityAvailable = (spawn: StructureSpawn): number =>
+  spawn.room?.energyCapacityAvailable ??
+  Game.rooms[spawn.pos.roomName]?.energyCapacityAvailable ??
+  SPAWN_ENERGY_CAPACITY;
 
 const captureConstructionWorld = (): ConstructionWorldSnapshot => ({
   controllerStructureLimits: {
@@ -308,6 +318,8 @@ const captureWorkerWorld = (
         amount: resource.amount,
         id: resource.id,
         roomName: resource.pos.roomName,
+        x: resource.pos.x,
+        y: resource.pos.y,
       })),
   ),
   energyWithdrawals: Object.values(Game.rooms).flatMap(captureRoomEnergyWithdrawals),
@@ -348,6 +360,9 @@ const captureWorkerWorld = (
         energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
         id: energyStructure.id,
         roomName: energyStructure.pos.roomName,
+        structureType: energyStructure.structureType,
+        x: energyStructure.pos.x,
+        y: energyStructure.pos.y,
       })),
   ),
   repairTargets: Object.values(Game.rooms).flatMap(captureRoomRepairTargets),
@@ -393,6 +408,8 @@ const captureSurvivalWorkerWorld = (
         amount: resource.amount,
         id: resource.id,
         roomName: resource.pos.roomName,
+        x: resource.pos.x,
+        y: resource.pos.y,
       })),
   ),
   energyWithdrawals: Object.values(Game.rooms).flatMap(captureRoomEnergyWithdrawals),
@@ -423,6 +440,9 @@ const captureSurvivalWorkerWorld = (
         energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
         id: energyStructure.id,
         roomName: energyStructure.pos.roomName,
+        structureType: energyStructure.structureType,
+        x: energyStructure.pos.x,
+        y: energyStructure.pos.y,
       })),
   ),
   repairTargets: [],
@@ -447,6 +467,8 @@ const captureWorkerCreepSnapshot = (creep: Creep): WorkerWorldSnapshot['creeps']
     freeCapacity,
     name: creep.name,
     roomName: creep.room.name,
+    x: creep.pos?.x,
+    y: creep.pos?.y,
   };
 };
 
@@ -567,29 +589,46 @@ const toWorkerRepairTargetSnapshot = (
 const countRoomWorkerCreeps = (roomName: string): number =>
   Object.values(Game.creeps).filter((creep) => creep.room.name === roomName).length;
 
-const captureRoomEnergyWithdrawals = (
-  room: Room,
-): readonly {
-  readonly availableEnergy: number;
-  readonly id: string;
-  readonly roomName: string;
-}[] => [
-  ...room.find(FIND_TOMBSTONES).flatMap(toEnergyWithdrawalSnapshot),
-  ...room.find(FIND_RUINS).flatMap(toEnergyWithdrawalSnapshot),
-  ...room
-    .find(FIND_MY_STRUCTURES)
-    .filter(isOwnedEnergyWithdrawalStructure)
-    .flatMap(toEnergyWithdrawalSnapshot),
-];
+const captureRoomEnergyWithdrawals = (room: Room): WorkerWorldSnapshot['energyWithdrawals'] => {
+  const energyWithdrawalsById = new Map<string, WorkerWorldSnapshot['energyWithdrawals'][number]>();
+
+  for (const energyWithdrawal of [
+    ...room
+      .find(FIND_TOMBSTONES)
+      .flatMap((tombstone) => toEnergyWithdrawalSnapshot(tombstone, 'tombstone')),
+    ...room.find(FIND_RUINS).flatMap((ruin) => toEnergyWithdrawalSnapshot(ruin, 'ruin')),
+    ...room
+      .find(FIND_MY_STRUCTURES)
+      .filter(isOwnedEnergyWithdrawalStructure)
+      .flatMap((structure) =>
+        toEnergyWithdrawalSnapshot(structure, selectStructureWithdrawalTargetType(structure)),
+      ),
+    ...room
+      .find(FIND_STRUCTURES)
+      .filter(isContainerStructure)
+      .flatMap((container) => toEnergyWithdrawalSnapshot(container, 'container')),
+  ]) {
+    energyWithdrawalsById.set(energyWithdrawal.id, energyWithdrawal);
+  }
+
+  return [...energyWithdrawalsById.values()];
+};
 
 const toEnergyWithdrawalSnapshot = (
   storeObject: RoomObject & { readonly id: string; readonly store: StoreDefinition },
+  targetType: Exclude<WorkerWorldSnapshot['energyWithdrawals'][number]['targetType'], undefined>,
 ):
   | readonly [
       {
         readonly availableEnergy: number;
         readonly id: string;
         readonly roomName: string;
+        readonly targetType: Exclude<
+          WorkerWorldSnapshot['energyWithdrawals'][number]['targetType'],
+          undefined
+        >;
+        readonly x?: number;
+        readonly y?: number;
       },
     ]
   | readonly [] => {
@@ -604,6 +643,9 @@ const toEnergyWithdrawalSnapshot = (
       availableEnergy,
       id: storeObject.id,
       roomName: storeObject.pos.roomName,
+      targetType,
+      x: storeObject.pos.x,
+      y: storeObject.pos.y,
     },
   ];
 };
@@ -612,6 +654,23 @@ const isOwnedEnergyWithdrawalStructure = (
   structure: AnyOwnedStructure,
 ): structure is AnyOwnedStructure & { readonly store: StoreDefinition } =>
   !isWorkerEnergyStructure(structure) && 'store' in structure;
+
+const isContainerStructure = (structure: Structure): structure is StructureContainer =>
+  structure.structureType === STRUCTURE_CONTAINER;
+
+const selectStructureWithdrawalTargetType = (
+  structure: AnyOwnedStructure,
+): Exclude<WorkerWorldSnapshot['energyWithdrawals'][number]['targetType'], undefined> => {
+  if (structure.structureType === STRUCTURE_STORAGE) {
+    return 'storage';
+  }
+
+  if (structure.structureType === STRUCTURE_TERMINAL) {
+    return 'terminal';
+  }
+
+  return 'structure';
+};
 
 const executeConstructionDecisions = (
   constructionDecisions: readonly ConstructionDecision[],

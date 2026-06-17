@@ -132,6 +132,41 @@ Suggested build-site ordering:
 
 Avoid adding a broad reservation/pathing framework in this task.
 
+## Part 3: Assigned-source construction locality
+
+### Current failure
+
+Workers are already assigned to sources for harvesting in `assignHarvestSources`, but that assignment is not passed into `selectConstructionSite`. Build target selection is therefore room-global. When both source routes have containers/roads, every worker can pick the same best-ranked source-side site, especially if one route already has more progress.
+
+### Target contract
+
+Working workers should prefer source-local construction when their assigned source has useful source-side work:
+
+```text
+assigned source local container/road frontier -> room-global bootstrap construction fallback -> upgrade
+```
+
+Locality applies only among source-side infrastructure. Extension refill/build, controller downgrade guard, critical repair, and non-source fallback priorities remain unchanged.
+
+### Data required
+
+No new runtime global access is needed. Existing snapshots already expose enough facts:
+
+- `WorkerCreepSnapshot.name` for deterministic source assignment;
+- `WorkerSourceSnapshot.id/x/y/roomName`;
+- `WorkerConstructionSiteSnapshot.structureType/x/y/progress/progressTotal`.
+
+### Selection rule
+
+When comparing construction sites for a worker with an assigned source:
+
+1. Keep structure priority first: extension/container before roads before unknowns.
+2. For source-local structures (`container` and `road` near a source), prefer sites whose nearest source is the worker's assigned source.
+3. Within that local group, keep useful frontier behavior: closer-to-assigned-source roads, progressed equivalent sites, then stable position/id tie-breakers.
+4. If no site belongs to the assigned source, fall back to the existing room-global strategic ordering.
+
+The rule intentionally does not avoid placing or building source-adjacent containers. Containers are walkable in Screeps and do not reduce available mining positions.
+
 ## Testing design
 
 ### Creep unit tests
@@ -170,7 +205,9 @@ Add worker decision tests:
 
 - construction site id order alone does not determine build target;
 - source-frontier road/container site wins over unrelated road site;
-- already-progressed useful frontier site is preferred over starting a different equivalent site.
+- already-progressed useful frontier site is preferred over starting a different equivalent site;
+- workers assigned to different sources choose different source-local container/road targets when both sources have useful work;
+- assigned-source locality wins over progressed equivalent source-side work on another source, with room-global fallback when the assigned source has no local target.
 
 ## Operational rollout
 

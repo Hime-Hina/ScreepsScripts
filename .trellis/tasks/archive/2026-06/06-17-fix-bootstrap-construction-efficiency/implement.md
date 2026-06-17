@@ -44,7 +44,10 @@
   - planner emits only a small frontier, not all missing road positions;
   - existing road sites/roads on the path are skipped and counted as part of the frontier;
   - high unrelated backlog does not add more scattered roads.
-- [ ] Add failing tests in `test/unit/creeps/worker-decision.test.ts` for construction-site target priority if worker selection must change.
+- [ ] Add failing tests in `test/unit/creeps/worker-decision.test.ts` for construction-site target priority if worker selection must change:
+  - two workers assigned to different sources choose source-local construction targets;
+  - assigned-source local work beats progressed equivalent source-side work on another source;
+  - worker falls back to room-global construction priority when the assigned source has no local target.
 - [ ] Verify RED.
 
 ## Slice 4: Road-frontier implementation
@@ -56,6 +59,8 @@
 - [ ] Ensure existing structures/sites on the intended path are skipped but influence frontier selection.
 - [ ] If necessary, extend `WorkerConstructionSiteSnapshot` and runtime capture with `structureType`, `x`, `y`, and progress fields.
 - [ ] Replace id-only construction-site selection with strategic deterministic ordering.
+- [ ] Pass each worker's assigned source into construction-site selection and prefer assigned-source-local container/road targets before equivalent other-source work.
+- [ ] Do not change source-adjacent container placement solely to avoid mining-slot loss; containers are walkable and may be used as miner standing tiles.
 - [ ] Run focused construction and creep tests until GREEN.
 
 ## Slice 5: Documentation/spec updates

@@ -36,6 +36,16 @@ cpuBucket=10000
 
 The room is healthy, but construction work is fragmented. Road construction should prioritize source-side logistics benefit and complete contiguous route segments instead of scattering sites.
 
+### Source-local build target selection
+
+After source-side construction sites exist, worker build decisions are still room-global. Workers are already assigned to sources for harvesting, but the construction-site selector does not use that assignment when choosing build targets. In a two-source room this can make workers from both source assignments converge on the same source-side container/road frontier, leaving the other source-side logistics route underbuilt.
+
+The desired behavior is local: when a working worker has an assigned source and source-local construction exists near that source, it should prefer that source's container/road frontier before equivalent sites near the other source. If its assigned source has no useful local construction, the worker may fall back to the room-global bootstrap priority.
+
+### Container mining-slot concern
+
+Source-adjacent containers do not reduce mining positions: Screeps containers are walkable and are not part of `OBSTACLE_OBJECT_TYPES`. A creep can stand on a container and harvest. Therefore this task does not need to move containers away from source-adjacent mining tiles. The remaining issue is construction labor locality, not container passability.
+
 ## Requirements
 
 - Preserve current survival priorities:
@@ -50,6 +60,9 @@ The room is healthy, but construction work is fragmented. Road construction shou
 - Road planner must prefer source logistics before controller logistics.
 - Road planner must create/advance a contiguous frontier from the source/container anchor side toward spawn, not from spawn outward and not across all routes at once.
 - Worker construction-site selection must not rely on arbitrary construction-site id ordering for roads.
+- Worker construction-site selection must use the worker's assigned source when choosing between equivalent source-side container/road sites.
+- A worker assigned to one source should prefer useful construction near that source over equivalent or higher-progress source-side work near a different source, unless no local source-side target exists.
+- Source-adjacent containers may remain on walkable mining tiles; do not add avoid-container-mining-seat logic unless future evidence shows pathing or traffic contention.
 - Existing live road backlog must be handled safely: either code must focus the useful source-side frontier despite old sites, or a separate explicit live cleanup/deploy step must be requested before removing existing construction sites.
 - Do not deploy, remove live construction sites, write Screeps console state, or mutate live Memory without explicit approval for that operational step.
 
@@ -74,6 +87,9 @@ The room is healthy, but construction work is fragmented. Road construction shou
 - [ ] Construction planner tests prove road decisions advance from source/container anchor toward spawn.
 - [ ] Construction planner tests prove new road site fan-out is bounded to a small frontier rather than whole-route site creation.
 - [ ] Worker construction-site tests prove site selection follows strategic priority for source/container/frontier work and does not sort only by construction-site id.
+- [ ] Worker construction-site tests prove two workers assigned to different sources choose source-local build targets instead of converging on one source-side route.
+- [ ] Worker construction-site tests prove source-locality beats progressed equivalent source-side work on a different assigned source, with deterministic fallback when the assigned source has no local target.
+- [ ] Task documentation records that containers are walkable and do not reduce mining slots.
 - [ ] `pnpm vitest run test/unit/creeps/worker-decision.test.ts test/unit/construction/construction-planner.test.ts` passes.
 - [ ] `pnpm check` passes.
 - [ ] `git diff --check` passes.
