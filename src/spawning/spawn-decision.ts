@@ -66,10 +66,56 @@ const EARLY_WORKER_BODIES = [
   INITIAL_WORKER_BODY,
 ] as const satisfies readonly (readonly SpawnBodyPart[])[];
 
+const SURVIVAL_WORKER_REQUEST_PRIORITY = 200;
+const RCL2_DEVELOPMENT_WORKER_REQUEST_PRIORITY = 100;
+
+type SpawnRequestType = 'survivalWorker' | 'rcl2DevelopmentWorker';
+
+interface SpawnRequest {
+  readonly bodyOptions: readonly (readonly SpawnBodyPart[])[];
+  readonly priority: number;
+  readonly requestType: SpawnRequestType;
+  readonly roomName: string;
+  readonly spawnName: string;
+}
+
+interface IndexedSpawnRequest extends SpawnRequest {
+  readonly order: number;
+}
+
+const EARLY_WORKER_BODY_CATALOG: Readonly<
+  Record<SpawnRequestType, readonly (readonly SpawnBodyPart[])[]>
+> = {
+  rcl2DevelopmentWorker: EARLY_WORKER_BODIES,
+  survivalWorker: EARLY_WORKER_BODIES,
+};
+
 export const planBootstrapWorkerSpawn = (
   spawningWorld: SpawningWorldSnapshot,
-): SpawnDecision | null => {
-  for (const spawnSnapshot of spawningWorld.spawns) {
+): SpawnDecision | null =>
+  createSpawnDecision(
+    selectHighestPriorityExecutableRequest(
+      createBootstrapWorkerRequests(spawningWorld),
+      spawningWorld,
+    ),
+    spawningWorld.gameTime,
+  );
+
+export const planBootstrapSurvivalWorkerSpawn = (
+  spawningWorld: SpawningWorldSnapshot,
+): SpawnDecision | null =>
+  createSpawnDecision(
+    selectHighestPriorityExecutableRequest(
+      createBootstrapSurvivalWorkerRequests(spawningWorld),
+      spawningWorld,
+    ),
+    spawningWorld.gameTime,
+  );
+
+const createBootstrapWorkerRequests = (
+  spawningWorld: SpawningWorldSnapshot,
+): readonly IndexedSpawnRequest[] =>
+  spawningWorld.spawns.flatMap((spawnSnapshot, order) => {
     const spawningRoom = readSpawningRoom(spawningWorld, spawnSnapshot.roomName);
     const workerDemand = selectBootstrapWorkerDemand({
       constructionBacklogEnergy: calculateConstructionBacklogEnergy(spawningRoom, spawningWorld),
@@ -84,57 +130,125 @@ export const planBootstrapWorkerSpawn = (
     });
 
     if (spawningRoom.workerCreepCount >= workerDemand.targetWorkerCount) {
-      continue;
+      return [];
     }
 
-    if (spawnSnapshot.isSpawning) {
-      continue;
-    }
+    return [
+      createSpawnRequest({
+        order,
+        requestType: selectSpawnRequestType(workerDemand.type),
+        spawnSnapshot,
+      }),
+    ];
+  });
 
-    const workerBody = selectEarlyWorkerBody(spawnSnapshot, spawningWorld.bodyPartCosts);
-
-    if (workerBody === null) {
-      continue;
-    }
-
-    return {
-      body: workerBody,
-      creepName: `${spawnSnapshot.name}-worker-${spawningWorld.gameTime}`,
-      spawnName: spawnSnapshot.name,
-    };
-  }
-
-  return null;
-};
-
-export const planBootstrapSurvivalWorkerSpawn = (
+const createBootstrapSurvivalWorkerRequests = (
   spawningWorld: SpawningWorldSnapshot,
-): SpawnDecision | null => {
-  for (const spawnSnapshot of spawningWorld.spawns) {
+): readonly IndexedSpawnRequest[] =>
+  spawningWorld.spawns.flatMap((spawnSnapshot, order) => {
     const spawningRoom = readSpawningRoom(spawningWorld, spawnSnapshot.roomName);
 
     if (spawningRoom.workerCreepCount >= BOOTSTRAP_SURVIVAL_WORKER_COUNT) {
-      continue;
+      return [];
     }
+
+    return [
+      createSpawnRequest({
+        order,
+        requestType: 'survivalWorker',
+        spawnSnapshot,
+      }),
+    ];
+  });
+
+const createSpawnRequest = ({
+  order,
+  requestType,
+  spawnSnapshot,
+}: {
+  readonly order: number;
+  readonly requestType: SpawnRequestType;
+  readonly spawnSnapshot: SpawnSnapshot;
+}): IndexedSpawnRequest => ({
+  bodyOptions: EARLY_WORKER_BODY_CATALOG[requestType],
+  order,
+  priority: readSpawnRequestPriority(requestType),
+  requestType,
+  roomName: spawnSnapshot.roomName,
+  spawnName: spawnSnapshot.name,
+});
+
+const selectSpawnRequestType = (
+  workerDemandType: ReturnType<typeof selectBootstrapWorkerDemand>['type'],
+): SpawnRequestType =>
+  workerDemandType === 'survivalWorkerDemand' ? 'survivalWorker' : 'rcl2DevelopmentWorker';
+
+const readSpawnRequestPriority = (requestType: SpawnRequestType): number =>
+  requestType === 'survivalWorker'
+    ? SURVIVAL_WORKER_REQUEST_PRIORITY
+    : RCL2_DEVELOPMENT_WORKER_REQUEST_PRIORITY;
+
+const selectHighestPriorityExecutableRequest = (
+  spawnRequests: readonly IndexedSpawnRequest[],
+  spawningWorld: SpawningWorldSnapshot,
+): {
+  readonly body: readonly SpawnBodyPart[];
+  readonly spawnRequest: IndexedSpawnRequest;
+} | null => {
+  let selectedExecutableRequest: {
+    readonly body: readonly SpawnBodyPart[];
+    readonly spawnRequest: IndexedSpawnRequest;
+  } | null = null;
+
+  for (const spawnRequest of spawnRequests) {
+    const spawnSnapshot = readSpawnSnapshot(spawningWorld, spawnRequest.spawnName);
 
     if (spawnSnapshot.isSpawning) {
       continue;
     }
 
-    const workerBody = selectEarlyWorkerBody(spawnSnapshot, spawningWorld.bodyPartCosts);
+    const workerBody = selectSpawnRequestBody(
+      spawnRequest.bodyOptions,
+      spawnSnapshot,
+      spawningWorld.bodyPartCosts,
+    );
 
     if (workerBody === null) {
       continue;
     }
 
-    return {
-      body: workerBody,
-      creepName: `${spawnSnapshot.name}-worker-${spawningWorld.gameTime}`,
-      spawnName: spawnSnapshot.name,
-    };
+    if (
+      selectedExecutableRequest === null ||
+      spawnRequest.priority > selectedExecutableRequest.spawnRequest.priority ||
+      (spawnRequest.priority === selectedExecutableRequest.spawnRequest.priority &&
+        spawnRequest.order < selectedExecutableRequest.spawnRequest.order)
+    ) {
+      selectedExecutableRequest = {
+        body: workerBody,
+        spawnRequest,
+      };
+    }
   }
 
-  return null;
+  return selectedExecutableRequest;
+};
+
+const createSpawnDecision = (
+  executableSpawnRequest: {
+    readonly body: readonly SpawnBodyPart[];
+    readonly spawnRequest: IndexedSpawnRequest;
+  } | null,
+  gameTime: number,
+): SpawnDecision | null => {
+  if (executableSpawnRequest === null) {
+    return null;
+  }
+
+  return {
+    body: executableSpawnRequest.body,
+    creepName: `${executableSpawnRequest.spawnRequest.spawnName}-worker-${gameTime}`,
+    spawnName: executableSpawnRequest.spawnRequest.spawnName,
+  };
 };
 
 const readSpawningRoom = (
@@ -150,6 +264,21 @@ const readSpawningRoom = (
   }
 
   return spawningRoom;
+};
+
+const readSpawnSnapshot = (
+  spawningWorld: SpawningWorldSnapshot,
+  spawnName: string,
+): SpawnSnapshot => {
+  const spawnSnapshot = spawningWorld.spawns.find(
+    (candidateSpawn) => candidateSpawn.name === spawnName,
+  );
+
+  if (spawnSnapshot === undefined) {
+    throw new Error(`Spawn "${spawnName}" is missing from the spawning world snapshot.`);
+  }
+
+  return spawnSnapshot;
 };
 
 const classifySpawnAvailability = (spawnSnapshot: SpawnSnapshot): BootstrapSpawnAvailability => {
@@ -196,11 +325,12 @@ const countExtensionConstructionSites = (spawningRoom: SpawningRoomSnapshot): nu
     (constructionSite) => constructionSite.structureType === 'extension',
   ).length;
 
-const selectEarlyWorkerBody = (
+const selectSpawnRequestBody = (
+  bodyOptions: readonly (readonly SpawnBodyPart[])[],
   spawnSnapshot: SpawnSnapshot,
   bodyPartCosts: Readonly<Record<SpawnBodyPart, number>>,
 ): readonly SpawnBodyPart[] | null => {
-  for (const workerBody of EARLY_WORKER_BODIES) {
+  for (const workerBody of bodyOptions) {
     const workerBodyCost = calculateSpawnBodyCost(workerBody, bodyPartCosts);
 
     if (

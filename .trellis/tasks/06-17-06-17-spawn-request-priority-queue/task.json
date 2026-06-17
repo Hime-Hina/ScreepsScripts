@@ -3,7 +3,7 @@
   "name": "06-17-spawn-request-priority-queue",
   "title": "Spawn request priority queue and early role body catalog",
   "description": "Introduce a pure spawn-request scheduler foundation inspired by mature bot spawn groups, without broad role rewrites.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
