@@ -26,7 +26,7 @@ Make Screeps operations monitoring production-ready by making structured console
 - [x] Unit test proves duplicate email fallback suppresses notify/wake when console already claimed the event.
 - [x] Focused tests for kernel/runtime ops events and screeps-ops scripts pass.
 - [x] `pnpm check` passes before PR.
-- [ ] Bounded live bridge smoke and PM2 restart smoke are run after implementation and before deployment/merge decisions. Bounded read-only live smoke passed; PM2 restart is intentionally deferred until explicit deploy/restart approval.
+- [x] Bounded live bridge smoke and PM2 restart smoke are run after implementation and before deployment/merge decisions. Bounded read-only live smoke passed before merge; PM2 restart smoke completed during the authorized deploy/restart sequence on 2026-06-17.
 
 ## Non-goals
 
