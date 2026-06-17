@@ -1,0 +1,14 @@
+{"file":"AGENTS.md","reason":"Project Trellis and agent workflow instructions."}
+{"file":".trellis/workflow.md","reason":"Task lifecycle, planning artifacts, and implementation gates."}
+{"file":".trellis/spec/runtime/index.md","reason":"Runtime architecture entrypoint and required local shape."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Current domain ownership, forbidden manager/role architecture, and action conflict direction."}
+{"file":".trellis/spec/runtime/runtime-boundaries.md","reason":"Runtime capture/execution boundary rules."}
+{"file":".trellis/spec/runtime/cpu-budget.md","reason":"CPU constraints for ECS-like world/scanning/pathing decisions."}
+{"file":".trellis/spec/testing/index.md","reason":"TDD and verification expectations."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Guidance for cross-layer/cross-domain behaviors."}
+{"file":"docs/architecture.md","reason":"Human-facing architecture docs to update after discussion."}
+{"file":"src/kernel/run-tick.ts","reason":"Current orchestration layer."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"Current runtime snapshot and execution owner."}
+{"file":"src/creeps/worker-decision.ts","reason":"Existing creep action decision model and future intent-resolver candidate."}
+{"file":"src/spawning/spawn-decision.ts","reason":"Existing request/decision terminology."}
+{"file":"src/intel/room-intel.ts","reason":"Existing data-driven scoring module."}
