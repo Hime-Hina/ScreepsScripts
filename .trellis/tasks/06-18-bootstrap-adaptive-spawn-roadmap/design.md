@@ -1,52 +1,36 @@
-# Bootstrap adaptive spawn roadmap design
+# Bootstrap and RCL3 economy stabilization roadmap design
 
-## Architecture direction
+## Direction
 
-Keep local boundaries:
+The current architecture remains valid: runtime captures Screeps objects into snapshots, pure planners choose decisions/requests, and runtime executes final side effects. The roadmap changes the early-economy policy layers without introducing a mature-bot manager/overlord architecture.
 
-- `src/colony/bootstrap-economy.ts`: demand model and room-economy classification.
-- `src/spawning/spawn-decision.ts`: spawn request generation, priority, body selection, final spawn decision.
-- `src/runtime/screeps-runtime.ts`: Screeps API capture only; no policy.
+## Revised dependency order
 
-## Roadmap shape
+### 1. RCL3 economy unblock and accessible layout
 
-### 1. Adaptive worker demand
+Fix the immediate W51N21 stall before adding more abstractions:
 
-Add room snapshot fields needed for a throughput demand model:
-
-- source count;
-- current worker WORK part total;
-- selected/planned worker body WORK parts from spawn capacity.
-
-Demand target becomes dynamic:
-
-```text
-survival floor = 3
-development target = max(source-saturation target, construction-work target, survival floor)
-target = min(development target, aggressive cap)
-```
+- Development demand must apply to safe `controllerLevel >= 2` rooms, not only RCL2.
+- Worker spawning must use an affordability concept rather than strict "every spawn/extension is full".
+- Construction eligibility must not be permanently blocked by one empty extension when the room is otherwise safe and has enough useful energy.
+- Near-spawn extension/tower placement must reserve access and avoid sealing existing energy structures.
 
 ### 2. Priority spawn requests
 
-Convert the existing internal request objects into a richer request layer carrying:
-
-- room name;
-- type;
-- target gap;
-- priority;
-- body catalog;
-- demand reason metrics.
-
-Selection still returns one `SpawnDecision`, but it chooses from all executable requests.
+After the immediate unblock, convert internal demand into request objects with priority, request type, target gap, body catalog, and metrics. This makes later replacement and role requests deterministic instead of adding more special cases.
 
 ### 3. TTL replacement pressure
 
-Include workers whose `ticksToLive` is below a configured replacement window in target-gap computation. This follows Quorum-style `respawnAge` behavior and prevents worker cliff drops.
+Once request target gaps exist, workers below a replacement TTL window should count against demand before they die. This prevents population cliffs like the current drop from 8 workers to 5 while spawn is idle.
 
-### 4. Role split
+### 4. Role-split container logistics
 
-After spawn requests exist, split universal worker demand into per-role demands. Start with miner/builder/hauler/upgrader for RCL2/RCL3, keeping emergency universal worker as a separate high-priority request.
+The room already has source containers and a controller container, but all are empty. After request accounting is stable, introduce explicit source miner, hauler, builder, and upgrader demand/actions while keeping emergency universal workers.
 
-## Compatibility stance
+### 5. Minimal tower policy
 
-The old fixed target is removed. Tests should assert the new dynamic outcomes directly rather than maintaining old fixed-count behavior.
+The current tower site is blocked behind stalled construction. Once the tower can be built, add minimal attack/heal/conservative-repair behavior and energy refill priority. Keep it small and separate from full defense frameworks.
+
+## Deferred track
+
+`06-20-gm-runtime-strategy-switching` remains separate and P3. The live bottleneck is autonomous economy/layout policy, not operator strategy switching.

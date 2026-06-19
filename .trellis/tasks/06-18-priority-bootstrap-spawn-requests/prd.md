@@ -1,19 +1,23 @@
-# Priority bootstrap spawn requests PRD
+# Priority bootstrap/RCL3 spawn requests PRD
 
 ## Goal
 
-Promote bootstrap spawning into a first-class priority `SpawnRequest` layer so multiple demand sources can compete before producing a single `SpawnDecision`.
+Promote early-economy spawn demand into explicit prioritized requests after the RCL3 unblock. This prepares the system for survival, development, TTL replacement, and role-specific requests without adding more hidden special cases.
+
+## Current context
+
+W51N21 is RCL3 with an idle spawn and stalled development. The immediate demand/energy/layout deadlock is handled by `06-20-rcl3-economy-unblock-accessible-layout`; this task starts after that fix is live or verified.
 
 ## Requirements
 
-- Expose request creation as a pure planning step in `src/spawning/spawn-decision.ts`.
-- Include request type, room, priority, target gap, body catalog, and reason metrics.
-- Preserve one final `SpawnDecision` per tick for current runtime execution.
-- Remove implicit one-request-per-spawn assumptions where they prevent richer demand modeling.
+- Represent spawn needs as request records with type, priority, room, target gap, body catalog, and reason metrics.
+- Preserve survival worker priority above development/replacement/role requests.
+- Let development requests work for safe RCL2/RCL3 rooms.
+- Keep final output as the existing single `SpawnDecision | null` until a later task needs multi-spawn coordination.
+- Do not implement TTL replacement or role split here; only make them easy to add.
 
 ## Acceptance criteria
 
-- Survival requests outrank development requests.
-- Larger target gaps break ties within same priority.
-- Busy spawns do not erase demand; they only make a request non-executable for that tick.
-- Unit tests cover queue ordering and executable selection.
+- Tests cover priority ordering, affordability, target gap, stable tie-breaking, and no-request cases.
+- Existing survival and development behavior remains equivalent except for intentional RCL3 support from the P0 task.
+- `pnpm check`, focused tests, and task validation pass.

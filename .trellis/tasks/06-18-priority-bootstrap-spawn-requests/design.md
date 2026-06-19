@@ -1,22 +1,26 @@
-# Priority bootstrap spawn requests design
+# Priority bootstrap/RCL3 spawn requests design
 
-## Direction
+## Request shape
 
-Introduce a pure request planning API:
+A spawn request should carry enough data for deterministic selection:
 
-```ts
-planBootstrapSpawnRequests(world): readonly SpawnRequest[]
-selectExecutableSpawnDecision(requests, world): SpawnDecision | null
-```
+- `requestType`: survival, development, later replacement/role types.
+- `priority`: numeric ordering; survival remains highest.
+- `targetGap`: how many creeps/bodies are missing.
+- `bodyOptions`: body catalog in descending capability order.
+- `roomName`, `spawnName`, and reason metrics for tests/diagnostics.
 
-`SpawnRequest` should carry enough metadata for future TTL replacement and role split without changing runtime execution.
+## Selection
 
-## Dependencies
+Selection still returns one spawn decision:
 
-Depends on `06-18-adaptive-bootstrap-worker-demand` because dynamic target/gap is the first request driver.
+1. Build all requests from room snapshots.
+2. Drop requests whose target gap is zero.
+3. For each idle spawn, choose the highest-priority affordable request.
+4. Break ties deterministically by priority, request type, target gap, spawn order, and room/name.
 
-## Non-goals
+## Boundaries
 
-- No multi-spawn batch execution yet.
-- No role split yet.
-- No live deployment in this task.
+- Do not split roles yet.
+- Do not count near-expiring workers yet.
+- Do not change runtime execution beyond any typed request fields needed by tests.

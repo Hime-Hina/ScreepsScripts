@@ -1,2 +1,13 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": "package.json", "reason": "Verification scripts"}
+{"file":"CONTEXT.md","reason":"Current runtime architecture and W51N21 state."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Spawn request policy boundaries."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"TDD expectations."}
+{"file":".trellis/tasks/06-18-bootstrap-adaptive-spawn-roadmap/prd.md","reason":"Roadmap sequencing."}
+{"file":".trellis/tasks/06-18-priority-bootstrap-spawn-requests/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/06-18-priority-bootstrap-spawn-requests/design.md","reason":"Request model design."}
+{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current live motivation."}
+{"file":"src/spawning/spawn-decision.ts","reason":"Request generation and selection."}
+{"file":"src/colony/bootstrap-economy.ts","reason":"Demand inputs consumed by spawn requests."}
+{"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Focused tests."}
+{"file":"test/unit/colony/bootstrap-economy.test.ts","reason":"Demand fixtures."}
+{"file":"test/integration/main-loop.test.ts","reason":"Integration behavior."}
+{"file":"package.json","reason":"Verification commands."}

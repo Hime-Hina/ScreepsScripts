@@ -1,0 +1,15 @@
+{"file":"CONTEXT.md","reason":"Current runtime and defense context."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Runtime/domain separation for tower actions."}
+{"file":".trellis/spec/runtime/decision-architecture.md","reason":"Typed decision architecture."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"TDD workflow."}
+{"file":".trellis/tasks/06-20-rcl3-minimal-tower-policy/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/06-20-rcl3-minimal-tower-policy/design.md","reason":"Tower policy design."}
+{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current tower site evidence."}
+{"file":"src/defense/defense-planner.ts","reason":"Existing hostile/safe-mode threat classification."}
+{"file":"src/creeps/worker-decision.ts","reason":"Tower refill may interact with worker energy routing."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"Tower snapshot capture and execution boundary."}
+{"file":"src/kernel/run-tick.ts","reason":"Tick orchestration."}
+{"file":"test/unit/defense/defense-planner.test.ts","reason":"Defense/tower policy tests or nearby test location."}
+{"file":"test/unit/creeps/worker-decision.test.ts","reason":"Refill priority tests."}
+{"file":"test/integration/main-loop.test.ts","reason":"Runtime integration tests."}
+{"file":"package.json","reason":"Verification commands."}

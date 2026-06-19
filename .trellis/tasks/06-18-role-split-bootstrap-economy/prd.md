@@ -1,19 +1,25 @@
-# Role-split bootstrap economy PRD
+# Role-split container logistics for bootstrap/RCL3 economy PRD
 
 ## Goal
 
-Split the universal bootstrap worker pool into role-specific RCL2/RCL3 economy demands after spawn requests and replacement pressure are in place.
+Use W51N21's existing source and controller containers as active logistics anchors by splitting universal bootstrap workers into miner, hauler, builder, and upgrader roles after spawn requests and TTL replacement are stable.
+
+## Current context
+
+The room has 3 containers: source containers at `29,6` and `20,43`, and controller container at `27,8`. All were empty in the live snapshot, which means construction placed logistics scaffolding before the code had producer/consumer roles to use it consistently.
 
 ## Requirements
 
-- Keep emergency universal worker demand for room-loss recovery.
-- Add explicit demand for miner, hauler, builder, and upgrader roles.
-- Assign priorities so mining and hauling recover before discretionary build/upgrade work.
-- Keep runtime execution snapshot-driven; avoid importing mature-bot manager/overlord architectures.
+- Preserve emergency universal worker recovery for room-loss cases.
+- Add source miner demand driven by visible sources and desired WORK parts.
+- Add hauler demand based on source/container/controller energy flow.
+- Add builder/upgrader demand based on construction backlog and controller progress needs.
+- Use explicit spawn request priorities from the prior task.
+- Keep runtime action execution snapshot-driven; do not import mature-bot manager/overlord patterns.
 
 ## Acceptance criteria
 
-- Source mining demand is driven by source count and required WORK parts.
-- Hauler demand is driven by carry throughput or source/container energy pressure.
-- Builder demand is driven by construction backlog and planned body WORK parts.
-- Upgrader demand is reduced when construction backlog or survival pressure is high.
+- Tests prove miners fill or use source-container positions rather than generic workers crowding source slots.
+- Tests prove haulers move energy from source containers toward spawn/extensions and controller/build sinks.
+- Tests prove builders/upgraders are bounded by backlog and available logistics.
+- Emergency universal workers still recover low-population rooms.

@@ -1,2 +1,8 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Runtime/domain boundary rules"}
+{"file":"CONTEXT.md","reason":"Current runtime architecture and live W51N21 context."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Runtime/domain boundaries for economy, construction, spawning, and defense."}
+{"file":".trellis/spec/runtime/diagnostics.md","reason":"Diagnostic output and live evidence conventions."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"TDD workflow required for behavior slices."}
+{"file":".trellis/tasks/06-18-bootstrap-adaptive-spawn-roadmap/prd.md","reason":"Parent roadmap PRD."}
+{"file":".trellis/tasks/06-18-bootstrap-adaptive-spawn-roadmap/design.md","reason":"Parent roadmap design and task order."}
+{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current live evidence that reset roadmap priorities."}
+{"file":"package.json","reason":"Verification and deploy scripts."}

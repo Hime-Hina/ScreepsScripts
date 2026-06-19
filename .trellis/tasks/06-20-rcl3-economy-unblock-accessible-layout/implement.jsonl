@@ -1,0 +1,19 @@
+{"file":"CONTEXT.md","reason":"Project architecture and current runtime scope."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Keep runtime capture, pure planners, and side effects separated."}
+{"file":".trellis/spec/runtime/cpu-budget.md","reason":"Preserve full/survival CPU budget behavior while changing economy policy."}
+{"file":".trellis/spec/runtime/diagnostics.md","reason":"Live evidence and status reporting conventions."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/VERIFY workflow."}
+{"file":".trellis/tasks/06-18-bootstrap-adaptive-spawn-roadmap/prd.md","reason":"Parent roadmap and sequencing."}
+{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/design.md","reason":"Detailed target behavior."}
+{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current W51N21 live evidence and regression fixture."}
+{"file":"src/colony/bootstrap-economy.ts","reason":"Worker demand, energy state, construction eligibility policy."}
+{"file":"src/spawning/spawn-decision.ts","reason":"Spawn request generation and body affordability."}
+{"file":"src/construction/construction-planner.ts","reason":"Near-spawn extension/tower layout decisions."}
+{"file":"src/kernel/run-tick.ts","reason":"Tick orchestration and survival/full budget routing."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"Runtime snapshot capture if new fields are required."}
+{"file":"test/unit/colony/bootstrap-economy.test.ts","reason":"Demand and energy policy regression tests."}
+{"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Spawn request regression tests."}
+{"file":"test/unit/construction/construction-planner.test.ts","reason":"Accessible layout regression tests."}
+{"file":"test/integration/main-loop.test.ts","reason":"End-to-end safe RCL3 behavior tests."}
+{"file":"package.json","reason":"Verification commands."}

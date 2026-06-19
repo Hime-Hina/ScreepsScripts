@@ -1,15 +1,18 @@
-# Bootstrap TTL replacement pressure design
+# Bootstrap/RCL3 TTL replacement pressure design
 
-## Direction
+## Dependency
 
-After `SpawnRequest` exists, compute target gap as:
+This task depends on explicit spawn requests from `06-18-priority-bootstrap-spawn-requests`. Replacement pressure should be represented as a request gap input, not as a separate ad-hoc spawn branch.
 
-```text
-gap = max(targetWorkerCount - liveWorkerCount, 0) + nearExpiryWorkerCount
-```
+## Policy
 
-Use different windows for survival and development if needed. The first implementation should keep constants explicit and test-visible.
+- Add a replacement TTL window for worker-like creeps.
+- Treat a worker below the window as partially or fully missing for target-gap calculation.
+- Count currently spawning replacement creeps against the gap when the runtime snapshot exposes that information.
+- Keep emergency survival worker requests highest priority.
 
-## Dependencies
+## Boundaries
 
-- Depends on `06-18-priority-bootstrap-spawn-requests` for request reason metrics and target-gap plumbing.
+- No role split in this task.
+- No Memory schema migration unless required for stable role/type identification; prefer current naming/snapshot data when possible.
+- No live deployment without separate deploy approval.

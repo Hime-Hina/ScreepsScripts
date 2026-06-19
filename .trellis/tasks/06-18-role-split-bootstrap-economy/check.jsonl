@@ -1,2 +1,14 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": "package.json", "reason": "Verification scripts"}
+{"file":"CONTEXT.md","reason":"Current runtime architecture and W51N21 state."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Role/runtime boundary rules."}
+{"file":".trellis/spec/runtime/decision-architecture.md","reason":"Typed decisions/intents architecture."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"TDD workflow."}
+{"file":".trellis/tasks/06-18-role-split-bootstrap-economy/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/06-18-role-split-bootstrap-economy/design.md","reason":"Role split design."}
+{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current container/logistics evidence."}
+{"file":"src/spawning/spawn-decision.ts","reason":"Role spawn requests."}
+{"file":"src/creeps/worker-decision.ts","reason":"Worker action planning migration."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"Runtime snapshots for roles/containers."}
+{"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Spawn request tests."}
+{"file":"test/unit/creeps/worker-decision.test.ts","reason":"Role action tests."}
+{"file":"test/integration/main-loop.test.ts","reason":"Integration tests."}
+{"file":"package.json","reason":"Verification commands."}

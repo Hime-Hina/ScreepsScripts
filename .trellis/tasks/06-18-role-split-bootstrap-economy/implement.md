@@ -1,7 +1,25 @@
-# Role-split bootstrap economy implementation plan
+# Role-split container logistics implementation plan
 
-1. Add role-specific demand types and body catalogs after `SpawnRequest` can represent multiple request types.
-2. Add runtime snapshot fields for source/container energy and worker role counts.
-3. Add tests for miner/hauler/builder/upgrader priorities.
-4. Migrate universal worker action planning only after role spawn behavior is green.
-5. Verify with focused spawning/worker/integration tests and full `pnpm check`.
+## RED tests
+
+- With source containers present and empty, role demand requests miners before discretionary builders/upgraders.
+- Hauler requests appear when source containers have energy or sources need collection capacity.
+- Builder demand follows construction backlog but does not starve survival/refill.
+- Upgrader demand is bounded and uses controller logistics when available.
+- Emergency universal request still appears below survival floor.
+
+## GREEN implementation
+
+1. Extend spawn request types for role-specific demand.
+2. Add role snapshots/intent fields only as needed for deterministic planning.
+3. Implement minimal role action planning around existing containers.
+4. Preserve existing generic worker behavior as fallback during migration.
+
+## Verification
+
+```bash
+pnpm vitest run test/unit/spawning/spawn-decision.test.ts test/unit/creeps/worker-decision.test.ts test/integration/main-loop.test.ts
+pnpm check
+git diff --check
+python3 ./.trellis/scripts/task.py validate 06-18-role-split-bootstrap-economy
+```

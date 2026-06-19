@@ -1,24 +1,26 @@
-# Role-split bootstrap economy design
+# Role-split container logistics for bootstrap/RCL3 economy design
 
-## Direction
+## Dependency
 
-Build on priority spawn requests:
+This task depends on priority spawn requests and TTL replacement pressure. Role demand should produce typed requests, not bypass the request selector.
 
-```text
-survivalUniversalWorker
-minerRecovery
-haulerRecovery
-builderBurst
-upgraderMaintenance
-```
+## Initial role model
 
-Each demand source returns `SpawnRequest` entries; the existing final executor still spawns one creep per available spawn/tick until multi-spawn batch execution is intentionally added.
+- `emergencyWorker`: universal recovery, highest priority.
+- `miner`: source-focused WORK body, assigned per source/container.
+- `hauler`: CARRY/MOVE body, moves energy from source containers to spawn/extensions/controller/build sinks.
+- `builder`: consumes available logistics when construction backlog exists.
+- `upgrader`: consumes controller container or surplus energy.
 
-## Dependencies
+## Runtime boundaries
 
-- Depends on adaptive demand, priority request model, and TTL replacement pressure.
+- Runtime captures creep role/name/memory only through typed snapshots if needed.
+- Pure planners choose role demands and actions.
+- Runtime executes harvest/transfer/withdraw/build/upgrade as final side effects.
 
 ## Non-goals
 
-- No full Overmind-style overlord hierarchy.
-- No remote mining expansion in this task.
+- No full traffic manager.
+- No remote mining.
+- No storage/link logistics.
+- No broad Memory migration unless a minimal role field is unavoidable and tested.

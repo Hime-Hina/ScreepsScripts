@@ -1,2 +1,11 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/runtime/domain-boundaries.md", "reason": "Runtime/domain boundary rules"}
+{"file":"CONTEXT.md","reason":"Current runtime architecture and live context."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Snapshot/request/runtime boundary."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"TDD workflow."}
+{"file":".trellis/tasks/06-18-bootstrap-adaptive-spawn-roadmap/prd.md","reason":"Roadmap sequencing."}
+{"file":".trellis/tasks/06-18-bootstrap-ttl-replacement-pressure/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/06-18-bootstrap-ttl-replacement-pressure/design.md","reason":"Replacement design."}
+{"file":"src/spawning/spawn-decision.ts","reason":"Request target-gap logic."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"TTL/spawning snapshot capture if needed."}
+{"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Focused tests."}
+{"file":"test/integration/main-loop.test.ts","reason":"Integration tests."}
+{"file":"package.json","reason":"Verification commands."}
