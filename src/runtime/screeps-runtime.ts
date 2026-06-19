@@ -1,4 +1,12 @@
 import {
+  applyGmFlagDirectives,
+  installGmConsoleTools,
+  recordGmExecutedWorkerIntent,
+  recordGmPlannedWorkerIntent,
+  recordGmWorkerIntentError,
+  runGmConsoleWatches,
+} from '../console/gm-console';
+import {
   classifyBootstrapControllerDowngradeState,
   classifyBootstrapWorkerPopulation,
   classifySpawnExtensionEnergyState,
@@ -50,10 +58,12 @@ export interface RuntimeAlertDecision {
 }
 
 export interface ScreepsTickIO {
+  applyGmFlagDirectives?(): readonly string[];
   executeConstructionDecisions(constructionDecisions: readonly ConstructionDecision[]): void;
   executeDefenseDecisions(defenseDecisions: readonly DefenseDecision[]): void;
   executeSpawnDecision(spawnDecision: SpawnDecision): void;
   executeWorkerActions(workerDecisions: readonly WorkerActionDecision[]): void;
+  installGmConsoleTools?(): void;
   readonly gameTime: number;
   readonly shardName: string;
   readCpuSnapshot(): RuntimeCpuSnapshot;
@@ -63,6 +73,7 @@ export interface ScreepsTickIO {
   readSurvivalSpawningWorld(): SpawningWorldSnapshot;
   readSurvivalWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
   readWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
+  runGmConsoleWatches?(): void;
   sendRuntimeAlert(alertDecision: RuntimeAlertDecision): void;
   writeConsoleLine(message: string): void;
 }
@@ -74,12 +85,14 @@ export interface ScreepsTickRuntime extends ScreepsTickIO {
 }
 
 export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
+  applyGmFlagDirectives: () => applyGmFlagDirectives((message) => console.log(message)),
   cleanStaleCreepMemory: () => cleanStaleCreepMemory(Memory, new Set(Object.keys(Game.creeps))),
   executeConstructionDecisions,
   executeDefenseDecisions,
   executeSpawnDecision,
   executeWorkerActions,
   gameTime: Game.time,
+  installGmConsoleTools,
   readCpuSnapshot: captureRuntimeCpuSnapshot,
   readConstructionWorld: captureConstructionWorld,
   readDefenseWorld: captureDefenseWorld,
@@ -88,6 +101,7 @@ export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
   readSurvivalSpawningWorld: captureSurvivalSpawningWorld,
   readSurvivalWorkerWorld: captureSurvivalWorkerWorld,
   readWorkerWorld: captureWorkerWorld,
+  runGmConsoleWatches: () => runGmConsoleWatches((message) => console.log(message)),
   sendRuntimeAlert: (alertDecision) =>
     Game.notify(formatRuntimeOpsEventLine(alertDecision.opsEvent), alertDecision.groupInterval),
   shardName: Game.shard?.name ?? 'shard0',
@@ -748,65 +762,87 @@ const executeWorkerActions = (workerDecisions: readonly WorkerActionDecision[]):
 };
 
 const executeWorkerAction = (workerDecision: WorkerActionDecision): void => {
-  const creep = readOwnedCreep(workerDecision.creepName);
+  recordGmPlannedWorkerIntent(workerDecision);
 
-  switch (workerDecision.type) {
-    case 'harvestSource': {
-      const source = readSource(workerDecision.sourceId);
-      const actionReturnCode = creep.harvest(source);
+  try {
+    const creep = readOwnedCreep(workerDecision.creepName);
 
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, source);
-      return;
+    switch (workerDecision.type) {
+      case 'harvestSource': {
+        const source = readSource(workerDecision.sourceId);
+        const actionReturnCode = creep.harvest(source);
+
+        recordGmExecutedWorkerIntent(workerDecision, source, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, source);
+        return;
+      }
+
+      case 'pickupEnergy': {
+        const droppedEnergy = readDroppedEnergy(workerDecision.resourceId);
+        const actionReturnCode = creep.pickup(droppedEnergy);
+
+        recordGmExecutedWorkerIntent(workerDecision, droppedEnergy, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, droppedEnergy);
+        return;
+      }
+
+      case 'withdrawEnergy': {
+        const energyWithdrawalTarget = readEnergyWithdrawalTarget(workerDecision.structureId);
+        const actionReturnCode = creep.withdraw(energyWithdrawalTarget, RESOURCE_ENERGY);
+
+        recordGmExecutedWorkerIntent(workerDecision, energyWithdrawalTarget, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, energyWithdrawalTarget);
+        return;
+      }
+
+      case 'refillEnergyStructure': {
+        const energyStructure = readEnergyStructure(workerDecision.structureId);
+        const actionReturnCode = creep.transfer(energyStructure, RESOURCE_ENERGY);
+
+        recordGmExecutedWorkerIntent(workerDecision, energyStructure, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, energyStructure);
+        return;
+      }
+
+      case 'buildConstructionSite': {
+        const constructionSite = readConstructionSite(workerDecision.constructionSiteId);
+        const actionReturnCode = creep.build(constructionSite);
+
+        recordGmExecutedWorkerIntent(workerDecision, constructionSite, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, constructionSite);
+        return;
+      }
+
+      case 'repairStructure': {
+        const repairStructure = readRepairStructure(workerDecision.structureId);
+        const actionReturnCode = creep.repair(repairStructure);
+
+        recordGmExecutedWorkerIntent(workerDecision, repairStructure, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, repairStructure);
+        return;
+      }
+
+      case 'upgradeController': {
+        const controller = readController(workerDecision.controllerId);
+        const actionReturnCode = creep.upgradeController(controller);
+
+        recordGmExecutedWorkerIntent(workerDecision, controller, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, controller);
+        return;
+      }
     }
-
-    case 'pickupEnergy': {
-      const droppedEnergy = readDroppedEnergy(workerDecision.resourceId);
-      const actionReturnCode = creep.pickup(droppedEnergy);
-
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, droppedEnergy);
-      return;
-    }
-
-    case 'withdrawEnergy': {
-      const energyWithdrawalTarget = readEnergyWithdrawalTarget(workerDecision.structureId);
-      const actionReturnCode = creep.withdraw(energyWithdrawalTarget, RESOURCE_ENERGY);
-
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, energyWithdrawalTarget);
-      return;
-    }
-
-    case 'refillEnergyStructure': {
-      const energyStructure = readEnergyStructure(workerDecision.structureId);
-      const actionReturnCode = creep.transfer(energyStructure, RESOURCE_ENERGY);
-
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, energyStructure);
-      return;
-    }
-
-    case 'buildConstructionSite': {
-      const constructionSite = readConstructionSite(workerDecision.constructionSiteId);
-      const actionReturnCode = creep.build(constructionSite);
-
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, constructionSite);
-      return;
-    }
-
-    case 'repairStructure': {
-      const repairStructure = readRepairStructure(workerDecision.structureId);
-      const actionReturnCode = creep.repair(repairStructure);
-
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, repairStructure);
-      return;
-    }
-
-    case 'upgradeController': {
-      const controller = readController(workerDecision.controllerId);
-      const actionReturnCode = creep.upgradeController(controller);
-
-      moveToActionTargetWhenOutOfRange(actionReturnCode, creep, controller);
-      return;
-    }
+  } catch (caughtError) {
+    recordGmWorkerIntentError(workerDecision, readRuntimeCaughtErrorMessage(caughtError));
+    throw caughtError;
   }
+};
+
+const readRuntimeCaughtErrorMessage = (caughtError: unknown): string => {
+  if (caughtError instanceof Error) {
+    return caughtError.message;
+  }
+
+  return String(caughtError);
 };
 
 const readOwnedCreep = (creepName: string): Creep => {

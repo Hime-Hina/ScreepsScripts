@@ -46,6 +46,8 @@ export const runScreepsTick = (runtime: ScreepsTickRuntime): TickExecution => {
 };
 
 export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState): TickExecution => {
+  runtime.installGmConsoleTools?.();
+
   const cpuSnapshot = runtime.readCpuSnapshot();
   const tickBudgetDecision = selectTickBudgetDecision(cpuSnapshot);
   const defenseWorld = runtime.readDefenseWorld();
@@ -87,8 +89,12 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
     );
   }
 
-  const criticalWorkerDecisions = workerDecisions.filter(isCriticalWorkerActionDecision);
-  const nonCriticalWorkerDecisions = workerDecisions.filter(
+  const manualCreepNames = new Set(runtime.applyGmFlagDirectives?.() ?? []);
+  const executableWorkerDecisions = workerDecisions.filter(
+    (workerDecision) => !manualCreepNames.has(workerDecision.creepName),
+  );
+  const criticalWorkerDecisions = executableWorkerDecisions.filter(isCriticalWorkerActionDecision);
+  const nonCriticalWorkerDecisions = executableWorkerDecisions.filter(
     (workerDecision) => !isCriticalWorkerActionDecision(workerDecision),
   );
 
@@ -118,6 +124,7 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
       }),
     ),
   );
+  runtime.runGmConsoleWatches?.();
 
   return {
     constructionDecisions,

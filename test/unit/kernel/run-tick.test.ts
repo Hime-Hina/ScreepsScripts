@@ -639,4 +639,153 @@ describe('runTick', () => {
       'writeConsoleLine',
     ]);
   });
+
+  it('skips the normal worker action when a GM manual move override handled that creep', () => {
+    const executedWorkerDecisions: WorkerActionDecision[] = [];
+    const runtimeEvents: string[] = [];
+    const tickRuntime: ScreepsTickIO = {
+      applyGmFlagDirectives: () => {
+        runtimeEvents.push('applyGmFlagDirectives');
+        return ['Worker1'];
+      },
+      executeConstructionDecisions: () => runtimeEvents.push('executeConstructionDecisions'),
+      executeDefenseDecisions: () => runtimeEvents.push('executeDefenseDecisions'),
+      executeSpawnDecision: () => runtimeEvents.push('executeSpawnDecision'),
+      executeWorkerActions: (workerDecisions) => executedWorkerDecisions.push(...workerDecisions),
+      gameTime: 45,
+      shardName: 'shard1',
+      readCpuSnapshot: () => ({
+        bucket: 5000,
+        limit: 20,
+        tickLimit: 500,
+        usedAtTickStart: 1,
+      }),
+      readConstructionWorld: () => ({
+        controllerStructureLimits: {
+          extension: {
+            2: 5,
+          },
+          tower: {
+            2: 0,
+          },
+        },
+        ownedRooms: [],
+      }),
+      readDefenseWorld: () => ({
+        bodyPartConstants: {
+          attack: 'attack',
+          heal: 'heal',
+          move: 'move',
+          rangedAttack: 'ranged_attack',
+          work: 'work',
+        },
+        bodyPartPowers: {
+          attack: 30,
+          dismantle: 50,
+          heal: 12,
+          rangedAttack: 10,
+        },
+        controllers: [],
+        coreStructures: [],
+        hostileCreeps: [],
+        roomNames: ['W1N1'],
+      }),
+      readSpawningWorld: () => ({
+        bodyPartCosts: {
+          carry: 50,
+          move: 50,
+          work: 100,
+        },
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            2: 0,
+          },
+        },
+        gameTime: 45,
+        rooms: [
+          {
+            constructionSites: [],
+            controllerLevel: 2,
+            energyStructures: [
+              {
+                availableEnergy: 300,
+                energyCapacity: 300,
+              },
+            ],
+            roomName: 'W1N1',
+            sourceCount: 2,
+            structures: [
+              {
+                structureType: 'spawn',
+              },
+            ],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 3,
+            workerCreepWorkParts: 3,
+          },
+        ],
+        spawns: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            isSpawning: false,
+            name: 'Spawn1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+      readSurvivalSpawningWorld: () => {
+        throw new Error('Full budget tick must not read the survival spawning world.');
+      },
+      readWorkerWorld: () => ({
+        constructionEligibilities: [
+          {
+            roomName: 'W1N1',
+            type: 'constructionAllowed',
+          },
+        ],
+        constructionSites: [
+          {
+            id: 'site-1',
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [],
+        creeps: [
+          {
+            energy: 50,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyPickups: [],
+        energyStructures: [],
+        energyWithdrawals: [],
+        repairTargets: [],
+        sources: [],
+      }),
+      readSurvivalWorkerWorld: () => {
+        throw new Error('Full budget tick must not read the survival worker world.');
+      },
+      sendRuntimeAlert: () => runtimeEvents.push('sendRuntimeAlert'),
+      writeConsoleLine: () => runtimeEvents.push('writeConsoleLine'),
+    };
+
+    const tickExecution = runTick(tickRuntime, createEmptyScreepsMemoryState());
+
+    expect(tickExecution.workerDecisions).toEqual([
+      {
+        constructionSiteId: 'site-1',
+        creepName: 'Worker1',
+        type: 'buildConstructionSite',
+      },
+    ]);
+    expect(executedWorkerDecisions).toEqual([]);
+    expect(runtimeEvents).toContain('applyGmFlagDirectives');
+  });
 });

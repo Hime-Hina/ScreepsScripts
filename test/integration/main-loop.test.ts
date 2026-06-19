@@ -190,6 +190,15 @@ describe('Screeps main loop', () => {
 
     mainModule.loop();
 
+    const installedGm = (
+      globalThis as unknown as {
+        readonly gm?: { readonly help: () => string; readonly room: (roomName?: string) => string };
+      }
+    ).gm;
+
+    expect(installedGm?.help()).toContain('[gm:help]');
+    expect(installedGm?.room('W1N1')).toContain('[gm:room] W1N1');
+    expect(installedGm?.room('W1N1')).toContain('\nEnergy\n');
     expect(findConsoleOpsEvent(consoleLines, 'runtime_heartbeat')).toMatchObject({
       kind: 'runtime_heartbeat',
       metrics: {
