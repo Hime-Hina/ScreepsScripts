@@ -4,7 +4,7 @@
 {"file":".trellis/spec/runtime/runtime-boundaries.md","reason":"Check that side effects stay in runtime boundary and read-only APIs are safe."}
 {"file":".trellis/spec/testing/index.md","reason":"Testing quality gate for focused and full verification."}
 {"file":".trellis/spec/testing/tdd-workflow.md","reason":"Check that regression tests cover behavior slices before implementation."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/prd.md","reason":"Review implementation against accepted requirements."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/design.md","reason":"Review implementation against design boundaries and tradeoffs."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/implement.md","reason":"Review verification commands and implementation sequence."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/research/browser-client-tooling-recon.md","reason":"Review browser-helper findings and ensure v1 does not accidentally depend on fragile client internals."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/prd.md","reason":"Review implementation against accepted requirements."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/design.md","reason":"Review implementation against design boundaries and tradeoffs."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/implement.md","reason":"Review verification commands and implementation sequence."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/research/browser-client-tooling-recon.md","reason":"Review browser-helper findings and ensure v1 does not accidentally depend on fragile client internals."}

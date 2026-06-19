@@ -6,5 +6,5 @@
 {"file":".trellis/spec/runtime/decision-architecture.md","reason":"Intent recording must preserve typed snapshot/decision boundaries."}
 {"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/REFACTOR workflow for behavior changes."}
 {"file":".trellis/spec/testing/behavior-slices.md","reason":"Behavior-slice testing expectations for console tool APIs and flag directives."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/research/current-room-default-and-watch-semantics.md","reason":"Planning note for room default fallback and watch semantics."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/research/browser-client-tooling-recon.md","reason":"Evidence for Screeps browser plugins/userscripts, current-room client macros, and v1 runtime-only scope."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/research/current-room-default-and-watch-semantics.md","reason":"Research notes for default room fallback, autocomplete constants, and watch semantics."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/research/browser-client-tooling-recon.md","reason":"Browser/client helper reconnaissance and v1 runtime-only boundary."}

@@ -5,8 +5,8 @@
 {"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Keep strategy policy out of Screeps API capture boundaries."}
 {"file":".trellis/spec/testing/index.md","reason":"Testing quality gate for focused and full verification."}
 {"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/REFACTOR workflow for behavior changes."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/prd.md","reason":"Parent GM console v1 scope and non-goal boundary for strategy switching."}
-{"file":".trellis/tasks/06-20-gm-console-room-monitor/design.md","reason":"Current GM design and runtime strategy switching boundary."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/prd.md","reason":"Archived GM console v1 scope and non-goal boundary for strategy switching."}
+{"file":".trellis/tasks/archive/2026-06/06-20-gm-console-room-monitor/design.md","reason":"Archived GM design and runtime strategy switching boundary."}
 {"file":"src/kernel/tick-budget.ts","reason":"Existing full vs survival-only CPU budget selector."}
 {"file":"src/kernel/run-tick.ts","reason":"Existing tick orchestration where effective strategy would be consumed."}
 {"file":"src/spawning/spawn-decision.ts","reason":"Existing survival/development worker demand and spawn request behavior."}
