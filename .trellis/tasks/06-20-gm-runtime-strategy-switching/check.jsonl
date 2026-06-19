@@ -1,0 +1,10 @@
+{"file":"CONTEXT.md","reason":"Check strategy behavior remains aligned with current runtime assumptions."}
+{"file":".trellis/spec/runtime/index.md","reason":"Runtime quality checklist for source changes."}
+{"file":".trellis/spec/runtime/diagnostics.md","reason":"Review console diagnostics and human output rules."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Verify strategy policy remains out of API capture layers."}
+{"file":".trellis/spec/testing/index.md","reason":"Testing quality gate for focused and full verification."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"Check that behavior changes use RED/GREEN coverage."}
+{"file":".trellis/tasks/06-20-gm-runtime-strategy-switching/prd.md","reason":"Review implementation against strategy switching requirements."}
+{"file":".trellis/tasks/06-20-gm-runtime-strategy-switching/design.md","reason":"Review implementation against strategy mode/scope/safety design."}
+{"file":".trellis/tasks/06-20-gm-runtime-strategy-switching/implement.md","reason":"Review verification commands and implementation sequence."}
+{"file":"src/kernel/run-tick.ts","reason":"Check effective strategy is consumed without bypassing safety gates."}

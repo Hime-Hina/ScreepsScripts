@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "06-20-gm-runtime-strategy-switching"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",

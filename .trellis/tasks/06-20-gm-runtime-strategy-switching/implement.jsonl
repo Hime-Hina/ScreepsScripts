@@ -1,0 +1,14 @@
+{"file":"CONTEXT.md","reason":"Project runtime context, current production room, and architecture rules."}
+{"file":"docs/agents/domain.md","reason":"Domain documentation routing and requirement to read project context before code changes."}
+{"file":".trellis/spec/runtime/index.md","reason":"Runtime package checklist and source boundary rules."}
+{"file":".trellis/spec/runtime/diagnostics.md","reason":"GM console output style and diagnostics safety boundaries."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Keep strategy policy out of Screeps API capture boundaries."}
+{"file":".trellis/spec/testing/index.md","reason":"Testing quality gate for focused and full verification."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/REFACTOR workflow for behavior changes."}
+{"file":".trellis/tasks/06-20-gm-console-room-monitor/prd.md","reason":"Parent GM console v1 scope and non-goal boundary for strategy switching."}
+{"file":".trellis/tasks/06-20-gm-console-room-monitor/design.md","reason":"Current GM design and runtime strategy switching boundary."}
+{"file":"src/kernel/tick-budget.ts","reason":"Existing full vs survival-only CPU budget selector."}
+{"file":"src/kernel/run-tick.ts","reason":"Existing tick orchestration where effective strategy would be consumed."}
+{"file":"src/spawning/spawn-decision.ts","reason":"Existing survival/development worker demand and spawn request behavior."}
+{"file":"src/colony/bootstrap-economy.ts","reason":"Existing worker demand, downgrade, energy, construction, and safety state logic."}
+{"file":"src/defense/defense-planner.ts","reason":"Existing defense safety gates that must override manual strategy."}
