@@ -23,6 +23,22 @@ Current reference:
 - `ScreepsTickRuntime.writeConsoleLine(message)` owns console output.
 - `runTick` writes through that runtime method.
 
+## Human-Readable Console Output
+
+Console tools whose primary consumer is a human operator must default to pretty-printed, sectioned output rather than dense one-line `key=value` dumps.
+
+Default human-readable output should:
+
+- use a short header with command/target/tick context;
+- group related fields under labels such as `Controller`, `Energy`, `Creeps`, `Construction`, `Intent`, and `Delta`;
+- put one fact per line or a small number of closely related facts per line;
+- align labels enough for quick scanning, without relying on fragile terminal-width assumptions;
+- include deltas only where they help diagnosis;
+- print actionable missing-state errors with the attempted target and the available alternatives;
+- avoid hiding important data in comma-packed strings that require manual parsing.
+
+Machine-readable output must be an explicit option such as `format: 'json'`; it must not replace the default pretty output. Runtime heartbeat and structured ops events may stay compact because their primary consumers are parsers, not humans.
+
 ## Error Visibility
 
 Screeps code runs every tick, so failures must be visible with tick or room context. Do not hide invalid state with silent returns.
