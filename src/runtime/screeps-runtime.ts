@@ -5,6 +5,9 @@ import {
   recordGmPlannedWorkerIntent,
   recordGmWorkerIntentError,
   runGmConsoleWatches,
+  selectGmRuntimeStrategyDecision,
+  type GmRuntimeStrategyDecision,
+  type GmRuntimeStrategySelectionInput,
 } from '../console/gm-console';
 import {
   classifyBootstrapControllerDowngradeState,
@@ -84,6 +87,9 @@ export interface ScreepsTickIO {
   readTowerWorld(): TowerWorldSnapshot;
   readWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
   runGmConsoleWatches?(): void;
+  selectGmRuntimeStrategyDecision?(
+    input: GmRuntimeStrategySelectionInput,
+  ): GmRuntimeStrategyDecision;
   sendRuntimeAlert(alertDecision: RuntimeAlertDecision): void;
   writeConsoleLine(message: string): void;
 }
@@ -114,6 +120,7 @@ export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
   readTowerWorld: captureTowerWorld,
   readWorkerWorld: captureWorkerWorld,
   runGmConsoleWatches: () => runGmConsoleWatches((message) => console.log(message)),
+  selectGmRuntimeStrategyDecision,
   sendRuntimeAlert: (alertDecision) =>
     Game.notify(formatRuntimeOpsEventLine(alertDecision.opsEvent), alertDecision.groupInterval),
   shardName: Game.shard?.name ?? 'shard0',
@@ -148,6 +155,7 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
     })),
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
+    isOwned: room.controller?.my === true,
     roomName: room.name,
     sourceContainerCount: countRoomSourceContainers(room),
     spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),
@@ -186,6 +194,7 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
     constructionSites: [],
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
+    isOwned: room.controller?.my === true,
     roomName: room.name,
     sourceContainerCount: countRoomSourceContainers(room),
     spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),

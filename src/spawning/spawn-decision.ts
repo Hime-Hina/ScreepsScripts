@@ -39,6 +39,7 @@ export interface SpawningRoomSnapshot {
   readonly constructionSites: readonly SpawningConstructionSiteSnapshot[];
   readonly controllerLevel: number;
   readonly energyStructures: readonly SpawningEnergyStructureSnapshot[];
+  readonly isOwned?: boolean;
   readonly roomName: string;
   readonly sourceContainerCount?: number;
   readonly spawningWorkerCount?: number;

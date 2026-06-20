@@ -7,6 +7,7 @@ import {
   recordGmPlannedWorkerIntent,
   recordGmWorkerIntentError,
   runGmConsoleWatches,
+  selectGmRuntimeStrategyDecision,
   type GmConsoleApi,
 } from '../../../src/console/gm-console';
 import type { WorkerActionDecision } from '../../../src/creeps/worker-decision';
@@ -82,6 +83,140 @@ describe('gm console tools', () => {
     expect(consoleLines).toEqual([]);
     expect(createConstructionSite).not.toHaveBeenCalled();
     expect(moveTo).not.toHaveBeenCalled();
+  });
+
+  it('sets, displays, expires, and clears bounded runtime strategy directives', () => {
+    const consoleLines: string[] = [];
+    stubGame({ consoleLines });
+    installGmConsoleTools();
+
+    const gm = readGm();
+
+    expect(gm.strategy()).toContain('Active: none');
+    expect(gm.setStrategy('pauseConstruction', { roomName: 'W51N21', ticks: 20 })).toContain(
+      '[gm:setStrategy] pauseConstruction',
+    );
+
+    const activeOutput = gm.strategy();
+
+    expect(activeOutput).toContain('\nStrategy\n');
+    expect(activeOutput).toContain('Mode: pauseConstruction');
+    expect(activeOutput).toContain('Scope: W51N21');
+    expect(activeOutput).toContain('Expires: 71783810');
+    expect(activeOutput).toContain('TTL: 20');
+
+    (globalThis as unknown as { Game: { time: number } }).Game.time += 21;
+    expect(gm.strategy()).toContain('Active: none');
+
+    expect(gm.setStrategy('pauseConstruction', { ticks: 0 })).toContain('[gm:setStrategy] error');
+    expect(gm.setStrategy('invalid', { ticks: 10 })).toContain('[gm:setStrategy] error');
+    expect(gm.setStrategy('pauseConstruction', { ticks: 10 })).toContain('Expires: 71783821');
+    expect(gm.clearStrategy()).toContain('[gm:clearStrategy]');
+    expect(gm.strategy()).toContain('Active: none');
+  });
+
+  it('selects bounded runtime strategy only when safety gates allow it', () => {
+    const consoleLines: string[] = [];
+    stubGame({ consoleLines });
+    installGmConsoleTools();
+
+    const gm = readGm();
+    expect(gm.setStrategy('pauseConstruction', { roomName: 'W51N21', ticks: 20 })).toContain(
+      '[gm:setStrategy] pauseConstruction',
+    );
+
+    expect(
+      selectGmRuntimeStrategyDecision({
+        defenseStates: [{ roomName: 'W51N21', type: 'roomSafe' }],
+        gameTime: 71783790,
+        rooms: [
+          {
+            roomName: 'W51N21',
+            ticksToDowngrade: 9000,
+            workerCreepCount: 4,
+          },
+        ],
+        tickBudgetType: 'fullTickBudget',
+      }),
+    ).toEqual({
+      mode: 'pauseConstruction',
+      roomName: 'W51N21',
+      type: 'active',
+    });
+
+    expect(
+      selectGmRuntimeStrategyDecision({
+        defenseStates: [{ roomName: 'W51N21', type: 'roomUnsafe' }],
+        gameTime: 71783790,
+        rooms: [
+          {
+            roomName: 'W51N21',
+            ticksToDowngrade: 9000,
+            workerCreepCount: 4,
+          },
+        ],
+        tickBudgetType: 'fullTickBudget',
+      }),
+    ).toEqual({
+      mode: 'pauseConstruction',
+      reason: 'room W51N21 is unsafe',
+      roomName: 'W51N21',
+      type: 'ignored',
+    });
+
+    expect(
+      selectGmRuntimeStrategyDecision({
+        defenseStates: [{ roomName: 'W51N21', type: 'roomSafe' }],
+        gameTime: 71783790,
+        rooms: [
+          {
+            roomName: 'W51N21',
+            ticksToDowngrade: 7999,
+            workerCreepCount: 4,
+          },
+        ],
+        tickBudgetType: 'fullTickBudget',
+      }),
+    ).toMatchObject({
+      reason: 'controller downgrade warning in W51N21',
+      type: 'ignored',
+    });
+
+    expect(
+      selectGmRuntimeStrategyDecision({
+        defenseStates: [{ roomName: 'W51N21', type: 'roomSafe' }],
+        gameTime: 71783790,
+        rooms: [
+          {
+            roomName: 'W51N21',
+            ticksToDowngrade: 9000,
+            workerCreepCount: 2,
+          },
+        ],
+        tickBudgetType: 'fullTickBudget',
+      }),
+    ).toMatchObject({
+      reason: 'worker count below survival floor in W51N21',
+      type: 'ignored',
+    });
+
+    expect(
+      selectGmRuntimeStrategyDecision({
+        defenseStates: [{ roomName: 'W51N21', type: 'roomSafe' }],
+        gameTime: 71783790,
+        rooms: [
+          {
+            roomName: 'W51N21',
+            ticksToDowngrade: 9000,
+            workerCreepCount: 4,
+          },
+        ],
+        tickBudgetType: 'survivalOnlyTickBudget',
+      }),
+    ).toMatchObject({
+      reason: 'survival-only CPU budget is active',
+      type: 'ignored',
+    });
   });
 
   it('reports creep state and manual flag intent in pretty output', () => {

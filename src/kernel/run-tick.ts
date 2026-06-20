@@ -1,4 +1,8 @@
 import {
+  formatGmRuntimeStrategyDecision,
+  type GmRuntimeStrategyDecision,
+} from '../console/gm-console';
+import {
   planRoomConstruction,
   type ConstructionDecision,
 } from '../construction/construction-planner';
@@ -23,6 +27,7 @@ import { selectTickBudgetDecision, type TickBudgetDecision } from './tick-budget
 export interface TickTelemetry {
   readonly cpuSnapshot: RuntimeCpuSnapshot;
   readonly gameTime: number;
+  readonly runtimeStrategyDecision: GmRuntimeStrategyDecision;
   readonly tickBudgetDecision: TickBudgetDecision;
 }
 
@@ -55,14 +60,30 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
   const defenseWorld = runtime.readDefenseWorld();
   const defensePlan = planRoomDefense(defenseWorld);
   const towerDecisions = planTowerActions(runtime.readTowerWorld());
-  const constructionDecisions =
-    tickBudgetDecision.type === 'fullTickBudget'
-      ? planRoomConstruction(runtime.readConstructionWorld())
-      : [];
   const spawningWorld =
     tickBudgetDecision.type === 'fullTickBudget'
       ? runtime.readSpawningWorld()
       : runtime.readSurvivalSpawningWorld();
+  const runtimeStrategyDecision = runtime.selectGmRuntimeStrategyDecision?.({
+    defenseStates: defensePlan.roomDefenseStates,
+    gameTime: runtime.gameTime,
+    rooms: spawningWorld.rooms
+      .filter((room) => room.isOwned !== false)
+      .map((room) => ({
+        roomName: room.roomName,
+        ticksToDowngrade: room.ticksToDowngrade,
+        workerCreepCount: room.workerCreepCount,
+      })),
+    tickBudgetType: tickBudgetDecision.type,
+  }) ?? { type: 'none' };
+  const plannedConstructionDecisions =
+    tickBudgetDecision.type === 'fullTickBudget'
+      ? planRoomConstruction(runtime.readConstructionWorld())
+      : [];
+  const constructionDecisions = applyRuntimeStrategyToConstructionDecisions(
+    plannedConstructionDecisions,
+    runtimeStrategyDecision,
+  );
   const spawnDecision =
     tickBudgetDecision.type === 'fullTickBudget'
       ? planBootstrapWorkerSpawn(spawningWorld)
@@ -118,6 +139,12 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
 
   sendRuntimeAlerts(alertContext, actionFailures);
 
+  if (runtimeStrategyDecision.type !== 'none') {
+    runtime.writeConsoleLine(
+      formatGmRuntimeStrategyDecision(runtimeStrategyDecision, runtime.gameTime, runtime.shardName),
+    );
+  }
+
   runtime.writeConsoleLine(
     formatRuntimeOpsEventLine(
       createRuntimeHeartbeatOpsEvent({
@@ -140,6 +167,7 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
     telemetry: {
       cpuSnapshot,
       gameTime: runtime.gameTime,
+      runtimeStrategyDecision,
       tickBudgetDecision,
     },
     towerDecisions,
@@ -217,6 +245,26 @@ const readCaughtErrorMessage = (caughtError: unknown): string => {
   }
 
   return String(caughtError);
+};
+
+const applyRuntimeStrategyToConstructionDecisions = (
+  constructionDecisions: readonly ConstructionDecision[],
+  runtimeStrategyDecision: GmRuntimeStrategyDecision,
+): readonly ConstructionDecision[] => {
+  if (
+    runtimeStrategyDecision.type !== 'active' ||
+    runtimeStrategyDecision.mode !== 'pauseConstruction'
+  ) {
+    return constructionDecisions;
+  }
+
+  if (runtimeStrategyDecision.roomName === undefined) {
+    return [];
+  }
+
+  return constructionDecisions.filter(
+    (constructionDecision) => constructionDecision.roomName !== runtimeStrategyDecision.roomName,
+  );
 };
 
 const isCriticalWorkerActionDecision = (workerDecision: WorkerActionDecision): boolean => {

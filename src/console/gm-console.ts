@@ -1,4 +1,9 @@
+import {
+  BOOTSTRAP_SURVIVAL_WORKER_COUNT,
+  classifyBootstrapControllerDowngradeState,
+} from '../colony/bootstrap-economy';
 import type { WorkerActionDecision } from '../creeps/worker-decision';
+import type { RoomDefenseState } from '../defense/defense-planner';
 
 export type GmIntentSource = 'manual-flag' | 'planner';
 
@@ -27,10 +32,13 @@ export interface GmConsoleApi {
   readonly rooms: Record<string, string>;
   readonly s: Record<string, string>;
   readonly spawns: Record<string, string>;
+  readonly clearStrategy: () => string;
   readonly help: () => string;
   readonly room: (roomName?: string) => string;
   readonly creep: (creepName?: string) => string;
   readonly intent: (creepName?: string) => string;
+  readonly strategy: () => string;
+  readonly setStrategy: (mode: string, options?: GmSetStrategyOptions) => string;
   readonly watch: (target?: string, options?: GmWatchOptions) => string;
   readonly stop: (watchId?: number | string) => string;
   readonly watches: () => string;
@@ -45,6 +53,49 @@ export interface GmWatchOptions {
   readonly ticks?: number;
 }
 
+export type GmRuntimeStrategyMode = 'pauseConstruction';
+
+export interface GmSetStrategyOptions {
+  readonly reason?: string;
+  readonly roomName?: string;
+  readonly ticks?: number;
+}
+
+export type GmRuntimeStrategyDecision =
+  | {
+      readonly type: 'none';
+    }
+  | {
+      readonly mode: GmRuntimeStrategyMode;
+      readonly roomName?: string;
+      readonly type: 'active';
+    }
+  | {
+      readonly mode: GmRuntimeStrategyMode;
+      readonly reason: string;
+      readonly roomName?: string;
+      readonly type: 'ignored';
+    };
+
+export interface GmRuntimeStrategySelectionInput {
+  readonly defenseStates: readonly RoomDefenseState[];
+  readonly gameTime: number;
+  readonly rooms: readonly {
+    readonly roomName: string;
+    readonly ticksToDowngrade: number;
+    readonly workerCreepCount: number;
+  }[];
+  readonly tickBudgetType: 'fullTickBudget' | 'survivalOnlyTickBudget';
+}
+
+interface GmRuntimeStrategyDirective {
+  readonly createdAt: number;
+  readonly expiresAt: number;
+  readonly mode: GmRuntimeStrategyMode;
+  readonly reason?: string;
+  readonly roomName?: string;
+}
+
 interface GmConsoleState {
   readonly version: 1;
   defaultRoomName?: string;
@@ -53,6 +104,7 @@ interface GmConsoleState {
   lastWatchOutputById: Record<string, string>;
   lastWatchSampleById: Record<string, string>;
   nextWatchId: number;
+  runtimeStrategy?: GmRuntimeStrategyDirective;
   watches: Record<string, GmWatch>;
 }
 
@@ -125,6 +177,9 @@ const ROOM_WATCH_MIN_EVERY = 5;
 const CREEP_WATCH_MIN_EVERY = 1;
 const MAX_WATCHES = 3;
 const GM_ROOM_FLAG = 'gm:room';
+const GM_STRATEGY_DEFAULT_TICKS = 100;
+const GM_STRATEGY_MAX_TICKS = 5000;
+const GM_STRATEGY_MODES: readonly GmRuntimeStrategyMode[] = ['pauseConstruction'];
 
 const createStringRecord = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 
@@ -304,34 +359,161 @@ export const recordGmWorkerIntentError = (
   });
 };
 
-const readOrCreateGmApi = (): GmConsoleApi => {
-  const globalScope = globalThis as unknown as Record<string, unknown>;
-  const existingApi = globalScope[GM_API_KEY] as GmConsoleApi | undefined;
+export const selectGmRuntimeStrategyDecision = (
+  input: GmRuntimeStrategySelectionInput,
+): GmRuntimeStrategyDecision => {
+  const strategy = readActiveRuntimeStrategyDirective(readOrCreateGmConsoleState(), input.gameTime);
 
-  if (existingApi !== undefined) {
-    return existingApi;
+  if (strategy === undefined) {
+    return { type: 'none' };
   }
 
-  const gmApi: GmConsoleApi = {
-    c: createStringRecord(),
+  const ignoredDecision = (reason: string): GmRuntimeStrategyDecision => ({
+    mode: strategy.mode,
+    reason,
+    ...(strategy.roomName === undefined ? {} : { roomName: strategy.roomName }),
+    type: 'ignored',
+  });
+
+  if (input.tickBudgetType !== 'fullTickBudget') {
+    return ignoredDecision('survival-only CPU budget is active');
+  }
+
+  const scopedRooms = selectStrategyScopedRooms(strategy, input.rooms);
+
+  if (scopedRooms.length === 0) {
+    return ignoredDecision(
+      strategy.roomName === undefined
+        ? 'no visible rooms in strategy scope'
+        : `room ${strategy.roomName} is not visible`,
+    );
+  }
+
+  const unsafeRoom = scopedRooms.find((room) =>
+    input.defenseStates.some(
+      (defenseState) =>
+        defenseState.roomName === room.roomName && defenseState.type === 'roomUnsafe',
+    ),
+  );
+
+  if (unsafeRoom !== undefined) {
+    return ignoredDecision(`room ${unsafeRoom.roomName} is unsafe`);
+  }
+
+  const downgradeRiskRoom = scopedRooms.find((room) => {
+    const downgradeState = classifyBootstrapControllerDowngradeState({
+      roomName: room.roomName,
+      ticksToDowngrade: room.ticksToDowngrade,
+    });
+
+    return (
+      downgradeState.type === 'controllerDowngradeCritical' ||
+      downgradeState.type === 'controllerDowngradeWarning'
+    );
+  });
+
+  if (downgradeRiskRoom !== undefined) {
+    return ignoredDecision(`controller downgrade warning in ${downgradeRiskRoom.roomName}`);
+  }
+
+  const survivalFloorRoom = scopedRooms.find(
+    (room) => room.workerCreepCount < BOOTSTRAP_SURVIVAL_WORKER_COUNT,
+  );
+
+  if (survivalFloorRoom !== undefined) {
+    return ignoredDecision(`worker count below survival floor in ${survivalFloorRoom.roomName}`);
+  }
+
+  return {
+    mode: strategy.mode,
+    ...(strategy.roomName === undefined ? {} : { roomName: strategy.roomName }),
+    type: 'active',
+  };
+};
+
+export const formatGmRuntimeStrategyDecision = (
+  decision: GmRuntimeStrategyDecision,
+  gameTime: number,
+  shardName: string,
+): string => {
+  if (decision.type === 'none') {
+    return [
+      `[gm:strategy] runtime @ ${shardName} tick ${gameTime}`,
+      'Strategy',
+      '  Status: none',
+    ].join('\n');
+  }
+
+  return [
+    `[gm:strategy] runtime @ ${shardName} tick ${gameTime}`,
+    'Strategy',
+    `  Status: ${decision.type}`,
+    `  Mode: ${decision.mode}`,
+    `  Scope: ${decision.roomName ?? 'all-visible-rooms'}`,
+    `  Reason: ${decision.type === 'ignored' ? decision.reason : '-'}`,
+  ].join('\n');
+};
+
+const selectStrategyScopedRooms = (
+  strategy: GmRuntimeStrategyDirective,
+  rooms: GmRuntimeStrategySelectionInput['rooms'],
+): GmRuntimeStrategySelectionInput['rooms'] =>
+  strategy.roomName === undefined
+    ? rooms
+    : rooms.filter((room) => room.roomName === strategy.roomName);
+
+const readActiveRuntimeStrategyDirective = (
+  state: GmConsoleState,
+  gameTime: number,
+): GmRuntimeStrategyDirective | undefined => {
+  const strategy = state.runtimeStrategy;
+
+  if (strategy === undefined) {
+    return undefined;
+  }
+
+  if (gameTime >= strategy.expiresAt) {
+    delete state.runtimeStrategy;
+
+    return undefined;
+  }
+
+  return strategy;
+};
+
+const readRuntimeStrategyMode = (modeInput: string): GmRuntimeStrategyMode | undefined =>
+  GM_STRATEGY_MODES.find((mode) => mode === modeInput);
+
+const readOrCreateGmApi = (): GmConsoleApi => {
+  const globalScope = globalThis as unknown as Record<string, unknown>;
+  const existingApi = globalScope[GM_API_KEY] as Partial<GmConsoleApi> | undefined;
+  const gmApi = {
+    c: existingApi?.c ?? createStringRecord<string>(),
+    creeps: existingApi?.creeps ?? createStringRecord<string>(),
+    f: existingApi?.f ?? createStringRecord<string>(),
+    flagNames: existingApi?.flagNames ?? createStringRecord<string>(),
+    r: existingApi?.r ?? createStringRecord<string>(),
+    rooms: existingApi?.rooms ?? createStringRecord<string>(),
+    s: existingApi?.s ?? createStringRecord<string>(),
+    spawns: existingApi?.spawns ?? createStringRecord<string>(),
+  } as GmConsoleApi;
+
+  Object.assign(gmApi, {
+    clearStrategy: () => safelyFormat(formatClearStrategyCommand),
     creep: (creepName?: string) => safelyFormat(() => formatCreepCommand(creepName)),
-    creeps: createStringRecord(),
-    f: createStringRecord(),
-    flagNames: createStringRecord(),
     flags: () => safelyFormat(formatFlagsCommand),
     help: () => formatHelpCommand(),
     intent: (creepName?: string) => safelyFormat(() => formatIntentCommand(creepName)),
-    r: createStringRecord(),
     room: (roomName?: string) => safelyFormat(() => formatRoomCommand(roomName)),
-    rooms: createStringRecord(),
-    s: createStringRecord(),
     setRoom: (roomName: string) => safelyFormat(() => formatSetRoomCommand(roomName)),
-    spawns: createStringRecord(),
+    setStrategy: (mode: string, options?: GmSetStrategyOptions) =>
+      safelyFormat(() => formatSetStrategyCommand(mode, options)),
     stop: (watchId?: number | string) => safelyFormat(() => formatStopCommand(watchId)),
+    strategy: () => safelyFormat(formatStrategyCommand),
     watch: (target?: string, options?: GmWatchOptions) =>
       safelyFormat(() => formatWatchCommand(target, options)),
     watches: () => safelyFormat(formatWatchesCommand),
-  };
+  });
 
   globalScope[GM_API_KEY] = gmApi;
 
@@ -434,6 +616,9 @@ const formatHelpCommand = (): string =>
     '  gm.room(roomName?)',
     '  gm.creep(creepName?)',
     '  gm.intent(creepName?)',
+    '  gm.strategy()',
+    '  gm.setStrategy(mode, { ticks, roomName?, reason? })',
+    '  gm.clearStrategy()',
     '  gm.watch(target?, options?)',
     '  gm.stop(watchId?)',
     '  gm.watches()',
@@ -479,6 +664,96 @@ const formatSetRoomCommand = (roomName: string): string => {
     `  Room: ${roomName}`,
   ].join('\n');
 };
+
+const formatStrategyCommand = (): string => {
+  const strategy = readActiveRuntimeStrategyDirective(readOrCreateGmConsoleState(), Game.time);
+
+  if (strategy === undefined) {
+    return [
+      `[gm:strategy] @ ${readShardName()} tick ${Game.time}`,
+      'Strategy',
+      '  Active: none',
+    ].join('\n');
+  }
+
+  return formatRuntimeStrategyDirective(
+    strategy,
+    `[gm:strategy] @ ${readShardName()} tick ${Game.time}`,
+  );
+};
+
+const formatSetStrategyCommand = (
+  modeInput: string,
+  options: GmSetStrategyOptions = {},
+): string => {
+  const mode = readRuntimeStrategyMode(modeInput);
+
+  if (mode === undefined) {
+    return formatError('setStrategy', `Unsupported strategy "${modeInput}".`);
+  }
+
+  const ticks = options.ticks ?? GM_STRATEGY_DEFAULT_TICKS;
+
+  if (!Number.isInteger(ticks) || ticks <= 0 || ticks > GM_STRATEGY_MAX_TICKS) {
+    return formatError(
+      'setStrategy',
+      `ticks must be an integer between 1 and ${GM_STRATEGY_MAX_TICKS}.`,
+    );
+  }
+
+  if (options.roomName !== undefined && Game.rooms[options.roomName] === undefined) {
+    return formatError(
+      'setStrategy',
+      `Room "${options.roomName}" is not visible. Visible owned rooms: ${formatList(readOwnedVisibleRoomNames())}`,
+    );
+  }
+
+  const state = readOrCreateGmConsoleState();
+  const strategy: GmRuntimeStrategyDirective = {
+    createdAt: Game.time,
+    expiresAt: Game.time + ticks,
+    mode,
+    ...(options.reason === undefined ? {} : { reason: options.reason }),
+    ...(options.roomName === undefined ? {} : { roomName: options.roomName }),
+  };
+
+  state.runtimeStrategy = strategy;
+
+  return formatRuntimeStrategyDirective(
+    strategy,
+    `[gm:setStrategy] ${mode} @ ${readShardName()} tick ${Game.time}`,
+  );
+};
+
+const formatClearStrategyCommand = (): string => {
+  const state = readOrCreateGmConsoleState();
+  const previousStrategy = readActiveRuntimeStrategyDirective(state, Game.time);
+
+  delete state.runtimeStrategy;
+
+  return [
+    `[gm:clearStrategy] @ ${readShardName()} tick ${Game.time}`,
+    'Strategy',
+    `  Cleared: ${previousStrategy === undefined ? 'none' : previousStrategy.mode}`,
+  ].join('\n');
+};
+
+const formatRuntimeStrategyDirective = (
+  strategy: GmRuntimeStrategyDirective,
+  header: string,
+): string =>
+  [
+    header,
+    'Strategy',
+    `  Mode: ${strategy.mode}`,
+    `  Scope: ${strategy.roomName ?? 'all-visible-rooms'}`,
+    `  Created: ${strategy.createdAt}`,
+    `  Expires: ${strategy.expiresAt}`,
+    `  TTL: ${Math.max(0, strategy.expiresAt - Game.time)}`,
+    `  Reason: ${strategy.reason ?? '-'}`,
+    'Safety',
+    '  Ignored during defense, downgrade warning/critical, survival floor, or survival-only CPU budget.',
+  ].join('\n');
 
 const formatCreepCommand = (creepName?: string): string =>
   formatGmCreepSummary(summarizeGmCreep(creepName));

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ConstructionDecision } from '../../../src/construction/construction-planner';
+import { selectGmRuntimeStrategyDecision } from '../../../src/console/gm-console';
 import { runTick } from '../../../src/kernel/run-tick';
 import type { DefenseDecision, RoomDefenseState } from '../../../src/defense/defense-planner';
 import type { TowerActionDecision } from '../../../src/defense/tower-planner';
@@ -11,6 +12,13 @@ import type { SpawnDecision } from '../../../src/spawning/spawn-decision';
 
 const parseOpsEventLine = (consoleLine: string): Record<string, unknown> =>
   JSON.parse(consoleLine.replace(/^\[HERMES_EVENT\]\s*/u, '')) as Record<string, unknown>;
+
+const resetGmGlobals = (): void => {
+  delete (globalThis as unknown as Record<string, unknown>)['gm'];
+  delete (globalThis as unknown as Record<string, unknown>)['__gm'];
+};
+
+const createGmRecord = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 
 const createPlainTerrainRectangle = (minX: number, minY: number, maxX: number, maxY: number) => {
   const terrainTiles: { readonly terrain: 'plain'; readonly x: number; readonly y: number }[] = [];
@@ -25,6 +33,8 @@ const createPlainTerrainRectangle = (minX: number, minY: number, maxX: number, m
 };
 
 describe('runTick', () => {
+  afterEach(() => resetGmGlobals());
+
   it('reports the current tick and executes bootstrap actions', () => {
     const consoleLines: string[] = [];
     const executedConstructionDecisions: ConstructionDecision[] = [];
@@ -186,6 +196,9 @@ describe('runTick', () => {
           usedAtTickStart: 1.25,
         },
         gameTime: 42,
+        runtimeStrategyDecision: {
+          type: 'none',
+        },
         tickBudgetDecision: {
           type: 'fullTickBudget',
         },
@@ -260,6 +273,204 @@ describe('runTick', () => {
       },
       type: 'notify',
     });
+  });
+
+  it('applies a bounded GM pauseConstruction strategy without skipping defense, spawn, or worker work', () => {
+    const consoleLines: string[] = [];
+    const runtimeEvents: string[] = [];
+    const runtimeStrategyInputs: Parameters<typeof selectGmRuntimeStrategyDecision>[0][] = [];
+    const globalScope = globalThis as unknown as Record<string, unknown>;
+    globalScope['__gm'] = {
+      lastIntentByCreep: createGmRecord<unknown>(),
+      lastWatchOutputById: createGmRecord<string>(),
+      lastWatchSampleById: createGmRecord<string>(),
+      nextWatchId: 1,
+      runtimeStrategy: {
+        createdAt: 100,
+        expiresAt: 120,
+        mode: 'pauseConstruction',
+        roomName: 'W1N1',
+      },
+      version: 1,
+      watches: createGmRecord<unknown>(),
+    };
+
+    const tickRuntime: ScreepsTickIO = {
+      executeConstructionDecisions: (constructionDecisions) => {
+        runtimeEvents.push(`executeConstructionDecisions:${constructionDecisions.length}`);
+      },
+      executeDefenseDecisions: () => runtimeEvents.push('executeDefenseDecisions'),
+      executeSpawnDecision: () => runtimeEvents.push('executeSpawnDecision'),
+      executeTowerActions: () => runtimeEvents.push('executeTowerActions'),
+      executeWorkerActions: (workerDecisions) => {
+        runtimeEvents.push(`executeWorkerActions:${workerDecisions.length}`);
+      },
+      gameTime: 110,
+      shardName: 'shard1',
+      readCpuSnapshot: () => ({
+        bucket: 5000,
+        limit: 20,
+        tickLimit: 500,
+        usedAtTickStart: 1,
+      }),
+      readConstructionWorld: () => {
+        runtimeEvents.push('readConstructionWorld');
+
+        return {
+          controllerStructureLimits: {
+            extension: {
+              3: 10,
+            },
+            tower: {
+              3: 1,
+            },
+          },
+          ownedRooms: [
+            {
+              blockedPositions: [],
+              constructionSites: [],
+              controllerLevel: 3,
+              roomName: 'W1N1',
+              spawnPosition: { x: 10, y: 10 },
+              structures: [
+                {
+                  structureType: 'spawn',
+                  x: 10,
+                  y: 10,
+                },
+              ],
+              terrain: createPlainTerrainRectangle(8, 8, 12, 12),
+            },
+          ],
+        };
+      },
+      readDefenseWorld: () => ({
+        bodyPartConstants: {
+          attack: 'attack',
+          heal: 'heal',
+          move: 'move',
+          rangedAttack: 'ranged_attack',
+          work: 'work',
+        },
+        bodyPartPowers: {
+          attack: 30,
+          dismantle: 50,
+          heal: 12,
+          rangedAttack: 10,
+        },
+        controllers: [],
+        coreStructures: [],
+        hostileCreeps: [],
+        roomNames: ['W1N1'],
+      }),
+      readSpawningWorld: () => ({
+        bodyPartCosts: {
+          carry: 50,
+          move: 50,
+          work: 100,
+        },
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 110,
+        rooms: [
+          {
+            constructionSites: [
+              {
+                remainingWork: 2900,
+                structureType: 'extension',
+              },
+            ],
+            controllerLevel: 3,
+            energyStructures: [
+              {
+                availableEnergy: 300,
+                energyCapacity: 300,
+              },
+            ],
+            isOwned: true,
+            roomName: 'W1N1',
+            sourceCount: 2,
+            structures: [
+              {
+                structureType: 'spawn',
+              },
+            ],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 4,
+            workerCreepWorkParts: 4,
+          },
+          {
+            constructionSites: [],
+            controllerLevel: 0,
+            energyStructures: [],
+            isOwned: false,
+            roomName: 'W9N9',
+            sourceCount: 0,
+            structures: [],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 4,
+            workerCreepWorkParts: 0,
+          },
+        ],
+        spawns: [],
+      }),
+      readSurvivalSpawningWorld: () => {
+        throw new Error('Full budget tick must not read survival spawning world.');
+      },
+      readTowerWorld: () => ({
+        hostileCreeps: [],
+        ownedCreeps: [],
+        repairTargets: [],
+        towerEnergyCost: 10,
+        towers: [],
+      }),
+      readWorkerWorld: () => ({
+        constructionEligibilities: [],
+        constructionSites: [],
+        controllers: [],
+        creeps: [],
+        energyDeposits: [],
+        energyPickups: [],
+        energyStructures: [],
+        energyWithdrawals: [],
+        repairTargets: [],
+        sources: [],
+      }),
+      readSurvivalWorkerWorld: () => {
+        throw new Error('Full budget tick must not read survival worker world.');
+      },
+      selectGmRuntimeStrategyDecision: (input) => {
+        runtimeStrategyInputs.push(input);
+
+        return selectGmRuntimeStrategyDecision(input);
+      },
+      sendRuntimeAlert: () => runtimeEvents.push('sendRuntimeAlert'),
+      writeConsoleLine: (message) => consoleLines.push(message),
+    };
+
+    const tickExecution = runTick(tickRuntime, createEmptyScreepsMemoryState());
+
+    expect(tickExecution.constructionDecisions).toEqual([]);
+    expect(tickExecution.telemetry.runtimeStrategyDecision).toEqual({
+      mode: 'pauseConstruction',
+      roomName: 'W1N1',
+      type: 'active',
+    });
+    expect(runtimeStrategyInputs).toHaveLength(1);
+    expect(runtimeStrategyInputs[0].rooms.map((room) => room.roomName)).toEqual(['W1N1']);
+    expect(runtimeEvents).toContain('executeDefenseDecisions');
+    expect(runtimeEvents).toContain('executeTowerActions');
+    expect(runtimeEvents).toContain('readConstructionWorld');
+    expect(runtimeEvents).toContain('executeConstructionDecisions:0');
+    expect(runtimeEvents).not.toContain('sendRuntimeAlert');
+    expect(consoleLines.join('\n')).toContain('Status: active');
+    expect(consoleLines.join('\n')).toContain('Mode: pauseConstruction');
   });
 
   it('plans construction, spawning, and worker actions before executing them in order', () => {
@@ -481,8 +692,8 @@ describe('runTick', () => {
       'readCpuSnapshot',
       'readDefenseWorld',
       'readTowerWorld',
-      'readConstructionWorld',
       'readSpawningWorld',
+      'readConstructionWorld',
       'readWorkerWorld',
       'executeDefenseDecisions',
       'executeTowerActions',

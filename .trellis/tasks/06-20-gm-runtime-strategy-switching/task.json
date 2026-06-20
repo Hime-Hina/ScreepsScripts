@@ -3,7 +3,7 @@
   "name": "gm-runtime-strategy-switching",
   "title": "Deferred GM runtime strategy switching",
   "description": "Deferred follow-up for bounded manual runtime strategy directives after W51N21 RCL3 economy stabilization; not on the immediate critical path.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "runtime",
   "package": null,
