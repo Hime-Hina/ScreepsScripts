@@ -1073,7 +1073,7 @@ const executeWorkerAction = (workerDecision: WorkerActionDecision): void => {
         const actionReturnCode = creep.build(constructionSite);
 
         recordGmExecutedWorkerIntent(workerDecision, constructionSite, actionReturnCode);
-        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, constructionSite);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, constructionSite, 3);
         return;
       }
 
@@ -1082,7 +1082,7 @@ const executeWorkerAction = (workerDecision: WorkerActionDecision): void => {
         const actionReturnCode = creep.repair(repairStructure);
 
         recordGmExecutedWorkerIntent(workerDecision, repairStructure, actionReturnCode);
-        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, repairStructure);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, repairStructure, 3);
         return;
       }
 
@@ -1091,7 +1091,7 @@ const executeWorkerAction = (workerDecision: WorkerActionDecision): void => {
         const actionReturnCode = creep.upgradeController(controller);
 
         recordGmExecutedWorkerIntent(workerDecision, controller, actionReturnCode);
-        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, controller);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, controller, 3);
         return;
       }
     }
@@ -1247,11 +1247,140 @@ const moveToActionTargetWhenOutOfRange = (
   actionReturnCode: number,
   creep: Creep,
   target: RoomObject,
+  successfulActionRange = 1,
 ): void => {
   if (actionReturnCode === ERR_NOT_IN_RANGE) {
     creep.moveTo(target);
+
+    return;
+  }
+
+  if (actionReturnCode === OK) {
+    moveOffRoadAfterSuccessfulAction(creep, target, successfulActionRange);
   }
 };
+
+interface RoadExitDirectionCandidate {
+  readonly direction: DirectionConstant;
+  readonly dx: number;
+  readonly dy: number;
+}
+
+interface RoadExitPositionCandidate {
+  readonly direction: DirectionConstant;
+  readonly x: number;
+  readonly y: number;
+}
+
+const ROAD_EXIT_DIRECTIONS: readonly RoadExitDirectionCandidate[] = [
+  { direction: 1, dx: 0, dy: -1 },
+  { direction: 2, dx: 1, dy: -1 },
+  { direction: 3, dx: 1, dy: 0 },
+  { direction: 4, dx: 1, dy: 1 },
+  { direction: 5, dx: 0, dy: 1 },
+  { direction: 6, dx: -1, dy: 1 },
+  { direction: 7, dx: -1, dy: 0 },
+  { direction: 8, dx: -1, dy: -1 },
+];
+
+const moveOffRoadAfterSuccessfulAction = (
+  creep: Creep,
+  target: RoomObject,
+  successfulActionRange: number,
+): void => {
+  if (!hasRoomPosition(creep.pos) || !isRoadAtPosition(creep.room, creep.pos)) {
+    return;
+  }
+
+  const roadExitDirection = selectRoadExitDirection(creep, target, successfulActionRange);
+
+  if (roadExitDirection !== undefined) {
+    creep.move(roadExitDirection);
+  }
+};
+
+const selectRoadExitDirection = (
+  creep: Creep,
+  target: RoomObject,
+  successfulActionRange: number,
+): DirectionConstant | undefined => {
+  const targetPosition = hasRoomPosition(target.pos) ? target.pos : undefined;
+  const roadExitCandidates = ROAD_EXIT_DIRECTIONS.map((candidate) => ({
+    direction: candidate.direction,
+    x: creep.pos.x + candidate.dx,
+    y: creep.pos.y + candidate.dy,
+  }))
+    .filter((candidate) => isInteriorRoomPosition(candidate))
+    .filter((candidate) => !isSameRoomPosition(candidate, targetPosition))
+    .filter((candidate) => isWalkableNonRoadPosition(creep.room, candidate));
+
+  const selectableRoadExitCandidates =
+    targetPosition === undefined
+      ? roadExitCandidates
+      : roadExitCandidates.filter(
+          (candidate) =>
+            measureRoomPositionRange(candidate, targetPosition) <= successfulActionRange,
+        );
+  const sortedRoadExitCandidates = [...selectableRoadExitCandidates].sort(
+    (leftCandidate, rightCandidate) =>
+      compareRoadExitCandidates(leftCandidate, rightCandidate, targetPosition),
+  );
+
+  return sortedRoadExitCandidates[0]?.direction;
+};
+
+const compareRoadExitCandidates = (
+  leftCandidate: RoadExitPositionCandidate,
+  rightCandidate: RoadExitPositionCandidate,
+  targetPosition: { readonly x: number; readonly y: number } | undefined,
+): number => {
+  if (targetPosition !== undefined) {
+    const leftRange = measureRoomPositionRange(leftCandidate, targetPosition);
+    const rightRange = measureRoomPositionRange(rightCandidate, targetPosition);
+
+    if (leftRange !== rightRange) {
+      return leftRange - rightRange;
+    }
+  }
+
+  return leftCandidate.direction - rightCandidate.direction;
+};
+
+const isSameRoomPosition = (
+  leftPosition: { readonly x: number; readonly y: number },
+  rightPosition: { readonly x: number; readonly y: number } | undefined,
+): boolean => leftPosition.x === rightPosition?.x && leftPosition.y === rightPosition?.y;
+
+const isInteriorRoomPosition = (position: { readonly x: number; readonly y: number }): boolean =>
+  position.x >= 1 && position.x <= 48 && position.y >= 1 && position.y <= 48;
+
+const isWalkableNonRoadPosition = (
+  room: Room,
+  position: { readonly x: number; readonly y: number },
+): boolean => {
+  if ((room.getTerrain().get(position.x, position.y) & 1) !== 0) {
+    return false;
+  }
+
+  if (room.lookForAt(LOOK_CREEPS, position.x, position.y).length > 0) {
+    return false;
+  }
+
+  const structures = room.lookForAt(LOOK_STRUCTURES, position.x, position.y);
+
+  return structures.length === 0 || structures.every(isRampartStructure);
+};
+
+const isRoadAtPosition = (
+  room: Room,
+  position: { readonly x: number; readonly y: number },
+): boolean =>
+  room
+    .lookForAt(LOOK_STRUCTURES, position.x, position.y)
+    .some((structure) => structure.structureType === STRUCTURE_ROAD);
+
+const isRampartStructure = (structure: Structure): boolean =>
+  structure.structureType === STRUCTURE_RAMPART;
 
 const isWorkerEnergyStructure = (
   structure: AnyOwnedStructure,

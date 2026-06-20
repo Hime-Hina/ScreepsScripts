@@ -10,6 +10,8 @@ const TEST_FIND_RUINS = 123;
 const TEST_FIND_SOURCES = 105;
 const TEST_FIND_STRUCTURES = 107;
 const TEST_FIND_TOMBSTONES = 118;
+const TEST_LOOK_CREEPS = 'creep';
+const TEST_LOOK_STRUCTURES = 'structure';
 const TEST_STRUCTURE_CONTAINER = 'container';
 const TEST_STRUCTURE_EXTENSION = 'extension';
 const TEST_STRUCTURE_RAMPART = 'rampart';
@@ -126,7 +128,10 @@ describe('Screeps main loop', () => {
     vi.stubGlobal('FIND_TOMBSTONES', TEST_FIND_TOMBSTONES);
     vi.stubGlobal('HEAL', TEST_HEAL);
     vi.stubGlobal('HEAL_POWER', TEST_HEAL_POWER);
+    vi.stubGlobal('LOOK_CREEPS', TEST_LOOK_CREEPS);
+    vi.stubGlobal('LOOK_STRUCTURES', TEST_LOOK_STRUCTURES);
     vi.stubGlobal('MOVE', TEST_MOVE);
+    vi.stubGlobal('OK', 0);
     vi.stubGlobal('RANGED_ATTACK', TEST_RANGED_ATTACK);
     vi.stubGlobal('RANGED_ATTACK_POWER', TEST_RANGED_ATTACK_POWER);
     vi.stubGlobal('TOWER_ENERGY_COST', TEST_TOWER_ENERGY_COST);
@@ -598,6 +603,151 @@ describe('Screeps main loop', () => {
     ]);
 
     expect(transferTargets).toEqual([sourceContainer]);
+  });
+
+  it('moves a worker off a road after a successful in-range energy transfer', async () => {
+    const moveDirections: number[] = [];
+    const moveToTargets: unknown[] = [];
+    const transferTargets: unknown[] = [];
+    const roadStructure = {
+      structureType: TEST_STRUCTURE_ROAD,
+    };
+    const spawnStructure = {
+      id: 'spawn-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 25,
+        y: 25,
+      },
+      structureType: TEST_STRUCTURE_SPAWN,
+    };
+    const room = {
+      getTerrain: () => ({
+        get: () => 0,
+      }),
+      lookForAt: (lookType: string, x: number, y: number) => {
+        if (lookType === TEST_LOOK_STRUCTURES && x === 24 && y === 25) {
+          return [roadStructure];
+        }
+
+        return [];
+      },
+      name: 'W1N1',
+    };
+    const workerCreep = {
+      move: (direction: number) => {
+        moveDirections.push(direction);
+
+        return 0;
+      },
+      moveTo: (target: unknown) => moveToTargets.push(target),
+      name: 'Worker1',
+      pos: {
+        roomName: 'W1N1',
+        x: 24,
+        y: 25,
+      },
+      room,
+      transfer: (target: unknown) => {
+        transferTargets.push(target);
+
+        return 0;
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: workerCreep,
+      },
+      getObjectById: (objectId: string) => (objectId === 'spawn-1' ? spawnStructure : null),
+      spawns: {},
+      time: 32,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+
+    const runtimeModule = await import('../../src/runtime/screeps-runtime');
+
+    runtimeModule.captureScreepsTickRuntime().executeWorkerActions([
+      {
+        creepName: 'Worker1',
+        structureId: 'spawn-1',
+        type: 'refillEnergyStructure',
+      },
+    ]);
+
+    expect(transferTargets).toEqual([spawnStructure]);
+    expect(moveToTargets).toEqual([]);
+    expect(moveDirections).toEqual([1]);
+  });
+
+  it('keeps a worker on a road when no non-road exit preserves action range', async () => {
+    const moveDirections: number[] = [];
+    const roadStructure = {
+      structureType: TEST_STRUCTURE_ROAD,
+    };
+    const spawnStructure = {
+      id: 'spawn-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 25,
+        y: 25,
+      },
+      structureType: TEST_STRUCTURE_SPAWN,
+    };
+    const inTransferRangeRoadTiles = new Set(['24,25', '24,24', '25,24', '25,26', '24,26']);
+    const room = {
+      getTerrain: () => ({
+        get: () => 0,
+      }),
+      lookForAt: (lookType: string, x: number, y: number) => {
+        if (lookType === TEST_LOOK_STRUCTURES && inTransferRangeRoadTiles.has(`${x},${y}`)) {
+          return [roadStructure];
+        }
+
+        return [];
+      },
+      name: 'W1N1',
+    };
+    const workerCreep = {
+      move: (direction: number) => {
+        moveDirections.push(direction);
+
+        return 0;
+      },
+      moveTo: () => undefined,
+      name: 'Worker1',
+      pos: {
+        roomName: 'W1N1',
+        x: 24,
+        y: 25,
+      },
+      room,
+      transfer: () => 0,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: workerCreep,
+      },
+      getObjectById: (objectId: string) => (objectId === 'spawn-1' ? spawnStructure : null),
+      spawns: {},
+      time: 33,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+
+    const runtimeModule = await import('../../src/runtime/screeps-runtime');
+
+    runtimeModule.captureScreepsTickRuntime().executeWorkerActions([
+      {
+        creepName: 'Worker1',
+        structureId: 'spawn-1',
+        type: 'refillEnergyStructure',
+      },
+    ]);
+
+    expect(moveDirections).toEqual([]);
   });
 
   it('cleans dead top-level creep memory before writing project memory', async () => {
