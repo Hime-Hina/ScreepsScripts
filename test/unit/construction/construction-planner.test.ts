@@ -289,6 +289,74 @@ describe('room construction planner', () => {
     expect(planConstruction(rcl1ConstructionWorld)).toEqual([]);
   });
 
+  it('preserves the last adjacent refill tile when placing near-spawn extensions', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 2,
+          },
+        },
+        ownedRooms: [createNearSpawnLastAccessRoom(2)],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 12,
+        y: 8,
+      },
+    ]);
+  });
+
+  it('preserves refill access across multiple extension sites planned in one tick', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            2: 3,
+          },
+        },
+        ownedRooms: [createNearSpawnTwoAccessRoom()],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 9,
+        y: 8,
+      },
+      {
+        roomName: 'W1N1',
+        structureType: 'extension',
+        type: 'createConstructionSite',
+        x: 12,
+        y: 8,
+      },
+    ]);
+  });
+
+  it('preserves the last adjacent refill tile when placing the first tower', () => {
+    const towerDecisions = planConstruction({
+      controllerStructureLimits: {
+        extension: {
+          3: 1,
+        },
+      },
+      ownedRooms: [createNearSpawnLastAccessRoom(3)],
+    });
+
+    expect(towerDecisions).toHaveLength(1);
+    expect(towerDecisions[0]).toMatchObject({
+      roomName: 'W1N1',
+      structureType: 'tower',
+      type: 'createConstructionSite',
+    });
+    expect(towerDecisions[0]).not.toMatchObject({ x: 9, y: 8 });
+  });
+
   it('uses captured RCL3 extension limits before planning the first tower', () => {
     expect(
       planConstruction({
@@ -1042,6 +1110,55 @@ const openTerrainAroundSpawn10: readonly ConstructionTerrainSnapshot[] = [
   { terrain: 'plain', x: 11, y: 12 },
   { terrain: 'plain', x: 12, y: 12 },
 ];
+
+const createNearSpawnLastAccessRoom = (controllerLevel: number) => ({
+  blockedPositions: [
+    { x: 8, y: 8 },
+    { x: 10, y: 8 },
+    { x: 11, y: 8 },
+  ],
+  constructionSites: [],
+  controllerLevel,
+  controllerPosition: { x: 10, y: 14 },
+  roomName: 'W1N1',
+  spawnPosition: { x: 10, y: 10 },
+  structures: [
+    { structureType: 'spawn', x: 10, y: 10 },
+    { structureType: 'extension', x: 10, y: 9 },
+    { structureType: 'constructedWall', x: 9, y: 9 },
+    { structureType: 'constructedWall', x: 11, y: 9 },
+    { structureType: 'constructedWall', x: 9, y: 10 },
+    { structureType: 'constructedWall', x: 11, y: 10 },
+    { structureType: 'constructedWall', x: 9, y: 11 },
+    { structureType: 'constructedWall', x: 10, y: 11 },
+    { structureType: 'constructedWall', x: 11, y: 11 },
+  ],
+  terrain: createPlainTerrainRectangle(8, 8, 12, 12),
+});
+
+const createNearSpawnTwoAccessRoom = () => ({
+  blockedPositions: [
+    { x: 8, y: 8 },
+    { x: 10, y: 8 },
+  ],
+  constructionSites: [],
+  controllerLevel: 2,
+  controllerPosition: { x: 10, y: 14 },
+  roomName: 'W1N1',
+  spawnPosition: { x: 10, y: 10 },
+  structures: [
+    { structureType: 'spawn', x: 10, y: 10 },
+    { structureType: 'extension', x: 10, y: 9 },
+    { structureType: 'constructedWall', x: 9, y: 9 },
+    { structureType: 'constructedWall', x: 11, y: 9 },
+    { structureType: 'constructedWall', x: 9, y: 10 },
+    { structureType: 'constructedWall', x: 11, y: 10 },
+    { structureType: 'constructedWall', x: 9, y: 11 },
+    { structureType: 'constructedWall', x: 10, y: 11 },
+    { structureType: 'constructedWall', x: 11, y: 11 },
+  ],
+  terrain: createPlainTerrainRectangle(8, 8, 12, 12),
+});
 
 const rcl1ConstructionWorld: Omit<ConstructionWorldSnapshot, 'controllerStructureLimits'> = {
   ownedRooms: [

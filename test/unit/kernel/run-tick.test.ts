@@ -11,6 +11,18 @@ import type { SpawnDecision } from '../../../src/spawning/spawn-decision';
 const parseOpsEventLine = (consoleLine: string): Record<string, unknown> =>
   JSON.parse(consoleLine.replace(/^\[HERMES_EVENT\]\s*/u, '')) as Record<string, unknown>;
 
+const createPlainTerrainRectangle = (minX: number, minY: number, maxX: number, maxY: number) => {
+  const terrainTiles: { readonly terrain: 'plain'; readonly x: number; readonly y: number }[] = [];
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      terrainTiles.push({ terrain: 'plain', x, y });
+    }
+  }
+
+  return terrainTiles;
+};
+
 describe('runTick', () => {
   it('reports the current tick and executes bootstrap actions', () => {
     const consoleLines: string[] = [];
@@ -281,13 +293,7 @@ describe('runTick', () => {
                   y: 10,
                 },
               ],
-              terrain: [
-                { terrain: 'plain', x: 9, y: 9 },
-                { terrain: 'plain', x: 10, y: 9 },
-                { terrain: 'plain', x: 11, y: 9 },
-                { terrain: 'plain', x: 9, y: 10 },
-                { terrain: 'plain', x: 11, y: 10 },
-              ],
+              terrain: createPlainTerrainRectangle(8, 8, 12, 12),
             },
           ],
         };

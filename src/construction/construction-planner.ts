@@ -112,6 +112,8 @@ const planRclExtensionSites = (
 
   const terrainByPositionKey = createTerrainByPositionKey(ownedRoom.terrain);
   const unavailablePositionKeys = collectUnavailablePositionKeys(ownedRoom);
+  const accessBlockedPositionKeys = collectAccessBlockedPositionKeys(ownedRoom);
+  const refillAccessTargets = [...listRefillAccessTargets(ownedRoom)];
   const extensionDecisions: ConstructionDecision[] = [];
 
   for (const candidatePosition of listNearSpawnCandidatePositions(ownedRoom.spawnPosition)) {
@@ -129,10 +131,23 @@ const planRclExtensionSites = (
       continue;
     }
 
+    if (
+      !preservesRefillAccess({
+        accessBlockedPositionKeys,
+        candidatePosition,
+        refillAccessTargets,
+        terrainByPositionKey,
+      })
+    ) {
+      continue;
+    }
+
     extensionDecisions.push(
       createConstructionSiteDecision(ownedRoom.roomName, candidatePosition, 'extension'),
     );
     unavailablePositionKeys.add(candidatePositionKey);
+    accessBlockedPositionKeys.add(candidatePositionKey);
+    refillAccessTargets.push(candidatePosition);
   }
 
   return extensionDecisions;
@@ -162,6 +177,14 @@ const planRclTowerSite = (
     .filter((candidatePosition) => isBuildableTile(candidatePosition, terrainByPositionKey))
     .filter(
       (candidatePosition) => !unavailablePositionKeys.has(serializePosition(candidatePosition)),
+    )
+    .filter((candidatePosition) =>
+      preservesRefillAccess({
+        accessBlockedPositionKeys: collectAccessBlockedPositionKeys(ownedRoom),
+        candidatePosition,
+        refillAccessTargets: listRefillAccessTargets(ownedRoom),
+        terrainByPositionKey,
+      }),
     )
     .sort(compareTowerCandidatePositions(ownedRoom.spawnPosition, controllerCorePosition))[0];
 
@@ -401,6 +424,89 @@ const collectPathBlockedPositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot
       .filter((constructionSiteSnapshot) => constructionSiteSnapshot.structureType !== 'road')
       .map((constructionSiteSnapshot) => serializePosition(constructionSiteSnapshot)),
   ]);
+
+const preservesRefillAccess = ({
+  accessBlockedPositionKeys,
+  candidatePosition,
+  refillAccessTargets,
+  terrainByPositionKey,
+}: {
+  readonly accessBlockedPositionKeys: ReadonlySet<string>;
+  readonly candidatePosition: ConstructionPositionSnapshot;
+  readonly refillAccessTargets: readonly ConstructionPositionSnapshot[];
+  readonly terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>;
+}): boolean => {
+  const accessBlockedPositionKeysWithCandidate = new Set(accessBlockedPositionKeys);
+  accessBlockedPositionKeysWithCandidate.add(serializePosition(candidatePosition));
+  const refillAccessTargetsWithCandidate = [...refillAccessTargets, candidatePosition];
+
+  return refillAccessTargetsWithCandidate.every((targetPosition) => {
+    const currentAccessCount = countAccessibleAdjacentPositions(
+      targetPosition,
+      terrainByPositionKey,
+      accessBlockedPositionKeys,
+    );
+
+    if (currentAccessCount === 0 && !isSamePosition(targetPosition, candidatePosition)) {
+      return true;
+    }
+
+    return (
+      countAccessibleAdjacentPositions(
+        targetPosition,
+        terrainByPositionKey,
+        accessBlockedPositionKeysWithCandidate,
+      ) > 0
+    );
+  });
+};
+
+const listRefillAccessTargets = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly ConstructionPositionSnapshot[] => [
+  ...ownedRoom.structures.filter((structureSnapshot) =>
+    isRefillAccessTargetStructure(structureSnapshot.structureType),
+  ),
+  ...ownedRoom.constructionSites.filter((constructionSiteSnapshot) =>
+    isRefillAccessTargetStructure(constructionSiteSnapshot.structureType),
+  ),
+];
+
+const collectAccessBlockedPositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot): Set<string> =>
+  new Set<string>([
+    ...ownedRoom.blockedPositions.map((blockedPosition) => serializePosition(blockedPosition)),
+    ...ownedRoom.structures
+      .filter((structureSnapshot) => !isWalkableAccessStructure(structureSnapshot.structureType))
+      .map((structureSnapshot) => serializePosition(structureSnapshot)),
+    ...ownedRoom.constructionSites
+      .filter(
+        (constructionSiteSnapshot) =>
+          !isWalkableAccessStructure(constructionSiteSnapshot.structureType),
+      )
+      .map((constructionSiteSnapshot) => serializePosition(constructionSiteSnapshot)),
+  ]);
+
+const countAccessibleAdjacentPositions = (
+  targetPosition: ConstructionPositionSnapshot,
+  terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>,
+  accessBlockedPositionKeys: ReadonlySet<string>,
+): number =>
+  listAdjacentCandidatePositions(targetPosition).filter(
+    (adjacentPosition) =>
+      isBuildableTile(adjacentPosition, terrainByPositionKey) &&
+      !accessBlockedPositionKeys.has(serializePosition(adjacentPosition)),
+  ).length;
+
+const isRefillAccessTargetStructure = (structureType: string): boolean =>
+  structureType === 'spawn' || structureType === 'extension' || structureType === 'tower';
+
+const isWalkableAccessStructure = (structureType: string): boolean =>
+  structureType === 'road' || structureType === 'rampart';
+
+const isSamePosition = (
+  leftPosition: ConstructionPositionSnapshot,
+  rightPosition: ConstructionPositionSnapshot,
+): boolean => leftPosition.x === rightPosition.x && leftPosition.y === rightPosition.y;
 
 const listNearSpawnCandidatePositions = (
   spawnPosition: ConstructionPositionSnapshot,

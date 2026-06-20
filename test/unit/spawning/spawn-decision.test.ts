@@ -761,6 +761,68 @@ describe('bootstrap worker spawn decision', () => {
     });
   });
 
+  it('continues spawning a W51N21-like safe RCL3 room while one extension is empty', () => {
+    expect(
+      planWorkerSpawn({
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 66,
+        rooms: [
+          {
+            constructionSites: [
+              { remainingWork: 3000, structureType: 'extension' },
+              { remainingWork: 3000, structureType: 'extension' },
+              { remainingWork: 1776, structureType: 'extension' },
+              { remainingWork: 5000, structureType: 'tower' },
+            ],
+            controllerLevel: 3,
+            energyStructures: [
+              {
+                availableEnergy: 600,
+                energyCapacity: 650,
+              },
+            ],
+            roomName: 'W51N21',
+            sourceCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            ticksToDowngrade: 9000,
+            workerCreepCount: 5,
+            workerCreepWorkParts: 10,
+          },
+        ],
+        workerCreepCount: 5,
+        spawns: [
+          {
+            availableEnergy: 600,
+            energyCapacity: 650,
+            isSpawning: false,
+            name: 'Spawn1',
+            roomName: 'W51N21',
+          },
+        ],
+      }),
+    ).toEqual({
+      body: ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+      creepName: 'Spawn1-worker-66',
+      spawnName: 'Spawn1',
+    });
+  });
+
   it('keeps survival-only spawning at the survival worker floor during construction backlog', () => {
     expect(
       planSurvivalWorkerSpawn({
@@ -863,7 +925,7 @@ describe('bootstrap worker spawn decision', () => {
     ).toBeNull();
   });
 
-  it('keeps worker demand at the survival floor when spawn or extension refill is unstable', () => {
+  it('keeps safe development worker demand executable while spawn or extension refill is unstable', () => {
     expect(
       planWorkerSpawn({
         constructionCosts: {
@@ -911,7 +973,11 @@ describe('bootstrap worker spawn decision', () => {
           },
         ],
       }),
-    ).toBeNull();
+    ).toEqual({
+      body: ['work', 'carry', 'carry', 'move', 'move'],
+      creepName: 'Spawn1-worker-49',
+      spawnName: 'Spawn1',
+    });
   });
 
   it('waits until a spawn has enough energy for a worker body', () => {

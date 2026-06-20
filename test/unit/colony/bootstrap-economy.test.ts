@@ -147,7 +147,7 @@ describe('bootstrap economy contract', () => {
     });
   });
 
-  it('defers construction when controller safety or refill stability is unsafe', () => {
+  it('defers construction when controller safety is unsafe but permits safe refill recovery', () => {
     expect(
       selectRoomConstructionEligibility({
         controllerDowngradeState: WARNING_CONTROLLER_STATE,
@@ -171,7 +171,7 @@ describe('bootstrap economy contract', () => {
       }),
     ).toEqual({
       roomName: 'W1N1',
-      type: 'constructionDeferredForSurvival',
+      type: 'constructionAllowed',
     });
   });
 
@@ -192,6 +192,23 @@ describe('bootstrap economy contract', () => {
 
   it('selects source-throughput RCL2 development demand when the room economy is safe', () => {
     expect(selectBootstrapWorkerDemand(createDemandInput())).toEqual({
+      targetWorkerCount: 10,
+      type: 'rcl2DevelopmentWorkerDemand',
+    });
+  });
+
+  it('keeps safe RCL3 development demand visible when one extension is not refilled', () => {
+    expect(
+      selectBootstrapWorkerDemand(
+        createDemandInput({
+          constructionBacklogEnergy: 12776,
+          controllerLevel: 3,
+          energyState: UNSTABLE_ENERGY_STATE,
+          workerCreepCount: 5,
+          workerCreepWorkParts: 10,
+        }),
+      ),
+    ).toEqual({
       targetWorkerCount: 10,
       type: 'rcl2DevelopmentWorkerDemand',
     });
@@ -262,17 +279,6 @@ describe('bootstrap economy contract', () => {
       selectBootstrapWorkerDemand(
         createDemandInput({
           controllerDowngradeState: WARNING_CONTROLLER_STATE,
-        }),
-      ),
-    ).toEqual({
-      targetWorkerCount: 3,
-      type: 'survivalWorkerDemand',
-    });
-
-    expect(
-      selectBootstrapWorkerDemand(
-        createDemandInput({
-          energyState: UNSTABLE_ENERGY_STATE,
         }),
       ),
     ).toEqual({

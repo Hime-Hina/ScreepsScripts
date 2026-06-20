@@ -1590,6 +1590,153 @@ describe('Screeps main loop', () => {
     expect(transferTargets).toEqual([extensionTarget]);
   });
 
+  it('allows a safe RCL3 worker to build while another worker refills a depleted extension', async () => {
+    const buildTargets: unknown[] = [];
+    const transferTargets: unknown[] = [];
+    const depletedExtension = {
+      id: 'extension-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 35,
+        y: 22,
+      },
+      structureType: TEST_STRUCTURE_EXTENSION,
+      store: {
+        getCapacity: () => 50,
+        getUsedCapacity: () => 0,
+      },
+    };
+    const constructionSiteTarget = {
+      id: 'site-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 36,
+        y: 21,
+      },
+      progress: 1224,
+      progressTotal: 3000,
+      structureType: TEST_STRUCTURE_EXTENSION,
+    };
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 3,
+      my: true,
+      pos: {
+        x: 26,
+        y: 7,
+      },
+      ticksToDowngrade: 9000,
+    };
+    const firstSpawn = {
+      id: 'spawn-1',
+      name: 'Spawn1',
+      pos: {
+        roomName: 'W1N1',
+        x: 35,
+        y: 23,
+      },
+      spawnCreep: () => 0,
+      spawning: {},
+      structureType: TEST_STRUCTURE_SPAWN,
+      store: {
+        getCapacity: () => 300,
+        getUsedCapacity: () => 300,
+      },
+    };
+    const createWorkingWorker = (name: string) => ({
+      build: (target: unknown) => {
+        buildTargets.push(target);
+        return 0;
+      },
+      harvest: () => 0,
+      moveTo: () => undefined,
+      name,
+      room: {
+        name: 'W1N1',
+      },
+      store: {
+        getFreeCapacity: () => 0,
+        getUsedCapacity: () => 50,
+      },
+      transfer: (target: unknown) => {
+        transferTargets.push(target);
+        return 0;
+      },
+      upgradeController: () => 0,
+    });
+    const roomTerrain = {
+      get: () => 0,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Worker1: createWorkingWorker('Worker1'),
+        Worker2: createWorkingWorker('Worker2'),
+        Worker3: {
+          ...createWorkingWorker('Worker3'),
+          store: {
+            getFreeCapacity: () => 50,
+            getUsedCapacity: () => 0,
+          },
+        },
+      },
+      cpu: createTestCpu(0.67),
+      getObjectById: (objectId: string) => {
+        if (objectId === 'extension-1') {
+          return depletedExtension;
+        }
+
+        if (objectId === 'site-1') {
+          return constructionSiteTarget;
+        }
+
+        return null;
+      },
+      notify: () => undefined,
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          energyAvailable: 600,
+          energyCapacityAvailable: 650,
+          createConstructionSite: () => 0,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_STRUCTURES || findType === TEST_FIND_MY_STRUCTURES) {
+              return [firstSpawn, depletedExtension];
+            }
+
+            if (
+              findType === TEST_FIND_CONSTRUCTION_SITES ||
+              findType === TEST_FIND_MY_CONSTRUCTION_SITES
+            ) {
+              return [constructionSiteTarget];
+            }
+
+            return [];
+          },
+          getTerrain: () => roomTerrain,
+          name: 'W1N1',
+        },
+      },
+      spawns: {
+        Spawn1: firstSpawn,
+      },
+      time: 15,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(transferTargets).toEqual([depletedExtension]);
+    expect(buildTargets).toEqual([constructionSiteTarget]);
+  });
+
   it('keeps a partial-energy working creep building through the runtime boundary', async () => {
     const buildTargets: unknown[] = [];
     const constructionSiteTarget = {

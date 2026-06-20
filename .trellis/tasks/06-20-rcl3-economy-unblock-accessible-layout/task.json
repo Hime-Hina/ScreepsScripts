@@ -3,7 +3,7 @@
   "name": "rcl3-economy-unblock-accessible-layout",
   "title": "RCL3 economy unblock and accessible layout",
   "description": "Unblock W51N21 RCL3 development demand and construction after room energy stalled at 600/650, while preventing near-spawn layouts that can seal extension access.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "runtime",
   "package": null,

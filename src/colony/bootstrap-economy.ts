@@ -192,7 +192,6 @@ export const selectRoomConstructionEligibility = (
 
   if (
     eligibilityInput.controllerDowngradeState.type === 'controllerDowngradeSafe' &&
-    eligibilityInput.energyState.type === 'spawnExtensionEnergyStable' &&
     eligibilityInput.workerPopulationState.type === 'survivalWorkerPopulationStable'
   ) {
     return {
@@ -215,9 +214,8 @@ export const selectBootstrapWorkerDemand = (
   }
 
   if (
-    demandInput.controllerLevel !== 2 ||
-    demandInput.controllerDowngradeState.type !== 'controllerDowngradeSafe' ||
-    demandInput.energyState.type !== 'spawnExtensionEnergyStable'
+    demandInput.controllerLevel < 2 ||
+    demandInput.controllerDowngradeState.type !== 'controllerDowngradeSafe'
   ) {
     return survivalWorkerDemand;
   }
