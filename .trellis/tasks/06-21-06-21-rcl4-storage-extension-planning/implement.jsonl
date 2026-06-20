@@ -1,0 +1,8 @@
+{"file":".trellis/tasks/06-21-06-21-rcl4-storage-extension-planning/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/06-21-06-21-rcl4-storage-extension-planning/design.md","reason":"Storage and access-safe extension design."}
+{"file":"src/construction/construction-planner.ts","reason":"Construction planner."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"Runtime construction snapshot/constants."}
+{"file":"test/unit/construction/construction-planner.test.ts","reason":"Focused planner tests."}
+{"file":"test/integration/main-loop.test.ts","reason":"Integration if runtime snapshot changes."}
+{"file":"docs/architecture.md","reason":"Update if construction architecture changes."}
+{"file":"package.json","reason":"Verification commands."}

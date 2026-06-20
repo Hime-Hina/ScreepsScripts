@@ -1,0 +1,31 @@
+{
+  "id": "06-21-rcl3-rcl4-safe-development-train",
+  "name": "06-21-rcl3-rcl4-safe-development-train",
+  "title": "RCL3/RCL4 safe development train",
+  "description": "Parent plan for safe live cleanup, role logistics, RCL4 construction readiness, and verification/deploy gates for W51N21.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P0",
+  "creator": "hermes",
+  "assignee": "hermes",
+  "createdAt": "2026-06-21",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-21-06-21-unblock-inaccessible-extension-live-cleanup",
+    "06-21-06-21-active-hauler-logistics",
+    "06-21-06-21-controller-container-upgrader-flow",
+    "06-21-06-21-rcl4-storage-extension-planning"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

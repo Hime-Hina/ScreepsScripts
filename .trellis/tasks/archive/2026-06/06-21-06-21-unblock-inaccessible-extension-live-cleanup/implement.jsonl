@@ -1,0 +1,5 @@
+{"file":".trellis/tasks/archive/2026-06/06-21-06-21-unblock-inaccessible-extension-live-cleanup/prd.md","reason":"Live cleanup requirements and forbidden actions."}
+{"file":".trellis/tasks/archive/2026-06/06-21-06-21-unblock-inaccessible-extension-live-cleanup/design.md","reason":"Guarded live-write algorithm."}
+{"file":"scripts/screeps/screeps-api.mjs","reason":"Read room objects/status and build API URLs/helpers."}
+{"file":"scripts/screeps/live-survival-status.mjs","reason":"Live status verification command behavior."}
+{"file":"package.json","reason":"Status script names."}

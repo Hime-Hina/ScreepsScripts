@@ -1,0 +1,7 @@
+{"file":".trellis/tasks/06-21-06-21-controller-container-upgrader-flow/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/06-21-06-21-controller-container-upgrader-flow/design.md","reason":"Behavior design."}
+{"file":"src/creeps/worker-decision.ts","reason":"Worker role action planner."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"Runtime worker snapshot and execution boundary."}
+{"file":"test/unit/creeps/worker-decision.test.ts","reason":"Focused upgrader tests."}
+{"file":"test/integration/main-loop.test.ts","reason":"Integration boundary tests if needed."}
+{"file":"package.json","reason":"Verification commands."}

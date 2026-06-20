@@ -1,0 +1,9 @@
+{"file":".trellis/tasks/archive/2026-06/06-21-06-21-active-hauler-logistics/prd.md","reason":"Task requirements and acceptance criteria."}
+{"file":".trellis/tasks/archive/2026-06/06-21-06-21-active-hauler-logistics/design.md","reason":"Hauler target behavior and safety model."}
+{"file":"src/creeps/worker-decision.ts","reason":"Worker role action planner."}
+{"file":"src/runtime/screeps-runtime.ts","reason":"Runtime worker snapshot and action execution boundary."}
+{"file":"src/spawning/spawn-decision.ts","reason":"Existing role spawn requests; should not change in this task."}
+{"file":"test/unit/creeps/worker-decision.test.ts","reason":"Focused hauler behavior tests."}
+{"file":"test/integration/main-loop.test.ts","reason":"Runtime integration if snapshot/action behavior changes."}
+{"file":"docs/architecture.md","reason":"Architecture and domain-boundary constraints."}
+{"file":"package.json","reason":"Verification commands."}
