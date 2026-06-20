@@ -70,16 +70,32 @@ const EARLY_WORKER_BODIES = [
 ] as const satisfies readonly (readonly SpawnBodyPart[])[];
 
 const SURVIVAL_WORKER_REQUEST_PRIORITY = 200;
-const RCL2_DEVELOPMENT_WORKER_REQUEST_PRIORITY = 100;
+const DEVELOPMENT_WORKER_REQUEST_PRIORITY = 100;
 
-type SpawnRequestType = 'survivalWorker' | 'rcl2DevelopmentWorker';
+export type SpawnRequestType = 'survivalWorker' | 'developmentWorker';
 
-interface SpawnRequest {
+export interface SpawnRequestReasonMetrics {
+  readonly constructionBacklogEnergy: number;
+  readonly controllerDowngradeState: ReturnType<
+    typeof classifyBootstrapControllerDowngradeState
+  >['type'];
+  readonly controllerLevel: number;
+  readonly currentWorkerCount: number;
+  readonly energyState: ReturnType<typeof classifySpawnExtensionEnergyState>['type'];
+  readonly plannedWorkerWorkParts: number;
+  readonly sourceCount: number;
+  readonly targetWorkerCount: number;
+  readonly workerCreepWorkParts: number;
+}
+
+export interface SpawnRequest {
   readonly bodyOptions: readonly (readonly SpawnBodyPart[])[];
   readonly priority: number;
+  readonly reasonMetrics: SpawnRequestReasonMetrics;
   readonly requestType: SpawnRequestType;
   readonly roomName: string;
   readonly spawnName: string;
+  readonly targetGap: number;
 }
 
 interface IndexedSpawnRequest extends SpawnRequest {
@@ -89,9 +105,14 @@ interface IndexedSpawnRequest extends SpawnRequest {
 const EARLY_WORKER_BODY_CATALOG: Readonly<
   Record<SpawnRequestType, readonly (readonly SpawnBodyPart[])[]>
 > = {
-  rcl2DevelopmentWorker: EARLY_WORKER_BODIES,
+  developmentWorker: EARLY_WORKER_BODIES,
   survivalWorker: EARLY_WORKER_BODIES,
 };
+
+export const selectBootstrapWorkerSpawnRequests = (
+  spawningWorld: SpawningWorldSnapshot,
+): readonly SpawnRequest[] =>
+  createBootstrapWorkerRequests(spawningWorld).map(removeSpawnRequestIndex);
 
 export const planBootstrapWorkerSpawn = (
   spawningWorld: SpawningWorldSnapshot,
@@ -120,35 +141,52 @@ const createBootstrapWorkerRequests = (
 ): readonly IndexedSpawnRequest[] =>
   spawningWorld.spawns.flatMap((spawnSnapshot, order) => {
     const spawningRoom = readSpawningRoom(spawningWorld, spawnSnapshot.roomName);
-    const workerDemand = selectBootstrapWorkerDemand({
-      constructionBacklogEnergy: calculateConstructionBacklogEnergy(spawningRoom, spawningWorld),
-      controllerDowngradeState: classifyBootstrapControllerDowngradeState({
-        roomName: spawningRoom.roomName,
-        ticksToDowngrade: spawningRoom.ticksToDowngrade,
-      }),
-      controllerLevel: spawningRoom.controllerLevel,
-      energyState: classifySpawnExtensionEnergyState(spawningRoom),
-      plannedWorkerWorkParts: countWorkParts(
-        selectLargestWorkerBodyForCapacity(
-          EARLY_WORKER_BODY_CATALOG.rcl2DevelopmentWorker,
-          spawnSnapshot.energyCapacity,
-          spawningWorld.bodyPartCosts,
-        ),
+    const constructionBacklogEnergy = calculateConstructionBacklogEnergy(
+      spawningRoom,
+      spawningWorld,
+    );
+    const controllerDowngradeState = classifyBootstrapControllerDowngradeState({
+      roomName: spawningRoom.roomName,
+      ticksToDowngrade: spawningRoom.ticksToDowngrade,
+    });
+    const energyState = classifySpawnExtensionEnergyState(spawningRoom);
+    const plannedWorkerWorkParts = countWorkParts(
+      selectLargestWorkerBodyForCapacity(
+        EARLY_WORKER_BODY_CATALOG.developmentWorker,
+        spawnSnapshot.energyCapacity,
+        spawningWorld.bodyPartCosts,
       ),
+    );
+    const workerDemand = selectBootstrapWorkerDemand({
+      constructionBacklogEnergy,
+      controllerDowngradeState,
+      controllerLevel: spawningRoom.controllerLevel,
+      energyState,
+      plannedWorkerWorkParts,
       sourceCount: spawningRoom.sourceCount,
       workerCreepCount: spawningRoom.workerCreepCount,
       workerCreepWorkParts: spawningRoom.workerCreepWorkParts,
     });
+    const targetGap = workerDemand.targetWorkerCount - spawningRoom.workerCreepCount;
 
-    if (spawningRoom.workerCreepCount >= workerDemand.targetWorkerCount) {
+    if (targetGap <= 0) {
       return [];
     }
 
     return [
       createSpawnRequest({
         order,
+        reasonMetrics: createSpawnRequestReasonMetrics({
+          constructionBacklogEnergy,
+          controllerDowngradeState,
+          energyState,
+          plannedWorkerWorkParts,
+          spawningRoom,
+          targetWorkerCount: workerDemand.targetWorkerCount,
+        }),
         requestType: selectSpawnRequestType(workerDemand.type),
         spawnSnapshot,
+        targetGap,
       }),
     ];
   });
@@ -166,38 +204,88 @@ const createBootstrapSurvivalWorkerRequests = (
     return [
       createSpawnRequest({
         order,
+        reasonMetrics: createSpawnRequestReasonMetrics({
+          constructionBacklogEnergy: 0,
+          controllerDowngradeState: classifyBootstrapControllerDowngradeState({
+            roomName: spawningRoom.roomName,
+            ticksToDowngrade: spawningRoom.ticksToDowngrade,
+          }),
+          energyState: classifySpawnExtensionEnergyState(spawningRoom),
+          plannedWorkerWorkParts: countWorkParts(INITIAL_WORKER_BODY),
+          spawningRoom,
+          targetWorkerCount: BOOTSTRAP_SURVIVAL_WORKER_COUNT,
+        }),
         requestType: 'survivalWorker',
         spawnSnapshot,
+        targetGap: BOOTSTRAP_SURVIVAL_WORKER_COUNT - spawningRoom.workerCreepCount,
       }),
     ];
   });
 
+const createSpawnRequestReasonMetrics = ({
+  constructionBacklogEnergy,
+  controllerDowngradeState,
+  energyState,
+  plannedWorkerWorkParts,
+  spawningRoom,
+  targetWorkerCount,
+}: {
+  readonly constructionBacklogEnergy: number;
+  readonly controllerDowngradeState: ReturnType<typeof classifyBootstrapControllerDowngradeState>;
+  readonly energyState: ReturnType<typeof classifySpawnExtensionEnergyState>;
+  readonly plannedWorkerWorkParts: number;
+  readonly spawningRoom: SpawningRoomSnapshot;
+  readonly targetWorkerCount: number;
+}): SpawnRequestReasonMetrics => ({
+  constructionBacklogEnergy,
+  controllerDowngradeState: controllerDowngradeState.type,
+  controllerLevel: spawningRoom.controllerLevel,
+  currentWorkerCount: spawningRoom.workerCreepCount,
+  energyState: energyState.type,
+  plannedWorkerWorkParts,
+  sourceCount: spawningRoom.sourceCount,
+  targetWorkerCount,
+  workerCreepWorkParts: spawningRoom.workerCreepWorkParts,
+});
+
 const createSpawnRequest = ({
   order,
+  reasonMetrics,
   requestType,
   spawnSnapshot,
+  targetGap,
 }: {
   readonly order: number;
+  readonly reasonMetrics: SpawnRequestReasonMetrics;
   readonly requestType: SpawnRequestType;
   readonly spawnSnapshot: SpawnSnapshot;
+  readonly targetGap: number;
 }): IndexedSpawnRequest => ({
   bodyOptions: EARLY_WORKER_BODY_CATALOG[requestType],
   order,
   priority: readSpawnRequestPriority(requestType),
+  reasonMetrics,
   requestType,
   roomName: spawnSnapshot.roomName,
   spawnName: spawnSnapshot.name,
+  targetGap,
 });
+
+const removeSpawnRequestIndex = (indexedSpawnRequest: IndexedSpawnRequest): SpawnRequest => {
+  const { order: _order, ...spawnRequest } = indexedSpawnRequest;
+
+  return spawnRequest;
+};
 
 const selectSpawnRequestType = (
   workerDemandType: ReturnType<typeof selectBootstrapWorkerDemand>['type'],
 ): SpawnRequestType =>
-  workerDemandType === 'survivalWorkerDemand' ? 'survivalWorker' : 'rcl2DevelopmentWorker';
+  workerDemandType === 'survivalWorkerDemand' ? 'survivalWorker' : 'developmentWorker';
 
 const readSpawnRequestPriority = (requestType: SpawnRequestType): number =>
   requestType === 'survivalWorker'
     ? SURVIVAL_WORKER_REQUEST_PRIORITY
-    : RCL2_DEVELOPMENT_WORKER_REQUEST_PRIORITY;
+    : DEVELOPMENT_WORKER_REQUEST_PRIORITY;
 
 const selectHighestPriorityExecutableRequest = (
   spawnRequests: readonly IndexedSpawnRequest[],
@@ -230,9 +318,7 @@ const selectHighestPriorityExecutableRequest = (
 
     if (
       selectedExecutableRequest === null ||
-      spawnRequest.priority > selectedExecutableRequest.spawnRequest.priority ||
-      (spawnRequest.priority === selectedExecutableRequest.spawnRequest.priority &&
-        spawnRequest.order < selectedExecutableRequest.spawnRequest.order)
+      compareSpawnRequestPriority(spawnRequest, selectedExecutableRequest.spawnRequest) < 0
     ) {
       selectedExecutableRequest = {
         body: workerBody,
@@ -243,6 +329,35 @@ const selectHighestPriorityExecutableRequest = (
 
   return selectedExecutableRequest;
 };
+
+const compareSpawnRequestPriority = (
+  leftSpawnRequest: IndexedSpawnRequest,
+  rightSpawnRequest: IndexedSpawnRequest,
+): number =>
+  compareDescending(leftSpawnRequest.priority, rightSpawnRequest.priority) ||
+  compareSpawnRequestType(leftSpawnRequest.requestType, rightSpawnRequest.requestType) ||
+  compareDescending(leftSpawnRequest.targetGap, rightSpawnRequest.targetGap) ||
+  compareAscending(leftSpawnRequest.order, rightSpawnRequest.order) ||
+  leftSpawnRequest.roomName.localeCompare(rightSpawnRequest.roomName) ||
+  leftSpawnRequest.spawnName.localeCompare(rightSpawnRequest.spawnName);
+
+const SPAWN_REQUEST_TYPE_ORDER: Readonly<Record<SpawnRequestType, number>> = {
+  survivalWorker: 0,
+  developmentWorker: 1,
+};
+
+const compareSpawnRequestType = (
+  leftRequestType: SpawnRequestType,
+  rightRequestType: SpawnRequestType,
+): number =>
+  compareAscending(
+    SPAWN_REQUEST_TYPE_ORDER[leftRequestType],
+    SPAWN_REQUEST_TYPE_ORDER[rightRequestType],
+  );
+
+const compareAscending = (leftValue: number, rightValue: number): number => leftValue - rightValue;
+
+const compareDescending = (leftValue: number, rightValue: number): number => rightValue - leftValue;
 
 const createSpawnDecision = (
   executableSpawnRequest: {

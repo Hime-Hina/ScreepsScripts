@@ -3,7 +3,7 @@
   "name": "priority-bootstrap-spawn-requests",
   "title": "Priority bootstrap/RCL3 spawn requests",
   "description": "Promote spawn demand into first-class prioritized requests after the RCL3 unblock so survival, development, replacement, and later role requests can coexist safely.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "runtime",
   "package": null,

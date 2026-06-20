@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   planBootstrapSurvivalWorkerSpawn,
   planBootstrapWorkerSpawn,
+  selectBootstrapWorkerSpawnRequests,
   type SpawnSnapshot,
   type SpawningWorldSnapshot,
 } from '../../../src/spawning/spawn-decision';
@@ -162,6 +163,34 @@ const createSpawnSnapshot = (
   ...overrides,
 });
 
+const createSpawningWorld = (spawningWorld: TestSpawningWorldSnapshot): SpawningWorldSnapshot => {
+  const roomName = spawningWorld.spawns[0]?.roomName ?? 'W1N1';
+  const defaultRooms: readonly TestSpawningRoomSnapshot[] = [
+    createRoomSnapshot(roomName, {
+      workerCreepCount: spawningWorld.workerCreepCount,
+      workerCreepWorkParts: spawningWorld.workerCreepCount,
+    }),
+  ];
+
+  return {
+    bodyPartCosts: TEST_BODY_PART_COSTS,
+    constructionCosts: {
+      extension: 3000,
+    },
+    controllerStructureLimits: {
+      extension: {
+        2: 0,
+      },
+    },
+    ...spawningWorld,
+    rooms: (spawningWorld.rooms ?? defaultRooms).map(normalizeRoomSnapshot),
+    spawns: spawningWorld.spawns.map((spawnSnapshot) => ({
+      roomName,
+      ...spawnSnapshot,
+    })),
+  };
+};
+
 describe('bootstrap worker spawn decision', () => {
   it('uses a 550-energy RCL2 worker body when the full extension capacity is ready', () => {
     expect(
@@ -304,6 +333,225 @@ describe('bootstrap worker spawn decision', () => {
       body: ['work', 'carry', 'carry', 'move', 'move'],
       creepName: 'SpawnDevelopment-worker-61',
       spawnName: 'SpawnDevelopment',
+    });
+  });
+
+  it('represents a safe RCL3 development request with target gap and reason metrics', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 66,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            constructionSites: [
+              { remainingWork: 3000, structureType: 'extension' },
+              { remainingWork: 3000, structureType: 'extension' },
+              { remainingWork: 1776, structureType: 'extension' },
+              { remainingWork: 5000, structureType: 'tower' },
+            ],
+            controllerLevel: 3,
+            energyStructures: [
+              {
+                availableEnergy: 600,
+                energyCapacity: 650,
+              },
+            ],
+            sourceCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 5,
+            workerCreepWorkParts: 10,
+          }),
+        ],
+        workerCreepCount: 5,
+        spawns: [
+          createSpawnSnapshot('Spawn1', 'W51N21', {
+            availableEnergy: 600,
+            energyCapacity: 650,
+          }),
+        ],
+      }),
+    );
+
+    expect(spawnRequests).toHaveLength(1);
+    expect(spawnRequests[0]).toMatchObject({
+      bodyOptions: [
+        ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+        ['work', 'carry', 'carry', 'move', 'move'],
+        ['work', 'carry', 'move'],
+      ],
+      priority: 100,
+      requestType: 'developmentWorker',
+      roomName: 'W51N21',
+      spawnName: 'Spawn1',
+      targetGap: 5,
+    });
+    expect(spawnRequests[0]?.reasonMetrics).toEqual({
+      constructionBacklogEnergy: 12776,
+      controllerDowngradeState: 'controllerDowngradeSafe',
+      controllerLevel: 3,
+      currentWorkerCount: 5,
+      energyState: 'spawnExtensionEnergyUnstable',
+      plannedWorkerWorkParts: 2,
+      sourceCount: 2,
+      targetWorkerCount: 10,
+      workerCreepWorkParts: 10,
+    });
+  });
+
+  it('orders equal-priority development requests by larger target gap before spawn order', () => {
+    expect(
+      planWorkerSpawn({
+        constructionCosts: {
+          extension: 3000,
+        },
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 67,
+        rooms: [
+          createRoomSnapshot('W1N1', {
+            constructionSites: [],
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 9,
+            workerCreepWorkParts: 18,
+          }),
+          createRoomSnapshot('W2N2', {
+            constructionSites: [],
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 5,
+            workerCreepWorkParts: 10,
+          }),
+        ],
+        workerCreepCount: 5,
+        spawns: [
+          createSpawnSnapshot('SpawnLowGap', 'W1N1', {
+            availableEnergy: 550,
+            energyCapacity: 550,
+          }),
+          createSpawnSnapshot('SpawnHighGap', 'W2N2', {
+            availableEnergy: 550,
+            energyCapacity: 550,
+          }),
+        ],
+      }),
+    ).toEqual({
+      body: ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+      creepName: 'SpawnHighGap-worker-67',
+      spawnName: 'SpawnHighGap',
+    });
+  });
+
+  it('uses spawn order as a deterministic fallback when development target gaps tie', () => {
+    expect(
+      planWorkerSpawn({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 68,
+        rooms: [
+          createRoomSnapshot('W1N1', {
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 5,
+            workerCreepWorkParts: 10,
+          }),
+          createRoomSnapshot('W2N2', {
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 5,
+            workerCreepWorkParts: 10,
+          }),
+        ],
+        workerCreepCount: 5,
+        spawns: [
+          createSpawnSnapshot('SpawnFirst', 'W1N1', {
+            availableEnergy: 550,
+            energyCapacity: 550,
+          }),
+          createSpawnSnapshot('SpawnSecond', 'W2N2', {
+            availableEnergy: 550,
+            energyCapacity: 550,
+          }),
+        ],
+      }),
+    ).toEqual({
+      body: ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+      creepName: 'SpawnFirst-worker-68',
+      spawnName: 'SpawnFirst',
     });
   });
 

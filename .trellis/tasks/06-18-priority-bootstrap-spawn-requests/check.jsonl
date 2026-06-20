@@ -4,7 +4,7 @@
 {"file":".trellis/tasks/06-18-bootstrap-adaptive-spawn-roadmap/prd.md","reason":"Roadmap sequencing."}
 {"file":".trellis/tasks/06-18-priority-bootstrap-spawn-requests/prd.md","reason":"Task requirements."}
 {"file":".trellis/tasks/06-18-priority-bootstrap-spawn-requests/design.md","reason":"Request model design."}
-{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current live motivation."}
+{"file":".trellis/tasks/archive/2026-06/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current live motivation."}
 {"file":"src/spawning/spawn-decision.ts","reason":"Request generation and selection."}
 {"file":"src/colony/bootstrap-economy.ts","reason":"Demand inputs consumed by spawn requests."}
 {"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Focused tests."}
