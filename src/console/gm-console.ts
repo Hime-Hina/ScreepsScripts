@@ -1150,6 +1150,9 @@ const toWorkerIntentTarget = (
     case 'refillEnergyStructure':
       return { targetId: workerDecision.structureId, targetKind: 'energyStructure' };
 
+    case 'depositEnergy':
+      return { targetId: workerDecision.structureId, targetKind: 'energyDeposit' };
+
     case 'repairStructure':
       return { targetId: workerDecision.structureId, targetKind: 'structure' };
 

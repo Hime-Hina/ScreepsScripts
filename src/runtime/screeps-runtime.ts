@@ -43,8 +43,11 @@ import type {
   TowerRepairTargetSnapshot,
   TowerWorldSnapshot,
 } from '../defense/tower-planner';
-import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
-import type { SpawnDecision } from '../spawning/spawn-decision';
+import type {
+  SpawnCreepRole,
+  SpawnDecision,
+  SpawningWorldSnapshot,
+} from '../spawning/spawn-decision';
 import { formatRuntimeOpsEventLine, type RuntimeOpsEvent } from './ops-event';
 
 export interface RuntimeCpuSnapshot {
@@ -146,6 +149,7 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     roomName: room.name,
+    sourceContainerCount: countRoomSourceContainers(room),
     spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),
     sourceCount: room.find(FIND_SOURCES).length,
     structures: room.find(FIND_STRUCTURES).map((structure) => ({
@@ -183,6 +187,7 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     roomName: room.name,
+    sourceContainerCount: countRoomSourceContainers(room),
     spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),
     sourceCount: room.find(FIND_SOURCES).length,
     structures: [],
@@ -209,6 +214,34 @@ const readSpawnRoomEnergyCapacityAvailable = (spawn: StructureSpawn): number =>
   spawn.room?.energyCapacityAvailable ??
   Game.rooms[spawn.pos.roomName]?.energyCapacityAvailable ??
   SPAWN_ENERGY_CAPACITY;
+
+const countRoomSourceContainers = (room: Room): number => {
+  const roomSources = room.find(FIND_SOURCES);
+
+  return roomSources.filter(
+    (source) =>
+      hasRoomPosition(source.pos) &&
+      room
+        .find(FIND_STRUCTURES)
+        .filter(isContainerStructure)
+        .some(
+          (container) =>
+            hasRoomPosition(container.pos) &&
+            measureRoomPositionRange(container.pos, source.pos) <= 1,
+        ),
+  ).length;
+};
+
+const hasRoomPosition = (
+  position: { readonly x?: number; readonly y?: number } | undefined,
+): position is { readonly x: number; readonly y: number } =>
+  position?.x !== undefined && position.y !== undefined;
+
+const measureRoomPositionRange = (
+  leftPosition: { readonly x: number; readonly y: number },
+  rightPosition: { readonly x: number; readonly y: number },
+): number =>
+  Math.max(Math.abs(leftPosition.x - rightPosition.x), Math.abs(leftPosition.y - rightPosition.y));
 
 const captureConstructionWorld = (): ConstructionWorldSnapshot => ({
   controllerStructureLimits: {
@@ -383,6 +416,7 @@ const captureWorkerWorld = (
       }),
     });
   }),
+  energyDeposits: Object.values(Game.rooms).flatMap(captureRoomEnergyDeposits),
   energyPickups: Object.values(Game.rooms).flatMap((room) =>
     room
       .find(FIND_DROPPED_RESOURCES)
@@ -462,6 +496,7 @@ const captureSurvivalWorkerWorld = (
       }),
     });
   }),
+  energyDeposits: Object.values(Game.rooms).flatMap(captureRoomEnergyDeposits),
   energyPickups: Object.values(Game.rooms).flatMap((room) =>
     room
       .find(FIND_DROPPED_RESOURCES)
@@ -512,11 +547,26 @@ const captureWorkerCreepSnapshot = (creep: Creep): WorkerWorldSnapshot['creeps']
   const freeCapacity = creep.store.getFreeCapacity(RESOURCE_ENERGY);
   const energyMode = selectAndPersistWorkerEnergyMode(creep, energy, freeCapacity);
 
+  const creepRole = readCreepRole(creep);
+
+  if (creepRole === undefined) {
+    return {
+      energy,
+      energyMode,
+      freeCapacity,
+      name: creep.name,
+      roomName: creep.room.name,
+      x: creep.pos?.x,
+      y: creep.pos?.y,
+    };
+  }
+
   return {
     energy,
     energyMode,
     freeCapacity,
     name: creep.name,
+    role: creepRole,
     roomName: creep.room.name,
     x: creep.pos?.x,
     y: creep.pos?.y,
@@ -558,6 +608,22 @@ const readMutableCreepMemory = (creep: Creep): Record<string, unknown> => {
   creepWithMemory.memory ??= {};
 
   return creepWithMemory.memory;
+};
+
+const readCreepRole = (creep: Creep): SpawnCreepRole | undefined => {
+  const role = readMutableCreepMemory(creep)['role'];
+
+  switch (role) {
+    case 'worker':
+    case 'miner':
+    case 'hauler':
+    case 'builder':
+    case 'upgrader':
+      return role;
+
+    default:
+      return undefined;
+  }
 };
 
 const toDefenseCoreStructureSnapshot = (
@@ -699,9 +765,12 @@ const captureRoomWorkerCreeps = (
 ): NonNullable<SpawningWorldSnapshot['rooms'][number]['workerCreeps']> =>
   Object.values(Game.creeps)
     .filter((creep) => creep.room.name === roomName)
-    .map((creep) => ({
-      ticksToLive: creep.ticksToLive ?? 0,
-    }));
+    .flatMap((creep): NonNullable<SpawningWorldSnapshot['rooms'][number]['workerCreeps']> => {
+      const ticksToLive = creep.ticksToLive ?? 0;
+      const creepRole = readCreepRole(creep);
+
+      return creepRole === undefined ? [{ ticksToLive }] : [{ role: creepRole, ticksToLive }];
+    });
 
 const countRoomWorkerCreeps = (roomName: string): number =>
   Object.values(Game.creeps).filter((creep) => creep.room.name === roomName).length;
@@ -715,7 +784,11 @@ const countRoomSpawningWorkerCreeps = (roomName: string): number =>
   ).length;
 
 const isBootstrapWorkerCreepName = (creepName: string | undefined): boolean =>
-  creepName?.includes('-worker-') === true;
+  creepName?.includes('-worker-') === true ||
+  creepName?.includes('-miner-') === true ||
+  creepName?.includes('-hauler-') === true ||
+  creepName?.includes('-builder-') === true ||
+  creepName?.includes('-upgrader-') === true;
 
 const countRoomWorkerWorkParts = (roomName: string): number =>
   Object.values(Game.creeps)
@@ -726,6 +799,32 @@ const countRoomWorkerWorkParts = (roomName: string): number =>
         (creep.body ?? []).filter((bodyPart) => bodyPart.type === WORK && bodyPart.hits > 0).length,
       0,
     );
+
+const captureRoomEnergyDeposits = (room: Room): WorkerWorldSnapshot['energyDeposits'] =>
+  room
+    .find(FIND_STRUCTURES)
+    .filter(isContainerStructure)
+    .flatMap((container) => {
+      const freeCapacity =
+        typeof container.store.getFreeCapacity === 'function'
+          ? container.store.getFreeCapacity(RESOURCE_ENERGY)
+          : 0;
+
+      if (freeCapacity <= 0) {
+        return [];
+      }
+
+      return [
+        {
+          freeCapacity,
+          id: container.id,
+          roomName: container.pos.roomName,
+          targetType: 'container' as const,
+          x: container.pos.x,
+          y: container.pos.y,
+        },
+      ];
+    });
 
 const captureRoomEnergyWithdrawals = (room: Room): WorkerWorldSnapshot['energyWithdrawals'] => {
   const energyWithdrawalsById = new Map<string, WorkerWorldSnapshot['energyWithdrawals'][number]>();
@@ -890,7 +989,16 @@ const executeSpawnDecision = (spawnDecision: SpawnDecision): void => {
     throw new Error(`Spawn "${spawnDecision.spawnName}" does not exist for spawn decision.`);
   }
 
-  spawn.spawnCreep([...spawnDecision.body], spawnDecision.creepName);
+  if (spawnDecision.creepRole === undefined) {
+    spawn.spawnCreep([...spawnDecision.body], spawnDecision.creepName);
+    return;
+  }
+
+  spawn.spawnCreep([...spawnDecision.body], spawnDecision.creepName, {
+    memory: {
+      role: spawnDecision.creepRole,
+    },
+  });
 };
 
 const executeWorkerActions = (workerDecisions: readonly WorkerActionDecision[]): void => {
@@ -930,6 +1038,15 @@ const executeWorkerAction = (workerDecision: WorkerActionDecision): void => {
 
         recordGmExecutedWorkerIntent(workerDecision, energyWithdrawalTarget, actionReturnCode);
         moveToActionTargetWhenOutOfRange(actionReturnCode, creep, energyWithdrawalTarget);
+        return;
+      }
+
+      case 'depositEnergy': {
+        const energyDepositTarget = readEnergyDepositTarget(workerDecision.structureId);
+        const actionReturnCode = creep.transfer(energyDepositTarget, RESOURCE_ENERGY);
+
+        recordGmExecutedWorkerIntent(workerDecision, energyDepositTarget, actionReturnCode);
+        moveToActionTargetWhenOutOfRange(actionReturnCode, creep, energyDepositTarget);
         return;
       }
 
@@ -1005,6 +1122,16 @@ const readEnergyStructure = (
   }
 
   return energyStructure;
+};
+
+const readEnergyDepositTarget = (structureId: string): StructureContainer => {
+  const energyDepositTarget = Game.getObjectById(structureId as Id<StructureContainer>);
+
+  if (energyDepositTarget === null) {
+    throw new Error(`Energy deposit target "${structureId}" does not exist for worker action.`);
+  }
+
+  return energyDepositTarget;
 };
 
 const readConstructionSite = (constructionSiteId: string): ConstructionSite => {

@@ -11,6 +11,7 @@ export interface WorkerCreepSnapshot {
   readonly energyMode: WorkerEnergyMode;
   readonly freeCapacity: number;
   readonly name: string;
+  readonly role?: 'worker' | 'miner' | 'hauler' | 'builder' | 'upgrader';
   readonly roomName: string;
   readonly x?: number;
   readonly y?: number;
@@ -75,6 +76,15 @@ export interface WorkerEnergyWithdrawSnapshot {
   readonly y?: number;
 }
 
+export interface WorkerEnergyDepositSnapshot {
+  readonly freeCapacity: number;
+  readonly id: string;
+  readonly roomName: string;
+  readonly targetType?: 'container';
+  readonly x?: number;
+  readonly y?: number;
+}
+
 export type WorkerRepairStructureType = 'container' | 'extension' | 'road' | 'spawn';
 
 export interface WorkerRepairTargetSnapshot {
@@ -92,6 +102,7 @@ export interface WorkerWorldSnapshot {
   readonly constructionSites: readonly WorkerConstructionSiteSnapshot[];
   readonly controllers: readonly WorkerControllerSnapshot[];
   readonly creeps: readonly WorkerCreepSnapshot[];
+  readonly energyDeposits: readonly WorkerEnergyDepositSnapshot[];
   readonly energyPickups: readonly WorkerEnergyPickupSnapshot[];
   readonly energyWithdrawals: readonly WorkerEnergyWithdrawSnapshot[];
   readonly energyStructures: readonly WorkerEnergyStructureSnapshot[];
@@ -103,6 +114,7 @@ export type WorkerActionDecision =
   | HarvestSourceDecision
   | PickupEnergyDecision
   | WithdrawEnergyDecision
+  | DepositEnergyDecision
   | RefillEnergyStructureDecision
   | RepairStructureDecision
   | BuildConstructionSiteDecision
@@ -130,6 +142,12 @@ export interface WithdrawEnergyDecision {
   readonly creepName: string;
   readonly structureId: string;
   readonly type: 'withdrawEnergy';
+}
+
+export interface DepositEnergyDecision {
+  readonly creepName: string;
+  readonly structureId: string;
+  readonly type: 'depositEnergy';
 }
 
 export interface BuildConstructionSiteDecision {
@@ -181,6 +199,7 @@ export const planBootstrapWorkerActions = (
   const downgradeWorkerByRoomName = selectDowngradeWorkers(workerWorld);
   const reservedPickupEnergyById = new Map<string, number>();
   const reservedWithdrawEnergyById = new Map<string, number>();
+  const reservedDepositEnergyById = new Map<string, number>();
   const reservedRefillEnergyById = new Map<string, number>();
   const reservedConstructionWorkById = new Map<string, number>();
   const reservedRepairStructureIds = new Set<string>();
@@ -195,6 +214,7 @@ export const planBootstrapWorkerActions = (
         downgradeWorkerByRoomName,
         reservedPickupEnergyById,
         reservedWithdrawEnergyById,
+        reservedDepositEnergyById,
         reservedRefillEnergyById,
         reservedConstructionWorkById,
         reservedRepairStructureIds,
@@ -211,10 +231,20 @@ const planBootstrapWorkerAction = (
   downgradeWorkerByRoomName: ReadonlyMap<string, string>,
   reservedPickupEnergyById: Map<string, number>,
   reservedWithdrawEnergyById: Map<string, number>,
+  reservedDepositEnergyById: Map<string, number>,
   reservedRefillEnergyById: Map<string, number>,
   reservedConstructionWorkById: Map<string, number>,
   reservedRepairStructureIds: Set<string>,
 ): WorkerActionDecision | null => {
+  if (workerCreep.role === 'miner') {
+    return planSourceMinerAction(
+      workerWorld,
+      workerCreep,
+      harvestSourceByCreepName.get(workerCreep.name),
+      reservedDepositEnergyById,
+    );
+  }
+
   if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
     const energyPickup = selectEnergyPickup(
       workerWorld,
@@ -374,6 +404,48 @@ const planBootstrapWorkerAction = (
   };
 };
 
+const planSourceMinerAction = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+  reservedDepositEnergyById: Map<string, number>,
+): WorkerActionDecision | null => {
+  if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
+    if (assignedSource === undefined) {
+      return null;
+    }
+
+    return {
+      creepName: workerCreep.name,
+      sourceId: assignedSource.id,
+      type: 'harvestSource',
+    };
+  }
+
+  if (workerCreep.energy <= 0 || assignedSource === undefined) {
+    return null;
+  }
+
+  const energyDeposit = selectSourceLocalEnergyDeposit(
+    workerWorld,
+    workerCreep,
+    assignedSource,
+    reservedDepositEnergyById,
+  );
+
+  if (energyDeposit === undefined) {
+    return null;
+  }
+
+  reserveTargetEnergy(energyDeposit.id, workerCreep.energy, reservedDepositEnergyById);
+
+  return {
+    creepName: workerCreep.name,
+    structureId: energyDeposit.id,
+    type: 'depositEnergy',
+  };
+};
+
 const selectWorkerEnergyMode = (workerCreep: WorkerCreepSnapshot): WorkerEnergyMode => {
   if (workerCreep.energy <= 0) {
     return 'harvesting';
@@ -472,6 +544,58 @@ const selectEnergyWithdrawal = (
         reservedWithdrawEnergyById,
       ),
     )[0];
+
+const selectSourceLocalEnergyDeposit = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot,
+  reservedDepositEnergyById: ReadonlyMap<string, number>,
+): WorkerEnergyDepositSnapshot | undefined =>
+  workerWorld.energyDeposits
+    .filter(
+      (energyDeposit) =>
+        energyDeposit.roomName === workerCreep.roomName &&
+        energyDeposit.targetType === 'container' &&
+        measureRemainingDepositCapacity(energyDeposit, reservedDepositEnergyById) > 0 &&
+        isSourceLocalEnergyDeposit(energyDeposit, assignedSource),
+    )
+    .sort((leftDeposit, rightDeposit) =>
+      compareSourceLocalEnergyDeposits(leftDeposit, rightDeposit, workerCreep, assignedSource),
+    )[0];
+
+const measureRemainingDepositCapacity = (
+  energyDeposit: WorkerEnergyDepositSnapshot,
+  reservedDepositEnergyById: ReadonlyMap<string, number>,
+): number => energyDeposit.freeCapacity - (reservedDepositEnergyById.get(energyDeposit.id) ?? 0);
+
+const isSourceLocalEnergyDeposit = (
+  energyDeposit: WorkerEnergyDepositSnapshot,
+  assignedSource: WorkerSourceSnapshot,
+): boolean =>
+  assignedSource.x !== undefined &&
+  assignedSource.y !== undefined &&
+  energyDeposit.x !== undefined &&
+  energyDeposit.y !== undefined &&
+  measureRange(
+    { x: energyDeposit.x, y: energyDeposit.y },
+    { x: assignedSource.x, y: assignedSource.y },
+  ) <= 1;
+
+const compareSourceLocalEnergyDeposits = (
+  leftDeposit: WorkerEnergyDepositSnapshot,
+  rightDeposit: WorkerEnergyDepositSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot,
+): number => {
+  const leftSourceRange = measureOptionalRange(leftDeposit, assignedSource);
+  const rightSourceRange = measureOptionalRange(rightDeposit, assignedSource);
+
+  if (leftSourceRange !== rightSourceRange) {
+    return leftSourceRange - rightSourceRange;
+  }
+
+  return compareTargetRangeThenId(leftDeposit, rightDeposit, workerCreep);
+};
 
 const reserveTargetEnergy = (
   targetId: string,

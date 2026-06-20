@@ -6,6 +6,7 @@ import {
 } from '../colony/bootstrap-economy';
 
 export type SpawnBodyPart = 'work' | 'carry' | 'move';
+export type SpawnCreepRole = 'worker' | 'miner' | 'hauler' | 'builder' | 'upgrader';
 
 export interface SpawnSnapshot {
   readonly availableEnergy: number;
@@ -30,6 +31,7 @@ export interface SpawningConstructionSiteSnapshot {
 }
 
 export interface SpawningWorkerCreepSnapshot {
+  readonly role?: SpawnCreepRole;
   readonly ticksToLive: number;
 }
 
@@ -38,6 +40,7 @@ export interface SpawningRoomSnapshot {
   readonly controllerLevel: number;
   readonly energyStructures: readonly SpawningEnergyStructureSnapshot[];
   readonly roomName: string;
+  readonly sourceContainerCount?: number;
   readonly spawningWorkerCount?: number;
   readonly sourceCount: number;
   readonly structures: readonly SpawningStructureSnapshot[];
@@ -63,6 +66,7 @@ export interface SpawningWorldSnapshot {
 export interface SpawnDecision {
   readonly body: readonly SpawnBodyPart[];
   readonly creepName: string;
+  readonly creepRole?: SpawnCreepRole;
   readonly spawnName: string;
 }
 
@@ -76,10 +80,20 @@ const EARLY_WORKER_BODIES = [
 ] as const satisfies readonly (readonly SpawnBodyPart[])[];
 
 const SURVIVAL_WORKER_REQUEST_PRIORITY = 200;
+const MINER_WORKER_REQUEST_PRIORITY = 150;
+const HAULER_WORKER_REQUEST_PRIORITY = 145;
+const BUILDER_WORKER_REQUEST_PRIORITY = 120;
+const UPGRADER_WORKER_REQUEST_PRIORITY = 110;
 const DEVELOPMENT_WORKER_REQUEST_PRIORITY = 100;
 const WORKER_REPLACEMENT_TTL_THRESHOLD = 300;
 
-export type SpawnRequestType = 'survivalWorker' | 'developmentWorker';
+export type SpawnRequestType =
+  | 'survivalWorker'
+  | 'minerWorker'
+  | 'haulerWorker'
+  | 'builderWorker'
+  | 'upgraderWorker'
+  | 'developmentWorker';
 
 export interface SpawnRequestReasonMetrics {
   readonly constructionBacklogEnergy: number;
@@ -121,8 +135,12 @@ interface IndexedSpawnRequest extends SpawnRequest {
 const EARLY_WORKER_BODY_CATALOG: Readonly<
   Record<SpawnRequestType, readonly (readonly SpawnBodyPart[])[]>
 > = {
+  builderWorker: EARLY_WORKER_BODIES,
   developmentWorker: EARLY_WORKER_BODIES,
+  haulerWorker: EARLY_WORKER_BODIES,
+  minerWorker: EARLY_WORKER_BODIES,
   survivalWorker: EARLY_WORKER_BODIES,
+  upgraderWorker: EARLY_WORKER_BODIES,
 };
 
 export const selectBootstrapWorkerSpawnRequests = (
@@ -192,6 +210,13 @@ const createBootstrapWorkerRequests = (
       return [];
     }
 
+    const roleSplitRequest = selectRoleSplitRequest({
+      constructionBacklogEnergy,
+      spawningRoom,
+      targetGap,
+      workerDemandType: workerDemand.type,
+    });
+
     return [
       createSpawnRequest({
         order,
@@ -204,9 +229,9 @@ const createBootstrapWorkerRequests = (
           spawningRoom,
           targetWorkerCount: workerDemand.targetWorkerCount,
         }),
-        requestType: selectSpawnRequestType(workerDemand.type),
+        requestType: roleSplitRequest?.requestType ?? selectSpawnRequestType(workerDemand.type),
         spawnSnapshot,
-        targetGap,
+        targetGap: roleSplitRequest?.targetGap ?? targetGap,
       }),
     ];
   });
@@ -247,6 +272,84 @@ const createBootstrapSurvivalWorkerRequests = (
       }),
     ];
   });
+
+const selectRoleSplitRequest = ({
+  constructionBacklogEnergy,
+  spawningRoom,
+  targetGap,
+  workerDemandType,
+}: {
+  readonly constructionBacklogEnergy: number;
+  readonly spawningRoom: SpawningRoomSnapshot;
+  readonly targetGap: number;
+  readonly workerDemandType: ReturnType<typeof selectBootstrapWorkerDemand>['type'];
+}): {
+  readonly requestType: SpawnRequestType;
+  readonly targetGap: number;
+} | null => {
+  const sourceContainerCount = readSourceContainerCount(spawningRoom);
+
+  if (
+    workerDemandType !== 'rcl2DevelopmentWorkerDemand' ||
+    spawningRoom.controllerLevel < 3 ||
+    sourceContainerCount < spawningRoom.sourceCount
+  ) {
+    return null;
+  }
+
+  const roleTargets: readonly {
+    readonly requestType: SpawnRequestType;
+    readonly targetCount: number;
+  }[] = [
+    {
+      requestType: 'minerWorker',
+      targetCount: Math.min(spawningRoom.sourceCount, sourceContainerCount),
+    },
+    {
+      requestType: 'haulerWorker',
+      targetCount: 1,
+    },
+    {
+      requestType: 'builderWorker',
+      targetCount: constructionBacklogEnergy > 0 ? 1 : 0,
+    },
+    {
+      requestType: 'upgraderWorker',
+      targetCount: sourceContainerCount > 0 ? 1 : 0,
+    },
+  ];
+
+  for (const roleTarget of roleTargets) {
+    const targetRoleGap = Math.max(
+      roleTarget.targetCount -
+        countWorkerCreepsByRole(spawningRoom, readSpawnRequestRole(roleTarget.requestType)),
+      0,
+    );
+
+    if (targetRoleGap > 0) {
+      return {
+        requestType: roleTarget.requestType,
+        targetGap: Math.min(targetGap, targetRoleGap),
+      };
+    }
+  }
+
+  return null;
+};
+
+const readSourceContainerCount = (spawningRoom: SpawningRoomSnapshot): number =>
+  spawningRoom.sourceContainerCount ?? countStructures(spawningRoom, 'container');
+
+const countWorkerCreepsByRole = (
+  spawningRoom: SpawningRoomSnapshot,
+  creepRole: SpawnCreepRole,
+): number =>
+  (spawningRoom.workerCreeps ?? []).filter(
+    (workerCreep) => readWorkerCreepRole(workerCreep) === creepRole,
+  ).length;
+
+const readWorkerCreepRole = (workerCreep: SpawningWorkerCreepSnapshot): SpawnCreepRole =>
+  workerCreep.role ?? 'worker';
 
 const calculateWorkerRequestTargetGap = ({
   spawningRoom,
@@ -349,10 +452,27 @@ const selectSpawnRequestType = (
 ): SpawnRequestType =>
   workerDemandType === 'survivalWorkerDemand' ? 'survivalWorker' : 'developmentWorker';
 
-const readSpawnRequestPriority = (requestType: SpawnRequestType): number =>
-  requestType === 'survivalWorker'
-    ? SURVIVAL_WORKER_REQUEST_PRIORITY
-    : DEVELOPMENT_WORKER_REQUEST_PRIORITY;
+const readSpawnRequestPriority = (requestType: SpawnRequestType): number => {
+  switch (requestType) {
+    case 'survivalWorker':
+      return SURVIVAL_WORKER_REQUEST_PRIORITY;
+
+    case 'minerWorker':
+      return MINER_WORKER_REQUEST_PRIORITY;
+
+    case 'haulerWorker':
+      return HAULER_WORKER_REQUEST_PRIORITY;
+
+    case 'builderWorker':
+      return BUILDER_WORKER_REQUEST_PRIORITY;
+
+    case 'upgraderWorker':
+      return UPGRADER_WORKER_REQUEST_PRIORITY;
+
+    case 'developmentWorker':
+      return DEVELOPMENT_WORKER_REQUEST_PRIORITY;
+  }
+};
 
 const selectHighestPriorityExecutableRequest = (
   spawnRequests: readonly IndexedSpawnRequest[],
@@ -410,7 +530,11 @@ const compareSpawnRequestPriority = (
 
 const SPAWN_REQUEST_TYPE_ORDER: Readonly<Record<SpawnRequestType, number>> = {
   survivalWorker: 0,
-  developmentWorker: 1,
+  minerWorker: 1,
+  haulerWorker: 2,
+  builderWorker: 3,
+  upgraderWorker: 4,
+  developmentWorker: 5,
 };
 
 const compareSpawnRequestType = (
@@ -437,11 +561,34 @@ const createSpawnDecision = (
     return null;
   }
 
+  const creepRole = readSpawnRequestRole(executableSpawnRequest.spawnRequest.requestType);
+
   return {
     body: executableSpawnRequest.body,
-    creepName: `${executableSpawnRequest.spawnRequest.spawnName}-worker-${gameTime}`,
+    creepName: `${executableSpawnRequest.spawnRequest.spawnName}-${creepRole}-${gameTime}`,
+    ...(creepRole === 'worker' ? {} : { creepRole }),
     spawnName: executableSpawnRequest.spawnRequest.spawnName,
   };
+};
+
+const readSpawnRequestRole = (requestType: SpawnRequestType): SpawnCreepRole => {
+  switch (requestType) {
+    case 'survivalWorker':
+    case 'developmentWorker':
+      return 'worker';
+
+    case 'minerWorker':
+      return 'miner';
+
+    case 'haulerWorker':
+      return 'hauler';
+
+    case 'builderWorker':
+      return 'builder';
+
+    case 'upgraderWorker':
+      return 'upgrader';
+  }
 };
 
 const readSpawningRoom = (
@@ -485,7 +632,7 @@ const calculateConstructionBacklogEnergy = (
   const extensionLimit =
     spawningWorld.controllerStructureLimits.extension[spawningRoom.controllerLevel] ?? 0;
   const existingExtensionCount =
-    countExtensionStructures(spawningRoom) + countExtensionConstructionSites(spawningRoom);
+    countStructures(spawningRoom, 'extension') + countExtensionConstructionSites(spawningRoom);
   const missingExtensionCount = Math.max(extensionLimit - existingExtensionCount, 0);
 
   return (
@@ -494,9 +641,9 @@ const calculateConstructionBacklogEnergy = (
   );
 };
 
-const countExtensionStructures = (spawningRoom: SpawningRoomSnapshot): number =>
+const countStructures = (spawningRoom: SpawningRoomSnapshot, structureType: string): number =>
   spawningRoom.structures.filter(
-    (structureSnapshot) => structureSnapshot.structureType === 'extension',
+    (structureSnapshot) => structureSnapshot.structureType === structureType,
   ).length;
 
 const countExtensionConstructionSites = (spawningRoom: SpawningRoomSnapshot): number =>

@@ -381,6 +381,225 @@ describe('Screeps main loop', () => {
     ]);
   });
 
+  it('captures source-adjacent containers for role-split spawn demand', async () => {
+    const source = {
+      id: 'source-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+    };
+    const sourceContainer = {
+      id: 'source-container-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 21,
+        y: 20,
+      },
+      structureType: TEST_STRUCTURE_CONTAINER,
+    };
+    const remoteContainer = {
+      id: 'remote-container-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      structureType: TEST_STRUCTURE_CONTAINER,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.59),
+      getObjectById: () => null,
+      notify: () => undefined,
+      rooms: {
+        W1N1: {
+          controller: undefined,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_SOURCES) {
+              return [source];
+            }
+
+            if (findType === TEST_FIND_STRUCTURES) {
+              return [sourceContainer, remoteContainer];
+            }
+
+            return [];
+          },
+          name: 'W1N1',
+        },
+      },
+      spawns: {},
+      time: 29,
+    });
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+
+    const runtimeModule = await import('../../src/runtime/screeps-runtime');
+
+    expect(runtimeModule.captureScreepsTickRuntime().readSpawningWorld().rooms[0]).toMatchObject({
+      roomName: 'W1N1',
+      sourceContainerCount: 1,
+    });
+  });
+
+  it('counts source-container coverage by unique covered source instead of duplicate containers', async () => {
+    const coveredSource = {
+      id: 'source-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+    };
+    const uncoveredSource = {
+      id: 'source-2',
+      pos: {
+        roomName: 'W1N1',
+        x: 40,
+        y: 40,
+      },
+    };
+    const firstDuplicateContainer = {
+      id: 'source-container-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 21,
+        y: 20,
+      },
+      structureType: TEST_STRUCTURE_CONTAINER,
+    };
+    const secondDuplicateContainer = {
+      id: 'source-container-2',
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 21,
+      },
+      structureType: TEST_STRUCTURE_CONTAINER,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.59),
+      getObjectById: () => null,
+      notify: () => undefined,
+      rooms: {
+        W1N1: {
+          controller: undefined,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_SOURCES) {
+              return [coveredSource, uncoveredSource];
+            }
+
+            if (findType === TEST_FIND_STRUCTURES) {
+              return [firstDuplicateContainer, secondDuplicateContainer];
+            }
+
+            return [];
+          },
+          name: 'W1N1',
+        },
+      },
+      spawns: {},
+      time: 30,
+    });
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+
+    const runtimeModule = await import('../../src/runtime/screeps-runtime');
+
+    expect(runtimeModule.captureScreepsTickRuntime().readSpawningWorld().rooms[0]).toMatchObject({
+      roomName: 'W1N1',
+      sourceContainerCount: 1,
+      sourceCount: 2,
+    });
+  });
+
+  it('passes role memory when executing typed spawn decisions', async () => {
+    const spawnRequests: unknown[] = [];
+
+    vi.stubGlobal('Game', {
+      spawns: {
+        Spawn1: {
+          name: 'Spawn1',
+          spawnCreep: (...spawnArguments: unknown[]) => spawnRequests.push(spawnArguments),
+        },
+      },
+    });
+
+    const runtimeModule = await import('../../src/runtime/screeps-runtime');
+
+    runtimeModule.captureScreepsTickRuntime().executeSpawnDecision({
+      body: ['work', 'carry', 'move'],
+      creepName: 'Spawn1-miner-30',
+      creepRole: 'miner',
+      spawnName: 'Spawn1',
+    });
+
+    expect(spawnRequests).toEqual([
+      [
+        ['work', 'carry', 'move'],
+        'Spawn1-miner-30',
+        {
+          memory: {
+            role: 'miner',
+          },
+        },
+      ],
+    ]);
+  });
+
+  it('deposits miner energy through the runtime boundary', async () => {
+    const transferTargets: unknown[] = [];
+    const sourceContainer = {
+      id: 'source-container-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 21,
+        y: 20,
+      },
+      structureType: TEST_STRUCTURE_CONTAINER,
+    };
+    const minerCreep = {
+      moveTo: () => undefined,
+      name: 'Miner1',
+      room: {
+        name: 'W1N1',
+      },
+      transfer: (target: unknown) => {
+        transferTargets.push(target);
+        return 0;
+      },
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {
+        Miner1: minerCreep,
+      },
+      getObjectById: (objectId: string) =>
+        objectId === 'source-container-1' ? sourceContainer : null,
+      spawns: {},
+      time: 31,
+    });
+    vi.stubGlobal('ERR_NOT_IN_RANGE', -9);
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+
+    const runtimeModule = await import('../../src/runtime/screeps-runtime');
+
+    runtimeModule.captureScreepsTickRuntime().executeWorkerActions([
+      {
+        creepName: 'Miner1',
+        structureId: 'source-container-1',
+        type: 'depositEnergy',
+      },
+    ]);
+
+    expect(transferTargets).toEqual([sourceContainer]);
+  });
+
   it('cleans dead top-level creep memory before writing project memory', async () => {
     const liveWorkerCreep = {
       harvest: () => 0,

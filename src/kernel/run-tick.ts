@@ -230,6 +230,7 @@ const isCriticalWorkerActionDecision = (workerDecision: WorkerActionDecision): b
     case 'refillEnergyStructure':
     case 'upgradeController':
     case 'withdrawEnergy':
+    case 'depositEnergy':
       return true;
   }
 };

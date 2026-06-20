@@ -4,7 +4,7 @@
 {"file":".trellis/spec/testing/tdd-workflow.md","reason":"TDD workflow."}
 {"file":".trellis/tasks/06-18-role-split-bootstrap-economy/prd.md","reason":"Task requirements."}
 {"file":".trellis/tasks/06-18-role-split-bootstrap-economy/design.md","reason":"Role split design."}
-{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current container/logistics evidence."}
+{"file":".trellis/tasks/archive/2026-06/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current container/logistics evidence."}
 {"file":"src/spawning/spawn-decision.ts","reason":"Role spawn requests."}
 {"file":"src/creeps/worker-decision.ts","reason":"Worker action planning migration."}
 {"file":"src/runtime/screeps-runtime.ts","reason":"Runtime snapshots for roles/containers."}

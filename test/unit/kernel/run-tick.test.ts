@@ -150,6 +150,7 @@ describe('runTick', () => {
           constructionSites: [],
           controllers: [],
           creeps: [],
+          energyDeposits: [],
           energyPickups: [],
           energyStructures: [],
           energyWithdrawals: [],
@@ -438,6 +439,7 @@ describe('runTick', () => {
               roomName: 'W1N1',
             },
           ],
+          energyDeposits: [],
           energyPickups: [],
           energyStructures: [
             {
@@ -638,6 +640,7 @@ describe('runTick', () => {
               roomName: 'W1N1',
             },
           ],
+          energyDeposits: [],
           energyPickups: [],
           energyStructures: [],
           energyWithdrawals: [],
@@ -821,6 +824,7 @@ describe('runTick', () => {
             roomName: 'W1N1',
           },
         ],
+        energyDeposits: [],
         energyPickups: [],
         energyStructures: [],
         energyWithdrawals: [],

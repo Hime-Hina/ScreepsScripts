@@ -18,12 +18,21 @@ type TestWorkerCreepSnapshot = Omit<WorkerWorldSnapshot['creeps'][number], 'ener
 };
 type TestWorkerWorldSnapshot = Omit<
   WorkerWorldSnapshot,
-  'constructionEligibilities' | 'creeps' | 'energyPickups' | 'energyWithdrawals' | 'repairTargets'
+  | 'constructionEligibilities'
+  | 'creeps'
+  | 'energyDeposits'
+  | 'energyPickups'
+  | 'energyWithdrawals'
+  | 'repairTargets'
 > &
   Partial<
     Pick<
       WorkerWorldSnapshot,
-      'constructionEligibilities' | 'energyPickups' | 'energyWithdrawals' | 'repairTargets'
+      | 'constructionEligibilities'
+      | 'energyDeposits'
+      | 'energyPickups'
+      | 'energyWithdrawals'
+      | 'repairTargets'
     >
   > & {
     readonly creeps: readonly TestWorkerCreepSnapshot[];
@@ -38,6 +47,7 @@ const planWorkerActions = (workerWorld: TestWorkerWorldSnapshot) => {
       },
     ],
     energyPickups = [],
+    energyDeposits = [],
     energyWithdrawals = [],
     repairTargets = [],
     creeps: inputCreeps,
@@ -53,6 +63,7 @@ const planWorkerActions = (workerWorld: TestWorkerWorldSnapshot) => {
     ...workerWorldSnapshot,
     constructionEligibilities,
     creeps,
+    energyDeposits,
     energyPickups,
     energyWithdrawals,
     repairTargets,
@@ -93,6 +104,160 @@ describe('bootstrap worker action decision', () => {
         creepName: 'Worker1',
         sourceId: 'source-1',
         type: 'harvestSource',
+      },
+    ]);
+  });
+
+  it('keeps source miners harvesting their assigned source instead of opportunistic pickups', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Miner1',
+            role: 'miner',
+            roomName: 'W1N1',
+          },
+        ],
+        energyPickups: [
+          {
+            amount: 500,
+            id: 'dropped-energy-1',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Miner1',
+        sourceId: 'source-1',
+        type: 'harvestSource',
+      },
+    ]);
+  });
+
+  it('deposits source miner energy into a source-local container before controller work', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'Miner1',
+            role: 'miner',
+            roomName: 'W1N1',
+            x: 21,
+            y: 20,
+          },
+        ],
+        energyDeposits: [
+          {
+            freeCapacity: 200,
+            id: 'source-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 21,
+            y: 20,
+          },
+        ],
+        energyStructures: [],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Miner1',
+        structureId: 'source-container-1',
+        type: 'depositEnergy',
+      },
+    ]);
+  });
+
+  it('lets logistics haulers withdraw stored container energy before harvesting', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 22,
+            y: 20,
+          },
+        ],
+        energyStructures: [],
+        energyWithdrawals: [
+          {
+            availableEnergy: 500,
+            id: 'source-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 21,
+            y: 20,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Hauler1',
+        structureId: 'source-container-1',
+        type: 'withdrawEnergy',
       },
     ]);
   });
