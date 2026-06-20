@@ -29,15 +29,21 @@ export interface SpawningConstructionSiteSnapshot {
   readonly structureType: string;
 }
 
+export interface SpawningWorkerCreepSnapshot {
+  readonly ticksToLive: number;
+}
+
 export interface SpawningRoomSnapshot {
   readonly constructionSites: readonly SpawningConstructionSiteSnapshot[];
   readonly controllerLevel: number;
   readonly energyStructures: readonly SpawningEnergyStructureSnapshot[];
   readonly roomName: string;
+  readonly spawningWorkerCount?: number;
   readonly sourceCount: number;
   readonly structures: readonly SpawningStructureSnapshot[];
   readonly ticksToDowngrade: number;
   readonly workerCreepCount: number;
+  readonly workerCreeps?: readonly SpawningWorkerCreepSnapshot[];
   readonly workerCreepWorkParts: number;
 }
 
@@ -71,6 +77,7 @@ const EARLY_WORKER_BODIES = [
 
 const SURVIVAL_WORKER_REQUEST_PRIORITY = 200;
 const DEVELOPMENT_WORKER_REQUEST_PRIORITY = 100;
+const WORKER_REPLACEMENT_TTL_THRESHOLD = 300;
 
 export type SpawnRequestType = 'survivalWorker' | 'developmentWorker';
 
@@ -83,9 +90,18 @@ export interface SpawnRequestReasonMetrics {
   readonly currentWorkerCount: number;
   readonly energyState: ReturnType<typeof classifySpawnExtensionEnergyState>['type'];
   readonly plannedWorkerWorkParts: number;
+  readonly replacementTtlThreshold: number;
+  readonly replacementWorkerCount: number;
   readonly sourceCount: number;
+  readonly spawningWorkerCount: number;
   readonly targetWorkerCount: number;
   readonly workerCreepWorkParts: number;
+}
+
+interface WorkerReplacementPressureMetrics {
+  readonly replacementTtlThreshold: number;
+  readonly replacementWorkerCount: number;
+  readonly spawningWorkerCount: number;
 }
 
 export interface SpawnRequest {
@@ -167,7 +183,10 @@ const createBootstrapWorkerRequests = (
       workerCreepCount: spawningRoom.workerCreepCount,
       workerCreepWorkParts: spawningRoom.workerCreepWorkParts,
     });
-    const targetGap = workerDemand.targetWorkerCount - spawningRoom.workerCreepCount;
+    const { replacementPressureMetrics, targetGap } = calculateWorkerRequestTargetGap({
+      spawningRoom,
+      targetWorkerCount: workerDemand.targetWorkerCount,
+    });
 
     if (targetGap <= 0) {
       return [];
@@ -181,6 +200,7 @@ const createBootstrapWorkerRequests = (
           controllerDowngradeState,
           energyState,
           plannedWorkerWorkParts,
+          replacementPressureMetrics,
           spawningRoom,
           targetWorkerCount: workerDemand.targetWorkerCount,
         }),
@@ -201,6 +221,11 @@ const createBootstrapSurvivalWorkerRequests = (
       return [];
     }
 
+    const { replacementPressureMetrics, targetGap } = calculateWorkerRequestTargetGap({
+      spawningRoom,
+      targetWorkerCount: BOOTSTRAP_SURVIVAL_WORKER_COUNT,
+    });
+
     return [
       createSpawnRequest({
         order,
@@ -212,21 +237,59 @@ const createBootstrapSurvivalWorkerRequests = (
           }),
           energyState: classifySpawnExtensionEnergyState(spawningRoom),
           plannedWorkerWorkParts: countWorkParts(INITIAL_WORKER_BODY),
+          replacementPressureMetrics,
           spawningRoom,
           targetWorkerCount: BOOTSTRAP_SURVIVAL_WORKER_COUNT,
         }),
         requestType: 'survivalWorker',
         spawnSnapshot,
-        targetGap: BOOTSTRAP_SURVIVAL_WORKER_COUNT - spawningRoom.workerCreepCount,
+        targetGap,
       }),
     ];
   });
+
+const calculateWorkerRequestTargetGap = ({
+  spawningRoom,
+  targetWorkerCount,
+}: {
+  readonly spawningRoom: SpawningRoomSnapshot;
+  readonly targetWorkerCount: number;
+}): {
+  readonly replacementPressureMetrics: WorkerReplacementPressureMetrics;
+  readonly targetGap: number;
+} => {
+  const replacementPressureMetrics = calculateWorkerReplacementPressureMetrics(spawningRoom);
+  const populationGap = Math.max(targetWorkerCount - spawningRoom.workerCreepCount, 0);
+  const populationSurplus = Math.max(spawningRoom.workerCreepCount - targetWorkerCount, 0);
+  const replacementGap = Math.max(
+    replacementPressureMetrics.replacementWorkerCount -
+      replacementPressureMetrics.spawningWorkerCount -
+      populationSurplus,
+    0,
+  );
+
+  return {
+    replacementPressureMetrics,
+    targetGap: populationGap + replacementGap,
+  };
+};
+
+const calculateWorkerReplacementPressureMetrics = (
+  spawningRoom: SpawningRoomSnapshot,
+): WorkerReplacementPressureMetrics => ({
+  replacementTtlThreshold: WORKER_REPLACEMENT_TTL_THRESHOLD,
+  replacementWorkerCount: (spawningRoom.workerCreeps ?? []).filter(
+    (workerCreep) => workerCreep.ticksToLive < WORKER_REPLACEMENT_TTL_THRESHOLD,
+  ).length,
+  spawningWorkerCount: spawningRoom.spawningWorkerCount ?? 0,
+});
 
 const createSpawnRequestReasonMetrics = ({
   constructionBacklogEnergy,
   controllerDowngradeState,
   energyState,
   plannedWorkerWorkParts,
+  replacementPressureMetrics,
   spawningRoom,
   targetWorkerCount,
 }: {
@@ -234,6 +297,7 @@ const createSpawnRequestReasonMetrics = ({
   readonly controllerDowngradeState: ReturnType<typeof classifyBootstrapControllerDowngradeState>;
   readonly energyState: ReturnType<typeof classifySpawnExtensionEnergyState>;
   readonly plannedWorkerWorkParts: number;
+  readonly replacementPressureMetrics: WorkerReplacementPressureMetrics;
   readonly spawningRoom: SpawningRoomSnapshot;
   readonly targetWorkerCount: number;
 }): SpawnRequestReasonMetrics => ({
@@ -243,7 +307,10 @@ const createSpawnRequestReasonMetrics = ({
   currentWorkerCount: spawningRoom.workerCreepCount,
   energyState: energyState.type,
   plannedWorkerWorkParts,
+  replacementTtlThreshold: replacementPressureMetrics.replacementTtlThreshold,
+  replacementWorkerCount: replacementPressureMetrics.replacementWorkerCount,
   sourceCount: spawningRoom.sourceCount,
+  spawningWorkerCount: replacementPressureMetrics.spawningWorkerCount,
   targetWorkerCount,
   workerCreepWorkParts: spawningRoom.workerCreepWorkParts,
 });

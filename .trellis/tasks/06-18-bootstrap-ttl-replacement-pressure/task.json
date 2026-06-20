@@ -3,7 +3,7 @@
   "name": "bootstrap-ttl-replacement-pressure",
   "title": "Bootstrap/RCL3 TTL replacement pressure",
   "description": "Count near-expiring workers as replacement pressure so W51N21 does not drop from healthy development population to the survival floor before spawning replacements.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": "runtime",
   "package": null,

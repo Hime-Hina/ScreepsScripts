@@ -137,12 +137,14 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     roomName: room.name,
+    spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),
     sourceCount: room.find(FIND_SOURCES).length,
     structures: room.find(FIND_STRUCTURES).map((structure) => ({
       structureType: structure.structureType,
     })),
     ticksToDowngrade: room.controller?.ticksToDowngrade ?? 0,
     workerCreepCount: countRoomWorkerCreeps(room.name),
+    workerCreeps: captureRoomWorkerCreeps(room.name),
     workerCreepWorkParts: countRoomWorkerWorkParts(room.name),
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
@@ -172,10 +174,12 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     roomName: room.name,
+    spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),
     sourceCount: room.find(FIND_SOURCES).length,
     structures: [],
     ticksToDowngrade: room.controller?.ticksToDowngrade ?? 0,
     workerCreepCount: countRoomWorkerCreeps(room.name),
+    workerCreeps: captureRoomWorkerCreeps(room.name),
     workerCreepWorkParts: countRoomWorkerWorkParts(room.name),
   })),
   spawns: Object.values(Game.spawns).map((spawn) => ({
@@ -603,8 +607,28 @@ const toWorkerRepairTargetSnapshot = (
   ];
 };
 
+const captureRoomWorkerCreeps = (
+  roomName: string,
+): NonNullable<SpawningWorldSnapshot['rooms'][number]['workerCreeps']> =>
+  Object.values(Game.creeps)
+    .filter((creep) => creep.room.name === roomName)
+    .map((creep) => ({
+      ticksToLive: creep.ticksToLive ?? 0,
+    }));
+
 const countRoomWorkerCreeps = (roomName: string): number =>
   Object.values(Game.creeps).filter((creep) => creep.room.name === roomName).length;
+
+const countRoomSpawningWorkerCreeps = (roomName: string): number =>
+  Object.values(Game.spawns).filter(
+    (spawn) =>
+      spawn.pos.roomName === roomName &&
+      spawn.spawning !== null &&
+      isBootstrapWorkerCreepName(spawn.spawning.name),
+  ).length;
+
+const isBootstrapWorkerCreepName = (creepName: string | undefined): boolean =>
+  creepName?.includes('-worker-') === true;
 
 const countRoomWorkerWorkParts = (roomName: string): number =>
   Object.values(Game.creeps)

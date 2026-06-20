@@ -19,6 +19,14 @@ type SpawningRoomSnapshot = SpawningWorldSnapshot['rooms'][number];
 type TestSpawningRoomSnapshot = Omit<SpawningRoomSnapshot, 'sourceCount' | 'workerCreepWorkParts'> &
   Partial<Pick<SpawningRoomSnapshot, 'sourceCount' | 'workerCreepWorkParts'>>;
 
+const createWorkerCreeps = (
+  count: number,
+  ticksToLive: number,
+): NonNullable<SpawningRoomSnapshot['workerCreeps']> =>
+  Array.from({ length: count }, () => ({
+    ticksToLive,
+  }));
+
 interface TestSpawningWorldSnapshot extends Omit<
   SpawningWorldSnapshot,
   'bodyPartCosts' | 'constructionCosts' | 'controllerStructureLimits' | 'rooms' | 'spawns'
@@ -33,7 +41,10 @@ interface TestSpawningWorldSnapshot extends Omit<
 
 const normalizeRoomSnapshot = (roomSnapshot: TestSpawningRoomSnapshot): SpawningRoomSnapshot => ({
   ...roomSnapshot,
+  spawningWorkerCount: roomSnapshot.spawningWorkerCount ?? 0,
   sourceCount: roomSnapshot.sourceCount ?? 2,
+  workerCreeps:
+    roomSnapshot.workerCreeps ?? createWorkerCreeps(roomSnapshot.workerCreepCount, 1500),
   workerCreepWorkParts: roomSnapshot.workerCreepWorkParts ?? roomSnapshot.workerCreepCount,
 });
 
@@ -408,7 +419,10 @@ describe('bootstrap worker spawn decision', () => {
       currentWorkerCount: 5,
       energyState: 'spawnExtensionEnergyUnstable',
       plannedWorkerWorkParts: 2,
+      replacementTtlThreshold: 300,
+      replacementWorkerCount: 0,
       sourceCount: 2,
+      spawningWorkerCount: 0,
       targetWorkerCount: 10,
       workerCreepWorkParts: 10,
     });
@@ -552,6 +566,302 @@ describe('bootstrap worker spawn decision', () => {
       body: ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
       creepName: 'SpawnFirst-worker-68',
       spawnName: 'SpawnFirst',
+    });
+  });
+
+  it('counts a near-expiring worker as replacement pressure when the room is at target', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 69,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 10,
+            workerCreepWorkParts: 20,
+            workerCreeps: [...createWorkerCreeps(9, 1500), { ticksToLive: 299 }],
+          }),
+        ],
+        workerCreepCount: 10,
+        spawns: [
+          createSpawnSnapshot('SpawnReplacement', 'W51N21', {
+            availableEnergy: 550,
+            energyCapacity: 550,
+          }),
+        ],
+      }),
+    );
+
+    expect(spawnRequests).toHaveLength(1);
+    expect(spawnRequests[0]).toMatchObject({
+      requestType: 'developmentWorker',
+      roomName: 'W51N21',
+      spawnName: 'SpawnReplacement',
+      targetGap: 1,
+    });
+    expect(spawnRequests[0]?.reasonMetrics).toMatchObject({
+      replacementTtlThreshold: 300,
+      replacementWorkerCount: 1,
+      spawningWorkerCount: 0,
+    });
+  });
+
+  it('counts healthy TTL workers normally without creating replacement pressure', () => {
+    expect(
+      selectBootstrapWorkerSpawnRequests(
+        createSpawningWorld({
+          controllerStructureLimits: {
+            extension: {
+              3: 10,
+            },
+          },
+          gameTime: 70,
+          rooms: [
+            createRoomSnapshot('W51N21', {
+              controllerLevel: 3,
+              energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+              structures: [
+                { structureType: 'spawn' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+              ],
+              workerCreepCount: 10,
+              workerCreepWorkParts: 20,
+              workerCreeps: createWorkerCreeps(10, 300),
+            }),
+          ],
+          workerCreepCount: 10,
+          spawns: [
+            createSpawnSnapshot('SpawnHealthy', 'W51N21', {
+              availableEnergy: 550,
+              energyCapacity: 550,
+            }),
+          ],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('counts spawning workers against bounded replacement pressure', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 71,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            spawningWorkerCount: 1,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 10,
+            workerCreepWorkParts: 20,
+            workerCreeps: [
+              ...createWorkerCreeps(8, 1500),
+              { ticksToLive: 200 },
+              { ticksToLive: 250 },
+            ],
+          }),
+        ],
+        workerCreepCount: 10,
+        spawns: [
+          createSpawnSnapshot('SpawnReplacement', 'W51N21', {
+            availableEnergy: 550,
+            energyCapacity: 550,
+          }),
+        ],
+      }),
+    );
+
+    expect(spawnRequests).toHaveLength(1);
+    expect(spawnRequests[0]).toMatchObject({
+      targetGap: 1,
+    });
+    expect(spawnRequests[0]?.reasonMetrics).toMatchObject({
+      replacementWorkerCount: 2,
+      spawningWorkerCount: 1,
+    });
+  });
+
+  it('does not create unbounded replacement pressure beyond expiring workers', () => {
+    expect(
+      selectBootstrapWorkerSpawnRequests(
+        createSpawningWorld({
+          controllerStructureLimits: {
+            extension: {
+              3: 10,
+            },
+          },
+          gameTime: 72,
+          rooms: [
+            createRoomSnapshot('W51N21', {
+              controllerLevel: 3,
+              energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+              spawningWorkerCount: 10,
+              structures: [
+                { structureType: 'spawn' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+              ],
+              workerCreepCount: 10,
+              workerCreepWorkParts: 20,
+              workerCreeps: createWorkerCreeps(10, 1),
+            }),
+          ],
+          workerCreepCount: 10,
+          spawns: [
+            createSpawnSnapshot('SpawnBounded', 'W51N21', {
+              availableEnergy: 550,
+              energyCapacity: 550,
+            }),
+          ],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('does not request another replacement after the completed replacement creates surplus', () => {
+    expect(
+      selectBootstrapWorkerSpawnRequests(
+        createSpawningWorld({
+          controllerStructureLimits: {
+            extension: {
+              3: 10,
+            },
+          },
+          gameTime: 74,
+          rooms: [
+            createRoomSnapshot('W51N21', {
+              controllerLevel: 3,
+              energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+              structures: [
+                { structureType: 'spawn' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+                { structureType: 'extension' },
+              ],
+              workerCreepCount: 11,
+              workerCreepWorkParts: 22,
+              workerCreeps: [...createWorkerCreeps(10, 1500), { ticksToLive: 1 }],
+            }),
+          ],
+          workerCreepCount: 11,
+          spawns: [
+            createSpawnSnapshot('SpawnBounded', 'W51N21', {
+              availableEnergy: 550,
+              energyCapacity: 550,
+            }),
+          ],
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps survival requests higher priority than replacement pressure', () => {
+    expect(
+      planWorkerSpawn({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 73,
+        rooms: [
+          createRoomSnapshot('W1N1', {
+            controllerLevel: 3,
+            workerCreepCount: 2,
+            workerCreepWorkParts: 2,
+          }),
+          createRoomSnapshot('W2N2', {
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+            ],
+            workerCreepCount: 10,
+            workerCreepWorkParts: 20,
+            workerCreeps: createWorkerCreeps(10, 1),
+          }),
+        ],
+        workerCreepCount: 2,
+        spawns: [
+          createSpawnSnapshot('SpawnSurvival', 'W1N1'),
+          createSpawnSnapshot('SpawnReplacement', 'W2N2', {
+            availableEnergy: 550,
+            energyCapacity: 550,
+          }),
+        ],
+      }),
+    ).toEqual({
+      body: ['work', 'carry', 'carry', 'move', 'move'],
+      creepName: 'SpawnSurvival-worker-73',
+      spawnName: 'SpawnSurvival',
     });
   });
 
