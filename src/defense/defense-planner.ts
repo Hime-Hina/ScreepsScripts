@@ -28,7 +28,7 @@ export interface DefenseHostileCreepSnapshot {
   readonly y: number;
 }
 
-export type DefenseCoreStructureType = 'extension' | 'spawn' | 'tower';
+export type DefenseCoreStructureType = 'extension' | 'spawn' | 'storage' | 'tower';
 
 export interface DefenseCoreStructureSnapshot {
   readonly id: string;
@@ -173,6 +173,7 @@ const selectRoomDefenseStates = (
     const hasDangerousHostile = hostileClassifications.some(
       (hostileClassification) =>
         hostileClassification.roomName === roomName &&
+        hostileClassification.nearCore &&
         (hostileClassification.canDamage || hostileClassification.canDismantle),
     );
 

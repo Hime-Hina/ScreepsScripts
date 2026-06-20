@@ -33,6 +33,27 @@ export interface RoomIntelWorldSnapshot {
   readonly unknownRoomPolicy?: UnknownRoomPolicy;
 }
 
+export interface ExpansionReadinessSnapshot {
+  readonly controllerLevel: number;
+  readonly logisticsStable: boolean;
+  readonly maxScoutIntelAge?: number;
+  readonly monitoringStable: boolean;
+  readonly scoutIntelAge: number;
+  readonly storageBuilt: boolean;
+  readonly storageEnergyCapacity: number;
+  readonly ttlReplacementEnabled: boolean;
+}
+
+export interface ExpansionReadiness {
+  readonly blockerReasons: readonly string[];
+  readonly ready: boolean;
+}
+
+export interface ExpansionRemoteMiningSelection {
+  readonly candidates: readonly RemoteMiningCandidateScore[];
+  readonly readiness: ExpansionReadiness;
+}
+
 export interface RemoteMiningCandidateScoreBreakdown {
   readonly controllerPenalty: number;
   readonly distancePenalty: number;
@@ -72,6 +93,62 @@ const HOSTILE_CREEP_PENALTY = 35;
 const HOSTILE_STRUCTURE_PENALTY = 50;
 const INVADER_CORE_LEVEL_PENALTY = 25;
 const KEEPER_ROOM_EXCLUSION_PENALTY = 200;
+const DEFAULT_MAX_SCOUT_INTEL_AGE = 1500;
+
+export const selectExpansionReadiness = (
+  readinessSnapshot: ExpansionReadinessSnapshot,
+): ExpansionReadiness => {
+  const blockerReasons: string[] = [];
+  const maxScoutIntelAge = readinessSnapshot.maxScoutIntelAge ?? DEFAULT_MAX_SCOUT_INTEL_AGE;
+
+  if (readinessSnapshot.controllerLevel < 4) {
+    blockerReasons.push('controller below RCL4');
+  }
+
+  if (!readinessSnapshot.storageBuilt) {
+    blockerReasons.push('storage unavailable');
+  }
+
+  if (readinessSnapshot.storageEnergyCapacity <= 0) {
+    blockerReasons.push('storage has no usable energy capacity');
+  }
+
+  if (!readinessSnapshot.logisticsStable) {
+    blockerReasons.push('role logistics unstable');
+  }
+
+  if (!readinessSnapshot.ttlReplacementEnabled) {
+    blockerReasons.push('ttl replacement not enabled');
+  }
+
+  if (!readinessSnapshot.monitoringStable) {
+    blockerReasons.push('monitoring unstable');
+  }
+
+  if (readinessSnapshot.scoutIntelAge > maxScoutIntelAge) {
+    blockerReasons.push('scout intel stale');
+  }
+
+  return {
+    blockerReasons,
+    ready: blockerReasons.length === 0,
+  };
+};
+
+export const selectExpansionRemoteMiningCandidates = ({
+  readinessSnapshot,
+  worldSnapshot,
+}: {
+  readonly readinessSnapshot: ExpansionReadinessSnapshot;
+  readonly worldSnapshot: RoomIntelWorldSnapshot;
+}): ExpansionRemoteMiningSelection => {
+  const readiness = selectExpansionReadiness(readinessSnapshot);
+
+  return {
+    candidates: readiness.ready ? scoreRemoteMiningCandidates(worldSnapshot) : [],
+    readiness,
+  };
+};
 
 export const scoreRemoteMiningCandidates = (
   worldSnapshot: RoomIntelWorldSnapshot,

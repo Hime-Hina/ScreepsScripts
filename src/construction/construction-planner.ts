@@ -1,5 +1,5 @@
 export type ConstructionTerrain = 'plain' | 'swamp' | 'wall';
-export type ConstructionStructureType = 'container' | 'extension' | 'road' | 'tower';
+export type ConstructionStructureType = 'container' | 'extension' | 'road' | 'storage' | 'tower';
 
 export interface ConstructionPositionSnapshot {
   readonly x: number;
@@ -37,6 +37,7 @@ export interface ConstructionOwnedRoomSnapshot {
 export interface ConstructionWorldSnapshot {
   readonly controllerStructureLimits: Readonly<{
     readonly extension: Readonly<Record<number, number>>;
+    readonly storage?: Readonly<Record<number, number>>;
     readonly tower: Readonly<Record<number, number>>;
   }>;
   readonly ownedRooms: readonly ConstructionOwnedRoomSnapshot[];
@@ -53,6 +54,7 @@ export interface CreateConstructionSiteDecision {
 }
 
 const NEAR_SPAWN_CANDIDATE_RADIUS = 2;
+const MAX_NEW_EXTENSION_SITES_PER_ROOM = 5;
 const MAX_NEW_ROAD_SITES_PER_ROOM = 2;
 const MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS = 10;
 const ADJACENT_POSITION_OFFSETS = [
@@ -77,6 +79,12 @@ const planOwnedRoomConstruction = (
   ownedRoom: ConstructionOwnedRoomSnapshot,
   controllerStructureLimits: ConstructionWorldSnapshot['controllerStructureLimits'],
 ): readonly ConstructionDecision[] => {
+  const storageDecisions = planRclStorageSite(ownedRoom, controllerStructureLimits);
+
+  if (storageDecisions.length > 0) {
+    return storageDecisions;
+  }
+
   const extensionDecisions = planRclExtensionSites(ownedRoom, controllerStructureLimits);
 
   if (extensionDecisions.length > 0) {
@@ -92,6 +100,55 @@ const planOwnedRoomConstruction = (
   return planEarlyLogisticsSites(ownedRoom);
 };
 
+const planRclStorageSite = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+  controllerStructureLimits: ConstructionWorldSnapshot['controllerStructureLimits'],
+): readonly ConstructionDecision[] => {
+  const storageLimit = controllerStructureLimits.storage?.[ownedRoom.controllerLevel] ?? 0;
+
+  if (storageLimit <= 0) {
+    return [];
+  }
+
+  const existingStorageCount =
+    countStructureType(ownedRoom, 'storage') + countConstructionSiteType(ownedRoom, 'storage');
+
+  if (existingStorageCount >= storageLimit) {
+    return [];
+  }
+
+  const terrainByPositionKey = createTerrainByPositionKey(ownedRoom.terrain);
+  const unavailablePositionKeys = collectUnavailablePositionKeys(ownedRoom);
+  const accessBlockedPositionKeys = collectAccessBlockedPositionKeys(ownedRoom);
+  const refillAccessTargets = [...listRefillAccessTargets(ownedRoom)];
+  const controllerCorePosition = ownedRoom.controllerPosition ?? ownedRoom.spawnPosition;
+  const storagePosition = [...listNearSpawnCandidatePositions(ownedRoom.spawnPosition)]
+    .filter((candidatePosition) => isBuildableTile(candidatePosition, terrainByPositionKey))
+    .filter(
+      (candidatePosition) => !unavailablePositionKeys.has(serializePosition(candidatePosition)),
+    )
+    .filter((candidatePosition) =>
+      preservesRefillAccess({
+        accessBlockedPositionKeys,
+        candidatePosition,
+        refillAccessTargets,
+        terrainByPositionKey,
+      }),
+    )
+    .filter((candidatePosition) =>
+      hasAccessibleAdjacentPositionAfterBuild({
+        accessBlockedPositionKeys,
+        candidatePosition,
+        terrainByPositionKey,
+      }),
+    )
+    .sort(compareStorageCandidatePositions(ownedRoom.spawnPosition, controllerCorePosition))[0];
+
+  return storagePosition === undefined
+    ? []
+    : [createConstructionSiteDecision(ownedRoom.roomName, storagePosition, 'storage')];
+};
+
 const planRclExtensionSites = (
   ownedRoom: ConstructionOwnedRoomSnapshot,
   controllerStructureLimits: ConstructionWorldSnapshot['controllerStructureLimits'],
@@ -104,7 +161,10 @@ const planRclExtensionSites = (
 
   const existingExtensionCount =
     countExtensionStructures(ownedRoom) + countExtensionConstructionSites(ownedRoom);
-  const missingExtensionCount = extensionLimit - existingExtensionCount;
+  const missingExtensionCount = Math.min(
+    extensionLimit - existingExtensionCount,
+    MAX_NEW_EXTENSION_SITES_PER_ROOM,
+  );
 
   if (missingExtensionCount <= 0) {
     return [];
@@ -461,6 +521,27 @@ const preservesRefillAccess = ({
   });
 };
 
+const hasAccessibleAdjacentPositionAfterBuild = ({
+  accessBlockedPositionKeys,
+  candidatePosition,
+  terrainByPositionKey,
+}: {
+  readonly accessBlockedPositionKeys: ReadonlySet<string>;
+  readonly candidatePosition: ConstructionPositionSnapshot;
+  readonly terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>;
+}): boolean => {
+  const accessBlockedPositionKeysWithCandidate = new Set(accessBlockedPositionKeys);
+  accessBlockedPositionKeysWithCandidate.add(serializePosition(candidatePosition));
+
+  return (
+    countAccessibleAdjacentPositions(
+      candidatePosition,
+      terrainByPositionKey,
+      accessBlockedPositionKeysWithCandidate,
+    ) > 0
+  );
+};
+
 const listRefillAccessTargets = (
   ownedRoom: ConstructionOwnedRoomSnapshot,
 ): readonly ConstructionPositionSnapshot[] => [
@@ -498,7 +579,10 @@ const countAccessibleAdjacentPositions = (
   ).length;
 
 const isRefillAccessTargetStructure = (structureType: string): boolean =>
-  structureType === 'spawn' || structureType === 'extension' || structureType === 'tower';
+  structureType === 'spawn' ||
+  structureType === 'extension' ||
+  structureType === 'storage' ||
+  structureType === 'tower';
 
 const isWalkableAccessStructure = (structureType: string): boolean =>
   structureType === 'road' || structureType === 'rampart';
@@ -595,6 +679,21 @@ const comparePositionsByDistanceTo =
 
     return leftPosition.x - rightPosition.x;
   };
+
+const compareStorageCandidatePositions = (
+  spawnPosition: ConstructionPositionSnapshot,
+  controllerCorePosition: ConstructionPositionSnapshot,
+) => {
+  const compareByControllerDistance = comparePositionsByDistanceTo(controllerCorePosition);
+  const compareBySpawnDistance = comparePositionsByDistanceTo(spawnPosition);
+
+  return (
+    leftPosition: ConstructionPositionSnapshot,
+    rightPosition: ConstructionPositionSnapshot,
+  ): number =>
+    compareByControllerDistance(leftPosition, rightPosition) ||
+    compareBySpawnDistance(leftPosition, rightPosition);
+};
 
 const compareTowerCandidatePositions = (
   spawnPosition: ConstructionPositionSnapshot,

@@ -153,11 +153,13 @@ const captureSpawningWorld = (): SpawningWorldSnapshot => ({
       remainingWork: constructionSite.progressTotal - constructionSite.progress,
       structureType: constructionSite.structureType,
     })),
+    controllerEnergyAvailable: readRoomControllerEnergyAvailable(room),
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     isOwned: room.controller?.my === true,
     roomName: room.name,
     sourceContainerCount: countRoomSourceContainers(room),
+    sourceContainerEnergyAvailable: readRoomSourceContainerEnergyAvailable(room),
     spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),
     sourceCount: room.find(FIND_SOURCES).length,
     structures: room.find(FIND_STRUCTURES).map((structure) => ({
@@ -192,11 +194,13 @@ const captureSurvivalSpawningWorld = (): SpawningWorldSnapshot => ({
   gameTime: Game.time,
   rooms: Object.values(Game.rooms).map((room) => ({
     constructionSites: [],
+    controllerEnergyAvailable: readRoomControllerEnergyAvailable(room),
     controllerLevel: room.controller?.level ?? 0,
     energyStructures: captureRoomEnergyStructures(room),
     isOwned: room.controller?.my === true,
     roomName: room.name,
     sourceContainerCount: countRoomSourceContainers(room),
+    sourceContainerEnergyAvailable: readRoomSourceContainerEnergyAvailable(room),
     spawningWorkerCount: countRoomSpawningWorkerCreeps(room.name),
     sourceCount: room.find(FIND_SOURCES).length,
     structures: [],
@@ -241,6 +245,52 @@ const countRoomSourceContainers = (room: Room): number => {
   ).length;
 };
 
+const readRoomSourceContainerEnergyAvailable = (room: Room): number => {
+  const roomSources = room.find(FIND_SOURCES);
+
+  return room
+    .find(FIND_STRUCTURES)
+    .filter(isContainerStructure)
+    .filter((container) =>
+      roomSources.some(
+        (source) =>
+          hasRoomPosition(container.pos) &&
+          hasRoomPosition(source.pos) &&
+          measureRoomPositionRange(container.pos, source.pos) <= 1,
+      ),
+    )
+    .reduce((totalEnergy, container) => totalEnergy + readStoreEnergy(container), 0);
+};
+
+const readRoomControllerEnergyAvailable = (room: Room): number => {
+  const roomController = room.controller;
+
+  if (roomController === undefined) {
+    return 0;
+  }
+
+  return room
+    .find(FIND_STRUCTURES)
+    .filter(isControllerEnergyBufferStructure)
+    .filter(
+      (structure) =>
+        hasRoomPosition(structure.pos) &&
+        hasRoomPosition(roomController.pos) &&
+        measureRoomPositionRange(structure.pos, roomController.pos) <= 3,
+    )
+    .reduce((totalEnergy, structure) => totalEnergy + readStoreEnergy(structure), 0);
+};
+
+const isControllerEnergyBufferStructure = (
+  structure: Structure,
+): structure is StructureContainer | StructureStorage =>
+  structure.structureType === STRUCTURE_CONTAINER || structure.structureType === STRUCTURE_STORAGE;
+
+const readStoreEnergy = (storeObject: { readonly store?: StoreDefinition }): number =>
+  typeof storeObject.store?.getUsedCapacity === 'function'
+    ? storeObject.store.getUsedCapacity(RESOURCE_ENERGY)
+    : 0;
+
 const hasRoomPosition = (
   position: { readonly x?: number; readonly y?: number } | undefined,
 ): position is { readonly x: number; readonly y: number } =>
@@ -255,6 +305,7 @@ const measureRoomPositionRange = (
 const captureConstructionWorld = (): ConstructionWorldSnapshot => ({
   controllerStructureLimits: {
     extension: CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION],
+    storage: CONTROLLER_STRUCTURES[STRUCTURE_STORAGE],
     tower: CONTROLLER_STRUCTURES[STRUCTURE_TOWER],
   },
   ownedRooms: Object.values(Game.rooms).flatMap((room) => {
@@ -659,9 +710,10 @@ const toDefenseCoreStructureSnapshot = (
 
 const isDefenseCoreStructure = (
   structure: AnyOwnedStructure,
-): structure is StructureExtension | StructureSpawn | StructureTower =>
+): structure is StructureExtension | StructureSpawn | StructureStorage | StructureTower =>
   structure.structureType === STRUCTURE_EXTENSION ||
   structure.structureType === STRUCTURE_SPAWN ||
+  structure.structureType === STRUCTURE_STORAGE ||
   structure.structureType === STRUCTURE_TOWER;
 
 const readRoomDefenseState = (

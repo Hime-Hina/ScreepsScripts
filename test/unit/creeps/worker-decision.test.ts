@@ -3151,4 +3151,283 @@ describe('bootstrap worker action decision', () => {
       },
     ]);
   });
+
+  it('lets upgraders withdraw controller-side stored energy before source fallback', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+            x: 26,
+            y: 7,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Upgrader1',
+            role: 'upgrader',
+            roomName: 'W1N1',
+            x: 25,
+            y: 7,
+          },
+        ],
+        energyStructures: [],
+        energyWithdrawals: [
+          {
+            availableEnergy: 200,
+            id: 'source-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 20,
+            y: 20,
+          },
+          {
+            availableEnergy: 50,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 27,
+            y: 8,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Upgrader1',
+        structureId: 'controller-container-1',
+        type: 'withdrawEnergy',
+      },
+    ]);
+  });
+
+  it('keeps working upgraders focused on controller upgrading', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            roomName: 'W1N1',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Upgrader1',
+            role: 'upgrader',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 0,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        controllerId: 'controller-1',
+        creepName: 'Upgrader1',
+        type: 'upgradeController',
+      },
+    ]);
+  });
+
+  it('lets builders build before idle upgrade fallback', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [
+          {
+            id: 'construction-site-1',
+            progress: 100,
+            progressTotal: 3000,
+            roomName: 'W1N1',
+            structureType: 'extension',
+          },
+        ],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Builder1',
+            role: 'builder',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 0,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        constructionSiteId: 'construction-site-1',
+        creepName: 'Builder1',
+        type: 'buildConstructionSite',
+      },
+    ]);
+  });
+
+  it('uses builders as upgrader fallback when there is no build or critical repair work', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Builder1',
+            role: 'builder',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 0,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        controllerId: 'controller-1',
+        creepName: 'Builder1',
+        type: 'upgradeController',
+      },
+    ]);
+  });
+
+  it('assigns harvest sources to miners before legacy workers and haulers', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'A-LegacyWorker',
+            roomName: 'W1N1',
+          },
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Z-Miner',
+            role: 'miner',
+            roomName: 'W1N1',
+          },
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Z-OtherMiner',
+            role: 'miner',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [],
+        sources: [
+          {
+            id: 'left-source',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+          {
+            id: 'right-source',
+            roomName: 'W1N1',
+            x: 30,
+            y: 30,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'A-LegacyWorker',
+        sourceId: 'left-source',
+        type: 'harvestSource',
+      },
+      {
+        creepName: 'Z-Miner',
+        sourceId: 'left-source',
+        type: 'harvestSource',
+      },
+      {
+        creepName: 'Z-OtherMiner',
+        sourceId: 'right-source',
+        type: 'harvestSource',
+      },
+    ]);
+  });
 });

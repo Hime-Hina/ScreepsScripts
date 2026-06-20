@@ -402,6 +402,9 @@ describe('Screeps main loop', () => {
         x: 21,
         y: 20,
       },
+      store: {
+        getUsedCapacity: () => 600,
+      },
       structureType: TEST_STRUCTURE_CONTAINER,
     };
     const remoteContainer = {
@@ -410,6 +413,9 @@ describe('Screeps main loop', () => {
         roomName: 'W1N1',
         x: 10,
         y: 10,
+      },
+      store: {
+        getUsedCapacity: () => 400,
       },
       structureType: TEST_STRUCTURE_CONTAINER,
     };
@@ -421,7 +427,13 @@ describe('Screeps main loop', () => {
       notify: () => undefined,
       rooms: {
         W1N1: {
-          controller: undefined,
+          controller: {
+            pos: {
+              roomName: 'W1N1',
+              x: 11,
+              y: 10,
+            },
+          },
           find: (findType: number) => {
             if (findType === TEST_FIND_SOURCES) {
               return [source];
@@ -445,8 +457,10 @@ describe('Screeps main loop', () => {
     const runtimeModule = await import('../../src/runtime/screeps-runtime');
 
     expect(runtimeModule.captureScreepsTickRuntime().readSpawningWorld().rooms[0]).toMatchObject({
+      controllerEnergyAvailable: 400,
       roomName: 'W1N1',
       sourceContainerCount: 1,
+      sourceContainerEnergyAvailable: 600,
     });
   });
 
@@ -3172,7 +3186,7 @@ describe('Screeps main loop', () => {
     expect(buildTargets).toEqual([constructionSiteTarget]);
   });
 
-  it('pauses construction work without activating safe mode when a dangerous hostile is away from core structures', async () => {
+  it('keeps construction work active when a dangerous hostile is away from core structures', async () => {
     const buildTargets: unknown[] = [];
     const upgradeTargets: unknown[] = [];
     const safeModeRequests: string[] = [];
@@ -3345,8 +3359,8 @@ describe('Screeps main loop', () => {
     mainModule.loop();
 
     expect(safeModeRequests).toEqual([]);
-    expect(buildTargets).toEqual([]);
-    expect(upgradeTargets).toEqual([controllerTarget]);
+    expect(buildTargets).toEqual([constructionSiteTarget]);
+    expect(upgradeTargets).toEqual([]);
   });
 
   it('reports a non-critical construction action failure and continues the tick', async () => {

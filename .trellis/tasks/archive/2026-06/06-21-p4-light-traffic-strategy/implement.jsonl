@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/06-21-p4-light-traffic-strategy/prd.md", "reason": "Task requirements and acceptance criteria."}
+{"file": ".trellis/tasks/06-21-p4-light-traffic-strategy/design.md", "reason": "Implementation design."}
+{"file": ".trellis/tasks/06-21-p4-light-traffic-strategy/implement.md", "reason": "Step-by-step implementation plan."}
+{"file": "src/creeps/worker-decision.ts", "reason": "Implementation or focused test target."}
+{"file": "src/runtime/screeps-runtime.ts", "reason": "Implementation or focused test target."}
+{"file": "test/unit/creeps/worker-decision.test.ts", "reason": "Implementation or focused test target."}
+{"file": "test/integration/main-loop.test.ts", "reason": "Implementation or focused test target."}
+{"file": "package.json", "reason": "Verification commands."}

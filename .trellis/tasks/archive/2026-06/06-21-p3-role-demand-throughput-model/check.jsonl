@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/06-21-p3-role-demand-throughput-model/prd.md", "reason": "Task requirements and acceptance criteria."}
+{"file": ".trellis/tasks/06-21-p3-role-demand-throughput-model/design.md", "reason": "Implementation design."}
+{"file": ".trellis/tasks/06-21-p3-role-demand-throughput-model/implement.md", "reason": "Step-by-step implementation plan."}
+{"file": "src/spawning/spawn-decision.ts", "reason": "Implementation or focused test target."}
+{"file": "src/runtime/screeps-runtime.ts", "reason": "Implementation or focused test target."}
+{"file": "test/unit/spawning/spawn-decision.test.ts", "reason": "Implementation or focused test target."}
+{"file": "package.json", "reason": "Verification commands."}

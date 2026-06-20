@@ -11,6 +11,13 @@ const TEST_CONTROLLER_STRUCTURE_LIMITS = {
     1: 0,
     2: 5,
     3: 10,
+    4: 20,
+  },
+  storage: {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 1,
   },
   tower: {
     1: 0,
@@ -31,6 +38,10 @@ const planConstruction = (
     extension: {
       ...TEST_CONTROLLER_STRUCTURE_LIMITS.extension,
       ...(controllerStructureLimits?.extension ?? {}),
+    },
+    storage: {
+      ...TEST_CONTROLLER_STRUCTURE_LIMITS.storage,
+      ...(controllerStructureLimits?.storage ?? {}),
     },
     tower: {
       ...TEST_CONTROLLER_STRUCTURE_LIMITS.tower,
@@ -1082,7 +1093,147 @@ describe('room construction planner', () => {
       },
     ]);
   });
+
+  it('does not plan storage before RCL4', () => {
+    const decisions = planConstruction({
+      controllerStructureLimits: {
+        extension: {
+          3: 0,
+        },
+      },
+      ownedRooms: [
+        {
+          blockedPositions: [],
+          constructionSites: [],
+          controllerLevel: 3,
+          controllerPosition: { x: 14, y: 10 },
+          roomName: 'W1N1',
+          spawnPosition: { x: 10, y: 10 },
+          structures: [
+            {
+              structureType: 'spawn',
+              x: 10,
+              y: 10,
+            },
+            {
+              structureType: 'tower',
+              x: 9,
+              y: 9,
+            },
+          ],
+          terrain: createPlainTerrainRectangle(8, 8, 14, 12),
+        },
+      ],
+    });
+
+    expect(decisions.some((decision) => decision.structureType === 'storage')).toBe(false);
+  });
+
+  it('plans an accessible RCL4 storage site before low-priority logistics roads', () => {
+    expect(
+      planConstruction({
+        controllerStructureLimits: {
+          extension: {
+            4: 10,
+          },
+        },
+        ownedRooms: [
+          {
+            blockedPositions: [],
+            constructionSites: [],
+            controllerLevel: 4,
+            controllerPosition: { x: 14, y: 10 },
+            roomName: 'W1N1',
+            sources: [
+              {
+                id: 'source-1',
+                x: 16,
+                y: 10,
+              },
+            ],
+            spawnPosition: { x: 10, y: 10 },
+            structures: [
+              {
+                structureType: 'spawn',
+                x: 10,
+                y: 10,
+              },
+              {
+                structureType: 'tower',
+                x: 9,
+                y: 9,
+              },
+              ...createExtensionStructuresAroundSpawn10(),
+            ],
+            terrain: createPlainTerrainRectangle(8, 8, 16, 12),
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureType: 'storage',
+        type: 'createConstructionSite',
+        x: 12,
+        y: 10,
+      },
+    ]);
+  });
+
+  it('caps RCL4 extension expansion to a small staged frontier', () => {
+    const decisions = planConstruction({
+      ownedRooms: [
+        {
+          blockedPositions: [],
+          constructionSites: [],
+          controllerLevel: 4,
+          controllerPosition: { x: 14, y: 10 },
+          roomName: 'W1N1',
+          spawnPosition: { x: 10, y: 10 },
+          structures: [
+            {
+              structureType: 'spawn',
+              x: 10,
+              y: 10,
+            },
+            {
+              structureType: 'storage',
+              x: 12,
+              y: 10,
+            },
+            {
+              structureType: 'tower',
+              x: 9,
+              y: 9,
+            },
+            ...createExtensionStructuresAroundSpawn10(),
+          ],
+          terrain: createPlainTerrainRectangle(7, 7, 14, 13),
+        },
+      ],
+    });
+
+    expect(decisions).toHaveLength(5);
+    expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
+  });
 });
+
+const createExtensionStructuresAroundSpawn10 = () =>
+  [
+    { x: 9, y: 9 },
+    { x: 10, y: 9 },
+    { x: 11, y: 9 },
+    { x: 9, y: 10 },
+    { x: 11, y: 10 },
+    { x: 9, y: 11 },
+    { x: 10, y: 11 },
+    { x: 11, y: 11 },
+    { x: 8, y: 9 },
+    { x: 8, y: 10 },
+  ].map((position) => ({
+    structureType: 'extension',
+    ...position,
+  }));
 
 const openTerrainAroundSpawn10: readonly ConstructionTerrainSnapshot[] = [
   { terrain: 'plain', x: 9, y: 9 },

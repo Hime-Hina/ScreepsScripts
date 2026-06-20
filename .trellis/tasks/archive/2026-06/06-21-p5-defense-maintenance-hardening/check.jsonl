@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/06-21-p5-defense-maintenance-hardening/prd.md", "reason": "Task requirements and acceptance criteria."}
+{"file": ".trellis/tasks/06-21-p5-defense-maintenance-hardening/design.md", "reason": "Implementation design."}
+{"file": ".trellis/tasks/06-21-p5-defense-maintenance-hardening/implement.md", "reason": "Step-by-step implementation plan."}
+{"file": "src/defense/defense-planner.ts", "reason": "Implementation or focused test target."}
+{"file": "src/runtime/screeps-runtime.ts", "reason": "Implementation or focused test target."}
+{"file": "test/unit/defense/defense-planner.test.ts", "reason": "Implementation or focused test target."}
+{"file": "test/unit/defense/tower-planner.test.ts", "reason": "Implementation or focused test target."}
+{"file": "package.json", "reason": "Verification commands."}

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   scoreRemoteMiningCandidates,
+  selectExpansionReadiness,
+  selectExpansionRemoteMiningCandidates,
+  type ExpansionReadinessSnapshot,
   type RemoteMiningCandidateSnapshot,
   type RoomIntelWorldSnapshot,
 } from '../../../src/intel/room-intel';
@@ -45,6 +48,19 @@ const scoreCandidates = (
     unknownRoomPolicy: 'penalize',
     ...world,
   });
+
+const createExpansionReadiness = (
+  readinessSnapshot: Partial<ExpansionReadinessSnapshot> = {},
+): ExpansionReadinessSnapshot => ({
+  controllerLevel: 4,
+  logisticsStable: true,
+  monitoringStable: true,
+  scoutIntelAge: 100,
+  storageBuilt: true,
+  storageEnergyCapacity: 1000000,
+  ttlReplacementEnabled: true,
+  ...readinessSnapshot,
+});
 
 describe('remote mining candidate scoring', () => {
   it('rejects already owned rooms and keeps neutral rooms ahead of them', () => {
@@ -239,6 +255,72 @@ describe('remote mining candidate scoring', () => {
         },
       },
       sourceCount: null,
+    });
+  });
+});
+
+describe('expansion readiness gates', () => {
+  it('blocks expansion before RCL4 storage and stable logistics prerequisites', () => {
+    expect(
+      selectExpansionReadiness(
+        createExpansionReadiness({
+          controllerLevel: 3,
+          logisticsStable: false,
+          monitoringStable: false,
+          scoutIntelAge: 2000,
+          storageBuilt: false,
+          storageEnergyCapacity: 0,
+          ttlReplacementEnabled: false,
+        }),
+      ),
+    ).toEqual({
+      blockerReasons: [
+        'controller below RCL4',
+        'storage unavailable',
+        'storage has no usable energy capacity',
+        'role logistics unstable',
+        'ttl replacement not enabled',
+        'monitoring unstable',
+        'scout intel stale',
+      ],
+      ready: false,
+    });
+  });
+
+  it('allows remote scoring consumption only after readiness is open', () => {
+    const worldSnapshot: RoomIntelWorldSnapshot = {
+      candidates: [createCandidate({ roomName: 'W1N2' })],
+      homeRoomName: 'W1N1',
+      unknownRoomPolicy: 'penalize',
+    };
+
+    expect(
+      selectExpansionRemoteMiningCandidates({
+        readinessSnapshot: createExpansionReadiness({ controllerLevel: 3 }),
+        worldSnapshot,
+      }),
+    ).toEqual({
+      candidates: [],
+      readiness: {
+        blockerReasons: ['controller below RCL4'],
+        ready: false,
+      },
+    });
+
+    const readySelection = selectExpansionRemoteMiningCandidates({
+      readinessSnapshot: createExpansionReadiness(),
+      worldSnapshot,
+    });
+
+    expect(readySelection.readiness).toEqual({
+      blockerReasons: [],
+      ready: true,
+    });
+    expect(readySelection.candidates).toHaveLength(1);
+    expect(readySelection.candidates[0]).toMatchObject({
+      accepted: true,
+      rank: 1,
+      roomName: 'W1N2',
     });
   });
 });

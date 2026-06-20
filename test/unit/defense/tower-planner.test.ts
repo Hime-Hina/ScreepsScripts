@@ -191,4 +191,175 @@ describe('minimal tower policy planner', () => {
       ),
     ).toEqual([]);
   });
+
+  it('orders hostile targets by range, hits, and id', () => {
+    expect(
+      planTowerActions(
+        createTowerWorld({
+          hostileCreeps: [
+            {
+              hits: 10,
+              id: 'hostile-far-low-hits',
+              roomName: 'W1N1',
+              x: 20,
+              y: 10,
+            },
+            {
+              hits: 50,
+              id: 'hostile-near-b',
+              roomName: 'W1N1',
+              x: 12,
+              y: 10,
+            },
+            {
+              hits: 50,
+              id: 'hostile-near-a',
+              roomName: 'W1N1',
+              x: 12,
+              y: 10,
+            },
+            {
+              hits: 100,
+              id: 'hostile-near-high-hits',
+              roomName: 'W1N1',
+              x: 12,
+              y: 10,
+            },
+          ],
+          towers: [createTower()],
+        }),
+      ),
+    ).toEqual([
+      {
+        hostileCreepId: 'hostile-near-a',
+        roomName: 'W1N1',
+        towerId: 'tower-1',
+        type: 'attackHostileCreep',
+      },
+    ]);
+  });
+
+  it('orders heal targets by hit ratio, range, and name', () => {
+    expect(
+      planTowerActions(
+        createTowerWorld({
+          ownedCreeps: [
+            {
+              hits: 20,
+              hitsMax: 100,
+              name: 'WorkerFarCritical',
+              roomName: 'W1N1',
+              x: 20,
+              y: 10,
+            },
+            {
+              hits: 30,
+              hitsMax: 100,
+              name: 'WorkerNearLessCritical',
+              roomName: 'W1N1',
+              x: 11,
+              y: 10,
+            },
+            {
+              hits: 20,
+              hitsMax: 100,
+              name: 'WorkerB',
+              roomName: 'W1N1',
+              x: 12,
+              y: 10,
+            },
+            {
+              hits: 20,
+              hitsMax: 100,
+              name: 'WorkerA',
+              roomName: 'W1N1',
+              x: 12,
+              y: 10,
+            },
+          ],
+          towers: [createTower()],
+        }),
+      ),
+    ).toEqual([
+      {
+        creepName: 'WorkerA',
+        roomName: 'W1N1',
+        towerId: 'tower-1',
+        type: 'healOwnedCreep',
+      },
+    ]);
+  });
+
+  it('repairs only conservative non-full targets by hit ratio, range, and id', () => {
+    expect(
+      planTowerActions(
+        createTowerWorld({
+          repairTargets: [
+            {
+              hits: 10,
+              hitsMax: 100,
+              id: 'road-critical-skipped',
+              roomName: 'W1N1',
+              structureType: 'road',
+              x: 9,
+              y: 10,
+            },
+            {
+              hits: 20,
+              hitsMax: 100,
+              id: 'tower-far-critical',
+              roomName: 'W1N1',
+              structureType: 'tower',
+              x: 20,
+              y: 10,
+            },
+            {
+              hits: 50,
+              hitsMax: 100,
+              id: 'extension-fuller',
+              roomName: 'W1N1',
+              structureType: 'extension',
+              x: 11,
+              y: 10,
+            },
+            {
+              hits: 20,
+              hitsMax: 100,
+              id: 'tower-near-b',
+              roomName: 'W1N1',
+              structureType: 'tower',
+              x: 12,
+              y: 10,
+            },
+            {
+              hits: 20,
+              hitsMax: 100,
+              id: 'tower-near-a',
+              roomName: 'W1N1',
+              structureType: 'tower',
+              x: 12,
+              y: 10,
+            },
+            {
+              hits: 100,
+              hitsMax: 100,
+              id: 'spawn-full',
+              roomName: 'W1N1',
+              structureType: 'spawn',
+              x: 11,
+              y: 10,
+            },
+          ],
+          towers: [createTower({ energy: 700 })],
+        }),
+      ),
+    ).toEqual([
+      {
+        roomName: 'W1N1',
+        structureId: 'tower-near-a',
+        towerId: 'tower-1',
+        type: 'repairStructure',
+      },
+    ]);
+  });
 });

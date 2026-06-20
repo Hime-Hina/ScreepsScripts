@@ -955,6 +955,203 @@ describe('bootstrap worker spawn decision', () => {
     });
   });
 
+  it('requests an additional hauler when source containers are backlogged and sinks need energy', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 173,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            controllerEnergyAvailable: 0,
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 400, energyCapacity: 550 }],
+            sourceContainerCount: 2,
+            sourceContainerEnergyAvailable: 1200,
+            sourceCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 9,
+            workerCreepWorkParts: 18,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'hauler', ticksToLive: 1500 },
+              ...createWorkerCreeps(6, 1500),
+            ],
+          }),
+        ],
+        workerCreepCount: 9,
+        spawns: [createSpawnSnapshot('SpawnHauler2', 'W51N21')],
+      }),
+    );
+
+    expect(spawnRequests[0]).toMatchObject({
+      requestType: 'haulerWorker',
+      targetGap: 1,
+    });
+  });
+
+  it('does not request builders when construction backlog is zero', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 174,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            constructionSites: [],
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            sourceContainerCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 9,
+            workerCreepWorkParts: 18,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'hauler', ticksToLive: 1500 },
+              ...createWorkerCreeps(6, 1500),
+            ],
+          }),
+        ],
+        workerCreepCount: 9,
+        spawns: [createSpawnSnapshot('SpawnNoBuilder', 'W51N21')],
+      }),
+    );
+
+    expect(spawnRequests[0]?.requestType).not.toBe('builderWorker');
+  });
+
+  it('increases builder demand for large RCL4 storage and extension backlog', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            4: 20,
+          },
+        },
+        gameTime: 175,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            constructionSites: [{ remainingWork: 12000, structureType: 'storage' }],
+            controllerLevel: 4,
+            energyStructures: [{ availableEnergy: 800, energyCapacity: 800 }],
+            sourceContainerCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'tower' },
+              { structureType: 'storage' },
+              ...Array.from({ length: 20 }, () => ({ structureType: 'extension' })),
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 9,
+            workerCreepWorkParts: 18,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'hauler', ticksToLive: 1500 },
+              { role: 'builder', ticksToLive: 1500 },
+              ...createWorkerCreeps(5, 1500),
+            ],
+          }),
+        ],
+        workerCreepCount: 9,
+        spawns: [createSpawnSnapshot('SpawnBuilder2', 'W51N21', { energyCapacity: 800 })],
+      }),
+    );
+
+    expect(spawnRequests[0]).toMatchObject({
+      requestType: 'builderWorker',
+      targetGap: 1,
+    });
+  });
+
+  it('replaces an expiring critical role even when total population is above target', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 176,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 550, energyCapacity: 550 }],
+            sourceContainerCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'extension' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 11,
+            workerCreepWorkParts: 22,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 100 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'hauler', ticksToLive: 1500 },
+              { role: 'upgrader', ticksToLive: 1500 },
+              ...createWorkerCreeps(7, 1500),
+            ],
+          }),
+        ],
+        workerCreepCount: 11,
+        spawns: [createSpawnSnapshot('SpawnRoleReplacement', 'W51N21')],
+      }),
+    );
+
+    expect(spawnRequests[0]).toMatchObject({
+      requestType: 'minerWorker',
+      targetGap: 1,
+    });
+  });
+
   it('counts a near-expiring worker as replacement pressure when the room is at target', () => {
     const spawnRequests = selectBootstrapWorkerSpawnRequests(
       createSpawningWorld({

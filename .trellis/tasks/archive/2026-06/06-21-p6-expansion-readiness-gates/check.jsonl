@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/06-21-p6-expansion-readiness-gates/prd.md", "reason": "Task requirements and acceptance criteria."}
+{"file": ".trellis/tasks/06-21-p6-expansion-readiness-gates/design.md", "reason": "Implementation design."}
+{"file": ".trellis/tasks/06-21-p6-expansion-readiness-gates/implement.md", "reason": "Step-by-step implementation plan."}
+{"file": "src/intel/room-intel.ts", "reason": "Implementation or focused test target."}
+{"file": "test/unit/intel/room-intel.test.ts", "reason": "Implementation or focused test target."}
+{"file": "package.json", "reason": "Verification commands."}

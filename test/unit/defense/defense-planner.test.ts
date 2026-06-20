@@ -264,7 +264,7 @@ describe('room defense planner', () => {
     ]);
   });
 
-  it('marks a room unsafe without activating safe mode for a distant attacker', () => {
+  it('keeps a room safe for a distant damaging hostile outside the core threat range', () => {
     const defensePlan = planRoomDefense(
       createDefenseWorld({
         controllers: [createSafeModeController()],
@@ -289,6 +289,53 @@ describe('room defense planner', () => {
     );
 
     expect(defensePlan.decisions).toEqual([]);
+    expect(defensePlan.roomDefenseStates).toEqual([
+      {
+        roomName: 'W1N1',
+        type: 'roomSafe',
+      },
+    ]);
+  });
+
+  it('treats storage as a core structure for near hostile safe-mode decisions', () => {
+    const defensePlan = planRoomDefense(
+      createDefenseWorld({
+        controllers: [createSafeModeController()],
+        coreStructures: [
+          createSpawnCoreStructure({
+            id: 'storage-1',
+            structureType: 'storage',
+            x: 25,
+            y: 25,
+          }),
+        ],
+        hostileCreeps: [
+          {
+            bodyParts: [
+              {
+                hits: 100,
+                type: TEST_BODY_PART_CONSTANTS.work,
+              },
+            ],
+            hits: 100,
+            id: 'hostile-storage-dismantler',
+            owner: 'Invader',
+            roomName: 'W1N1',
+            x: 27,
+            y: 25,
+          },
+        ],
+      }),
+    );
+
+    expect(defensePlan.decisions).toEqual([
+      {
+        controllerId: 'controller-1',
+        hostileCreepId: 'hostile-storage-dismantler',
+        roomName: 'W1N1',
+        type: 'activateSafeMode',
+      },
+    ]);
     expect(defensePlan.roomDefenseStates).toEqual([
       {
         roomName: 'W1N1',

@@ -260,6 +260,30 @@ const planBootstrapWorkerAction = (
     );
   }
 
+  if (workerCreep.role === 'upgrader') {
+    return planUpgraderAction(
+      workerWorld,
+      workerCreep,
+      harvestSourceByCreepName.get(workerCreep.name),
+      reservedPickupEnergyById,
+      reservedWithdrawEnergyById,
+    );
+  }
+
+  if (workerCreep.role === 'builder') {
+    return planBuilderAction(
+      workerWorld,
+      workerCreep,
+      harvestSourceByCreepName.get(workerCreep.name),
+      controllerDowngradeStateByRoomName.get(workerCreep.roomName),
+      downgradeWorkerByRoomName,
+      reservedPickupEnergyById,
+      reservedWithdrawEnergyById,
+      reservedConstructionWorkById,
+      reservedRepairStructureIds,
+    );
+  }
+
   if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
     const energyPickup = selectEnergyPickup(
       workerWorld,
@@ -602,6 +626,202 @@ const planHaulerAction = (
   };
 };
 
+const planEnergyAcquisitionAction = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+  reservedPickupEnergyById: Map<string, number>,
+  reservedWithdrawEnergyById: Map<string, number>,
+): WorkerActionDecision | null => {
+  const energyPickup = selectEnergyPickup(
+    workerWorld,
+    workerCreep,
+    workerCreep.freeCapacity,
+    reservedPickupEnergyById,
+  );
+
+  if (energyPickup !== undefined) {
+    reserveTargetEnergy(energyPickup.id, workerCreep.freeCapacity, reservedPickupEnergyById);
+
+    return {
+      creepName: workerCreep.name,
+      resourceId: energyPickup.id,
+      type: 'pickupEnergy',
+    };
+  }
+
+  const energyWithdrawal = selectEnergyWithdrawal(
+    workerWorld,
+    workerCreep,
+    workerCreep.freeCapacity,
+    reservedWithdrawEnergyById,
+  );
+
+  if (energyWithdrawal !== undefined) {
+    reserveTargetEnergy(energyWithdrawal.id, workerCreep.freeCapacity, reservedWithdrawEnergyById);
+
+    return {
+      creepName: workerCreep.name,
+      structureId: energyWithdrawal.id,
+      type: 'withdrawEnergy',
+    };
+  }
+
+  if (assignedSource === undefined) {
+    return null;
+  }
+
+  return {
+    creepName: workerCreep.name,
+    sourceId: assignedSource.id,
+    type: 'harvestSource',
+  };
+};
+
+const planUpgraderAction = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+  reservedPickupEnergyById: Map<string, number>,
+  reservedWithdrawEnergyById: Map<string, number>,
+): WorkerActionDecision | null => {
+  if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
+    const controllerLocalEnergyWithdrawal = selectControllerLocalEnergyWithdrawal(
+      workerWorld,
+      workerCreep,
+      workerCreep.freeCapacity,
+      reservedWithdrawEnergyById,
+    );
+
+    if (controllerLocalEnergyWithdrawal !== undefined) {
+      reserveTargetEnergy(
+        controllerLocalEnergyWithdrawal.id,
+        workerCreep.freeCapacity,
+        reservedWithdrawEnergyById,
+      );
+
+      return {
+        creepName: workerCreep.name,
+        structureId: controllerLocalEnergyWithdrawal.id,
+        type: 'withdrawEnergy',
+      };
+    }
+
+    return planEnergyAcquisitionAction(
+      workerWorld,
+      workerCreep,
+      assignedSource,
+      reservedPickupEnergyById,
+      reservedWithdrawEnergyById,
+    );
+  }
+
+  return planControllerUpgradeAction(workerWorld, workerCreep);
+};
+
+const planBuilderAction = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+  controllerDowngradeState: ControllerDowngradeState | undefined,
+  downgradeWorkerByRoomName: ReadonlyMap<string, string>,
+  reservedPickupEnergyById: Map<string, number>,
+  reservedWithdrawEnergyById: Map<string, number>,
+  reservedConstructionWorkById: Map<string, number>,
+  reservedRepairStructureIds: Set<string>,
+): WorkerActionDecision | null => {
+  if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
+    return planEnergyAcquisitionAction(
+      workerWorld,
+      workerCreep,
+      assignedSource,
+      reservedPickupEnergyById,
+      reservedWithdrawEnergyById,
+    );
+  }
+
+  if (workerCreep.energy <= 0) {
+    return null;
+  }
+
+  if (
+    controllerDowngradeState !== undefined &&
+    shouldUpgradeControllerBeforeBuild(
+      workerCreep,
+      controllerDowngradeState,
+      downgradeWorkerByRoomName,
+    )
+  ) {
+    return {
+      controllerId: controllerDowngradeState.controllerId,
+      creepName: workerCreep.name,
+      type: 'upgradeController',
+    };
+  }
+
+  const repairTarget = selectCriticalRepairTarget(
+    workerWorld,
+    workerCreep,
+    reservedRepairStructureIds,
+  );
+
+  if (repairTarget !== undefined) {
+    reservedRepairStructureIds.add(repairTarget.id);
+
+    return {
+      creepName: workerCreep.name,
+      structureId: repairTarget.id,
+      type: 'repairStructure',
+    };
+  }
+
+  const constructionEligibility = selectConstructionEligibility(workerWorld, workerCreep.roomName);
+  const constructionSite =
+    constructionEligibility?.type === 'constructionAllowed'
+      ? selectConstructionSite(
+          workerWorld,
+          workerCreep,
+          reservedConstructionWorkById,
+          assignedSource,
+        )
+      : undefined;
+
+  if (constructionSite !== undefined) {
+    reserveConstructionWork(constructionSite, workerCreep, reservedConstructionWorkById);
+
+    return {
+      constructionSiteId: constructionSite.id,
+      creepName: workerCreep.name,
+      type: 'buildConstructionSite',
+    };
+  }
+
+  return planControllerUpgradeAction(workerWorld, workerCreep);
+};
+
+const planControllerUpgradeAction = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+): WorkerActionDecision | null => {
+  if (workerCreep.energy <= 0) {
+    return null;
+  }
+
+  const roomController = workerWorld.controllers.find(
+    (controllerSnapshot) => controllerSnapshot.roomName === workerCreep.roomName,
+  );
+
+  if (roomController === undefined) {
+    return null;
+  }
+
+  return {
+    controllerId: roomController.id,
+    creepName: workerCreep.name,
+    type: 'upgradeController',
+  };
+};
+
 const selectWorkerEnergyMode = (workerCreep: WorkerCreepSnapshot): WorkerEnergyMode => {
   if (workerCreep.energy <= 0) {
     return 'harvesting';
@@ -700,6 +920,83 @@ const selectEnergyWithdrawal = (
         reservedWithdrawEnergyById,
       ),
     )[0];
+
+const selectControllerLocalEnergyWithdrawal = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  creepFreeCapacity: number,
+  reservedWithdrawEnergyById: ReadonlyMap<string, number>,
+): WorkerEnergyWithdrawSnapshot | undefined => {
+  const roomController = workerWorld.controllers.find(
+    (controllerSnapshot) => controllerSnapshot.roomName === workerCreep.roomName,
+  );
+
+  if (creepFreeCapacity <= 0 || roomController?.x === undefined || roomController.y === undefined) {
+    return undefined;
+  }
+
+  const candidateWithdrawals = workerWorld.energyWithdrawals.filter(
+    (energyWithdrawal) =>
+      energyWithdrawal.roomName === workerCreep.roomName &&
+      (energyWithdrawal.targetType === 'container' || energyWithdrawal.targetType === 'storage') &&
+      energyWithdrawal.availableEnergy -
+        (reservedWithdrawEnergyById.get(energyWithdrawal.id) ?? 0) >
+        0 &&
+      measureOptionalRange(energyWithdrawal, roomController) <= 3,
+  );
+  const hasNonSourceLocalWithdrawal = candidateWithdrawals.some(
+    (energyWithdrawal) => !isSourceLocalToAnyRoomSource(workerWorld, energyWithdrawal),
+  );
+
+  return candidateWithdrawals
+    .filter(
+      (energyWithdrawal) =>
+        !hasNonSourceLocalWithdrawal ||
+        !isSourceLocalToAnyRoomSource(workerWorld, energyWithdrawal),
+    )
+    .sort((leftWithdrawal, rightWithdrawal) =>
+      compareControllerLocalEnergyWithdrawals(
+        leftWithdrawal,
+        rightWithdrawal,
+        workerCreep,
+        roomController,
+        reservedWithdrawEnergyById,
+      ),
+    )[0];
+};
+
+const compareControllerLocalEnergyWithdrawals = (
+  leftWithdrawal: WorkerEnergyWithdrawSnapshot,
+  rightWithdrawal: WorkerEnergyWithdrawSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  roomController: WorkerControllerSnapshot,
+  reservedWithdrawEnergyById: ReadonlyMap<string, number>,
+): number => {
+  const leftTypePriority = measureEnergyWithdrawalPriority(leftWithdrawal);
+  const rightTypePriority = measureEnergyWithdrawalPriority(rightWithdrawal);
+
+  if (leftTypePriority !== rightTypePriority) {
+    return leftTypePriority - rightTypePriority;
+  }
+
+  const leftControllerRange = measureOptionalRange(leftWithdrawal, roomController);
+  const rightControllerRange = measureOptionalRange(rightWithdrawal, roomController);
+
+  if (leftControllerRange !== rightControllerRange) {
+    return leftControllerRange - rightControllerRange;
+  }
+
+  const leftRemainingEnergy =
+    leftWithdrawal.availableEnergy - (reservedWithdrawEnergyById.get(leftWithdrawal.id) ?? 0);
+  const rightRemainingEnergy =
+    rightWithdrawal.availableEnergy - (reservedWithdrawEnergyById.get(rightWithdrawal.id) ?? 0);
+
+  if (leftRemainingEnergy !== rightRemainingEnergy) {
+    return rightRemainingEnergy - leftRemainingEnergy;
+  }
+
+  return compareTargetRangeThenId(leftWithdrawal, rightWithdrawal, workerCreep);
+};
 
 const selectSourceLocalEnergyWithdrawal = (
   workerWorld: WorkerWorldSnapshot,
@@ -1439,6 +1736,43 @@ const sortWorkerCreeps = (
     return leftCreep.name.localeCompare(rightCreep.name);
   });
 
+const measureCreepHarvestAssignmentPriority = (workerCreep: WorkerCreepSnapshot): number => {
+  switch (workerCreep.role) {
+    case 'miner':
+      return 0;
+
+    case 'worker':
+    case undefined:
+      return 1;
+
+    case 'hauler':
+      return 2;
+
+    case 'builder':
+      return 3;
+
+    case 'upgrader':
+      return 4;
+
+    default:
+      return 5;
+  }
+};
+
+const compareCreepsForHarvestSourceAssignment = (
+  leftCreep: WorkerCreepSnapshot,
+  rightCreep: WorkerCreepSnapshot,
+): number => {
+  const leftPriority = measureCreepHarvestAssignmentPriority(leftCreep);
+  const rightPriority = measureCreepHarvestAssignmentPriority(rightCreep);
+
+  if (leftPriority !== rightPriority) {
+    return leftPriority - rightPriority;
+  }
+
+  return leftCreep.name.localeCompare(rightCreep.name);
+};
+
 const assignHarvestSources = (
   workerWorld: WorkerWorldSnapshot,
 ): ReadonlyMap<string, WorkerSourceSnapshot> => {
@@ -1453,7 +1787,7 @@ const assignHarvestSources = (
       .sort(compareSourcePositions);
     const roomCreeps = workerWorld.creeps
       .filter((workerCreep) => workerCreep.roomName === roomName)
-      .sort((leftCreep, rightCreep) => leftCreep.name.localeCompare(rightCreep.name));
+      .sort(compareCreepsForHarvestSourceAssignment);
 
     for (const [roomCreepIndex, roomCreep] of roomCreeps.entries()) {
       const assignedSource = roomSources[roomCreepIndex % roomSources.length];

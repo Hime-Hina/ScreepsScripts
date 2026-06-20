@@ -6,4 +6,6 @@ This task follows active hauler logistics. It should be small:
 - in harvesting mode select controller-local withdrawal target first;
 - in working mode choose `upgradeController` for same-room controller;
 - if controller-local energy is unavailable, fall back to generic acquisition rather than idling forever;
+- branch `role === 'builder'` before generic worker behavior;
+- builder working mode chooses critical repair, then eligible construction, then controller upgrade fallback;
 - do not change spawn demand or construction planning here.

@@ -37,11 +37,13 @@ export interface SpawningWorkerCreepSnapshot {
 
 export interface SpawningRoomSnapshot {
   readonly constructionSites: readonly SpawningConstructionSiteSnapshot[];
+  readonly controllerEnergyAvailable?: number;
   readonly controllerLevel: number;
   readonly energyStructures: readonly SpawningEnergyStructureSnapshot[];
   readonly isOwned?: boolean;
   readonly roomName: string;
   readonly sourceContainerCount?: number;
+  readonly sourceContainerEnergyAvailable?: number;
   readonly spawningWorkerCount?: number;
   readonly sourceCount: number;
   readonly structures: readonly SpawningStructureSnapshot[];
@@ -206,17 +208,17 @@ const createBootstrapWorkerRequests = (
       spawningRoom,
       targetWorkerCount: workerDemand.targetWorkerCount,
     });
-
-    if (targetGap <= 0) {
-      return [];
-    }
-
     const roleSplitRequest = selectRoleSplitRequest({
       constructionBacklogEnergy,
+      controllerDowngradeState,
+      genericTargetGap: targetGap,
       spawningRoom,
-      targetGap,
       workerDemandType: workerDemand.type,
     });
+
+    if (targetGap <= 0 && roleSplitRequest === null) {
+      return [];
+    }
 
     return [
       createSpawnRequest({
@@ -276,13 +278,15 @@ const createBootstrapSurvivalWorkerRequests = (
 
 const selectRoleSplitRequest = ({
   constructionBacklogEnergy,
+  controllerDowngradeState,
+  genericTargetGap,
   spawningRoom,
-  targetGap,
   workerDemandType,
 }: {
   readonly constructionBacklogEnergy: number;
+  readonly controllerDowngradeState: ReturnType<typeof classifyBootstrapControllerDowngradeState>;
+  readonly genericTargetGap: number;
   readonly spawningRoom: SpawningRoomSnapshot;
-  readonly targetGap: number;
   readonly workerDemandType: ReturnType<typeof selectBootstrapWorkerDemand>['type'];
 }): {
   readonly requestType: SpawnRequestType;
@@ -298,27 +302,21 @@ const selectRoleSplitRequest = ({
     return null;
   }
 
-  const roleTargets: readonly {
-    readonly requestType: SpawnRequestType;
-    readonly targetCount: number;
-  }[] = [
-    {
-      requestType: 'minerWorker',
-      targetCount: Math.min(spawningRoom.sourceCount, sourceContainerCount),
-    },
-    {
-      requestType: 'haulerWorker',
-      targetCount: 1,
-    },
-    {
-      requestType: 'builderWorker',
-      targetCount: constructionBacklogEnergy > 0 ? 1 : 0,
-    },
-    {
-      requestType: 'upgraderWorker',
-      targetCount: sourceContainerCount > 0 ? 1 : 0,
-    },
-  ];
+  const roleTargets = createRoleTargets({
+    constructionBacklogEnergy,
+    controllerDowngradeState,
+    sourceContainerCount,
+    spawningRoom,
+  });
+  const roleReplacementRequest = selectRoleReplacementRequest(spawningRoom, roleTargets);
+
+  if (roleReplacementRequest !== null) {
+    return roleReplacementRequest;
+  }
+
+  if (genericTargetGap <= 0) {
+    return null;
+  }
 
   for (const roleTarget of roleTargets) {
     const targetRoleGap = Math.max(
@@ -330,13 +328,124 @@ const selectRoleSplitRequest = ({
     if (targetRoleGap > 0) {
       return {
         requestType: roleTarget.requestType,
-        targetGap: Math.min(targetGap, targetRoleGap),
+        targetGap: Math.min(genericTargetGap, targetRoleGap),
       };
     }
   }
 
   return null;
 };
+
+interface RoleTarget {
+  readonly requestType: SpawnRequestType;
+  readonly targetCount: number;
+}
+
+const createRoleTargets = ({
+  constructionBacklogEnergy,
+  controllerDowngradeState,
+  sourceContainerCount,
+  spawningRoom,
+}: {
+  readonly constructionBacklogEnergy: number;
+  readonly controllerDowngradeState: ReturnType<typeof classifyBootstrapControllerDowngradeState>;
+  readonly sourceContainerCount: number;
+  readonly spawningRoom: SpawningRoomSnapshot;
+}): readonly RoleTarget[] => [
+  {
+    requestType: 'minerWorker',
+    targetCount: Math.min(spawningRoom.sourceCount, sourceContainerCount),
+  },
+  {
+    requestType: 'haulerWorker',
+    targetCount: calculateHaulerRoleTarget(spawningRoom),
+  },
+  {
+    requestType: 'builderWorker',
+    targetCount: calculateBuilderRoleTarget(constructionBacklogEnergy),
+  },
+  {
+    requestType: 'upgraderWorker',
+    targetCount: calculateUpgraderRoleTarget({
+      controllerDowngradeState,
+      sourceContainerCount,
+      spawningRoom,
+    }),
+  },
+];
+
+const calculateHaulerRoleTarget = (spawningRoom: SpawningRoomSnapshot): number => {
+  const sourceContainerEnergyAvailable = spawningRoom.sourceContainerEnergyAvailable ?? 0;
+  const hasPrimaryEnergySink = spawningRoom.energyStructures.some(
+    (energyStructure) => energyStructure.availableEnergy < energyStructure.energyCapacity,
+  );
+  const hasControllerEnergyDeficit = (spawningRoom.controllerEnergyAvailable ?? 0) < 200;
+  const hasBackloggedSourceEnergy = sourceContainerEnergyAvailable >= 800;
+
+  return (
+    1 + (hasBackloggedSourceEnergy && (hasPrimaryEnergySink || hasControllerEnergyDeficit) ? 1 : 0)
+  );
+};
+
+const calculateBuilderRoleTarget = (constructionBacklogEnergy: number): number => {
+  if (constructionBacklogEnergy >= 6000) {
+    return 2;
+  }
+
+  return constructionBacklogEnergy > 0 ? 1 : 0;
+};
+
+const calculateUpgraderRoleTarget = ({
+  controllerDowngradeState,
+  sourceContainerCount,
+  spawningRoom,
+}: {
+  readonly controllerDowngradeState: ReturnType<typeof classifyBootstrapControllerDowngradeState>;
+  readonly sourceContainerCount: number;
+  readonly spawningRoom: SpawningRoomSnapshot;
+}): number => {
+  if (controllerDowngradeState.type === 'controllerDowngradeCritical') {
+    return 2;
+  }
+
+  if (controllerDowngradeState.type === 'controllerDowngradeWarning') {
+    return 1;
+  }
+
+  return sourceContainerCount > 0 || (spawningRoom.controllerEnergyAvailable ?? 0) > 0 ? 1 : 0;
+};
+
+const selectRoleReplacementRequest = (
+  spawningRoom: SpawningRoomSnapshot,
+  roleTargets: readonly RoleTarget[],
+): { readonly requestType: SpawnRequestType; readonly targetGap: number } | null => {
+  for (const roleTarget of roleTargets) {
+    const creepRole = readSpawnRequestRole(roleTarget.requestType);
+
+    if (
+      roleTarget.targetCount > 0 &&
+      countWorkerCreepsByRole(spawningRoom, creepRole) >= roleTarget.targetCount &&
+      countExpiringWorkerCreepsByRole(spawningRoom, creepRole) > 0
+    ) {
+      return {
+        requestType: roleTarget.requestType,
+        targetGap: 1,
+      };
+    }
+  }
+
+  return null;
+};
+
+const countExpiringWorkerCreepsByRole = (
+  spawningRoom: SpawningRoomSnapshot,
+  creepRole: SpawnCreepRole,
+): number =>
+  (spawningRoom.workerCreeps ?? []).filter(
+    (workerCreep) =>
+      readWorkerCreepRole(workerCreep) === creepRole &&
+      workerCreep.ticksToLive < WORKER_REPLACEMENT_TTL_THRESHOLD,
+  ).length;
 
 const readSourceContainerCount = (spawningRoom: SpawningRoomSnapshot): number =>
   spawningRoom.sourceContainerCount ?? countStructures(spawningRoom, 'container');
