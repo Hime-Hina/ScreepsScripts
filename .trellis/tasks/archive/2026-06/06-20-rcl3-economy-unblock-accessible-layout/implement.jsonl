@@ -4,9 +4,9 @@
 {"file":".trellis/spec/runtime/diagnostics.md","reason":"Live evidence and status reporting conventions."}
 {"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/VERIFY workflow."}
 {"file":".trellis/tasks/06-18-bootstrap-adaptive-spawn-roadmap/prd.md","reason":"Parent roadmap and sequencing."}
-{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/prd.md","reason":"Task requirements."}
-{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/design.md","reason":"Detailed target behavior."}
-{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current W51N21 live evidence and regression fixture."}
+{"file":".trellis/tasks/archive/2026-06/06-20-rcl3-economy-unblock-accessible-layout/prd.md","reason":"Task requirements."}
+{"file":".trellis/tasks/archive/2026-06/06-20-rcl3-economy-unblock-accessible-layout/design.md","reason":"Detailed target behavior."}
+{"file":".trellis/tasks/archive/2026-06/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current W51N21 live evidence and regression fixture."}
 {"file":"src/colony/bootstrap-economy.ts","reason":"Worker demand, energy state, construction eligibility policy."}
 {"file":"src/spawning/spawn-decision.ts","reason":"Spawn request generation and body affordability."}
 {"file":"src/construction/construction-planner.ts","reason":"Near-spawn extension/tower layout decisions."}
