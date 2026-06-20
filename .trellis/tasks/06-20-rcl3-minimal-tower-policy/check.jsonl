@@ -4,7 +4,7 @@
 {"file":".trellis/spec/testing/tdd-workflow.md","reason":"TDD workflow."}
 {"file":".trellis/tasks/06-20-rcl3-minimal-tower-policy/prd.md","reason":"Task requirements."}
 {"file":".trellis/tasks/06-20-rcl3-minimal-tower-policy/design.md","reason":"Tower policy design."}
-{"file":".trellis/tasks/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current tower site evidence."}
+{"file":".trellis/tasks/archive/2026-06/06-20-rcl3-economy-unblock-accessible-layout/research/live-w51n21-rcl3-stall-2026-06-20.md","reason":"Current tower site evidence."}
 {"file":"src/defense/defense-planner.ts","reason":"Existing hostile/safe-mode threat classification."}
 {"file":"src/creeps/worker-decision.ts","reason":"Tower refill may interact with worker energy routing."}
 {"file":"src/runtime/screeps-runtime.ts","reason":"Tower snapshot capture and execution boundary."}

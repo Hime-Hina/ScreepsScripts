@@ -19,7 +19,7 @@ export type RuntimeActionFailure =
     }
   | {
       readonly errorMessage: string;
-      readonly operation: 'defense' | 'spawn' | 'workerCritical';
+      readonly operation: 'defense' | 'spawn' | 'tower' | 'workerCritical';
       readonly type: 'criticalRuntimeActionFailure';
     };
 

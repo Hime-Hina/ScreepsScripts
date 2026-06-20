@@ -872,6 +872,162 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
+  it('refills a tower after spawn and extensions are full', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+          },
+          {
+            availableEnergy: 50,
+            energyCapacity: 50,
+            id: 'extension-1',
+            roomName: 'W1N1',
+            structureType: 'extension',
+          },
+          {
+            availableEnergy: 0,
+            energyCapacity: 1000,
+            id: 'tower-1',
+            roomName: 'W1N1',
+            structureType: 'tower',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        structureId: 'tower-1',
+        type: 'refillEnergyStructure',
+      },
+    ]);
+  });
+
+  it('refills spawn and extensions before tower energy', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 250,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+          },
+          {
+            availableEnergy: 0,
+            energyCapacity: 1000,
+            id: 'tower-1',
+            roomName: 'W1N1',
+            structureType: 'tower',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Worker1',
+        structureId: 'spawn-1',
+        type: 'refillEnergyStructure',
+      },
+    ]);
+  });
+
+  it('does not refill a tower before critical controller upgrading', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_CRITICAL_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 50,
+            freeCapacity: 0,
+            name: 'Worker1',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 0,
+            energyCapacity: 1000,
+            id: 'tower-1',
+            roomName: 'W1N1',
+            structureType: 'tower',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        controllerId: 'controller-1',
+        creepName: 'Worker1',
+        type: 'upgradeController',
+      },
+    ]);
+  });
+
   it('keeps a partial-energy working worker building instead of returning to harvest', () => {
     expect(
       planWorkerActions({

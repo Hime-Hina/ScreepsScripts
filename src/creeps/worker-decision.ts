@@ -45,7 +45,7 @@ export interface WorkerEnergyStructureSnapshot {
   readonly energyCapacity: number;
   readonly id: string;
   readonly roomName: string;
-  readonly structureType?: string;
+  readonly structureType?: 'extension' | 'spawn' | 'tower';
   readonly x?: number;
   readonly y?: number;
 }
@@ -275,6 +275,7 @@ const planBootstrapWorkerAction = (
     workerWorld,
     workerCreep,
     reservedRefillEnergyById,
+    isPrimaryEnergyStructure,
   );
 
   if (depletedEnergyStructure !== undefined) {
@@ -317,6 +318,23 @@ const planBootstrapWorkerAction = (
       creepName: workerCreep.name,
       structureId: repairTarget.id,
       type: 'repairStructure',
+    };
+  }
+
+  const depletedTower = selectDepletedEnergyStructure(
+    workerWorld,
+    workerCreep,
+    reservedRefillEnergyById,
+    isTowerEnergyStructure,
+  );
+
+  if (depletedTower !== undefined) {
+    reserveTargetEnergy(depletedTower.id, workerCreep.energy, reservedRefillEnergyById);
+
+    return {
+      creepName: workerCreep.name,
+      structureId: depletedTower.id,
+      type: 'refillEnergyStructure',
     };
   }
 
@@ -390,11 +408,13 @@ const selectDepletedEnergyStructure = (
   workerWorld: WorkerWorldSnapshot,
   workerCreep: WorkerCreepSnapshot,
   reservedRefillEnergyById: ReadonlyMap<string, number>,
+  shouldIncludeEnergyStructure: (energyStructure: WorkerEnergyStructureSnapshot) => boolean,
 ): WorkerEnergyStructureSnapshot | undefined =>
   workerWorld.energyStructures
     .filter(
       (energyStructureSnapshot) =>
         energyStructureSnapshot.roomName === workerCreep.roomName &&
+        shouldIncludeEnergyStructure(energyStructureSnapshot) &&
         measureRemainingRefillEnergy(energyStructureSnapshot, reservedRefillEnergyById) > 0,
     )
     .sort((leftEnergyStructure, rightEnergyStructure) =>
@@ -405,6 +425,12 @@ const selectDepletedEnergyStructure = (
         reservedRefillEnergyById,
       ),
     )[0];
+
+const isPrimaryEnergyStructure = (energyStructure: WorkerEnergyStructureSnapshot): boolean =>
+  energyStructure.structureType !== 'tower';
+
+const isTowerEnergyStructure = (energyStructure: WorkerEnergyStructureSnapshot): boolean =>
+  energyStructure.structureType === 'tower';
 
 const selectEnergyPickup = (
   workerWorld: WorkerWorldSnapshot,
@@ -504,9 +530,12 @@ const measureEnergyStructureRefillPriority = (
     case 'extension':
       return 1;
 
+    case 'tower':
+      return 2;
+
     case undefined:
     default:
-      return 2;
+      return 3;
   }
 };
 

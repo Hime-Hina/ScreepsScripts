@@ -28,6 +28,7 @@ const TEST_ATTACK_POWER = 30;
 const TEST_DISMANTLE_POWER = 50;
 const TEST_HEAL_POWER = 12;
 const TEST_RANGED_ATTACK_POWER = 10;
+const TEST_TOWER_ENERGY_COST = 10;
 const TEST_SPAWN_ENERGY_CAPACITY = 300;
 const TEST_EXTENSION_ENERGY_CAPACITY = {
   0: 50,
@@ -128,6 +129,7 @@ describe('Screeps main loop', () => {
     vi.stubGlobal('MOVE', TEST_MOVE);
     vi.stubGlobal('RANGED_ATTACK', TEST_RANGED_ATTACK);
     vi.stubGlobal('RANGED_ATTACK_POWER', TEST_RANGED_ATTACK_POWER);
+    vi.stubGlobal('TOWER_ENERGY_COST', TEST_TOWER_ENERGY_COST);
     vi.stubGlobal('STRUCTURE_EXTENSION', TEST_STRUCTURE_EXTENSION);
     vi.stubGlobal('STRUCTURE_CONTAINER', TEST_STRUCTURE_CONTAINER);
     vi.stubGlobal('STRUCTURE_RAMPART', TEST_STRUCTURE_RAMPART);
@@ -2358,6 +2360,184 @@ describe('Screeps main loop', () => {
 
     expect(upgradeTargets).toEqual([controllerTarget]);
     expect(buildTargets).toEqual([]);
+  });
+
+  it('captures and executes tower attacks through the runtime boundary', async () => {
+    const towerAttackTargets: string[] = [];
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 3,
+      my: true,
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+      safeModeAvailable: 0,
+      ticksToDowngrade: 9000,
+    };
+    const hostileCreep = {
+      body: [
+        {
+          hits: 100,
+          type: TEST_MOVE,
+        },
+      ],
+      hits: 100,
+      id: 'hostile-1',
+      owner: {
+        username: 'Invader',
+      },
+      pos: {
+        roomName: 'W1N1',
+        x: 30,
+        y: 30,
+      },
+    };
+    const towerStructure = {
+      attack: (target: { readonly id: string }) => {
+        towerAttackTargets.push(target.id);
+        return 0;
+      },
+      heal: () => 0,
+      hits: 3000,
+      hitsMax: 3000,
+      id: 'tower-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      repair: () => 0,
+      store: {
+        getCapacity: () => 1000,
+        getUsedCapacity: () => 50,
+      },
+      structureType: TEST_STRUCTURE_TOWER,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.7),
+      getObjectById: (objectId: string) => {
+        if (objectId === 'tower-1') {
+          return towerStructure;
+        }
+
+        if (objectId === 'hostile-1') {
+          return hostileCreep;
+        }
+
+        return null;
+      },
+      notify: () => undefined,
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_HOSTILE_CREEPS) {
+              return [hostileCreep];
+            }
+
+            if (findType === TEST_FIND_MY_STRUCTURES || findType === TEST_FIND_STRUCTURES) {
+              return [towerStructure];
+            }
+
+            return [];
+          },
+          name: 'W1N1',
+        },
+      },
+      spawns: {},
+      time: 22,
+    });
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(towerAttackTargets).toEqual(['hostile-1']);
+  });
+
+  it('does not execute tower actions when no target qualifies', async () => {
+    const towerActionTargets: string[] = [];
+    const controllerTarget = {
+      id: 'controller-1',
+      level: 3,
+      my: true,
+      pos: {
+        roomName: 'W1N1',
+        x: 20,
+        y: 20,
+      },
+      safeModeAvailable: 0,
+      ticksToDowngrade: 9000,
+    };
+    const towerStructure = {
+      attack: (target: { readonly id: string }) => {
+        towerActionTargets.push(`attack:${target.id}`);
+        return 0;
+      },
+      heal: (target: { readonly name: string }) => {
+        towerActionTargets.push(`heal:${target.name}`);
+        return 0;
+      },
+      hits: 3000,
+      hitsMax: 3000,
+      id: 'tower-1',
+      pos: {
+        roomName: 'W1N1',
+        x: 10,
+        y: 10,
+      },
+      repair: (target: { readonly id: string }) => {
+        towerActionTargets.push(`repair:${target.id}`);
+        return 0;
+      },
+      store: {
+        getCapacity: () => 1000,
+        getUsedCapacity: () => 50,
+      },
+      structureType: TEST_STRUCTURE_TOWER,
+    };
+
+    vi.stubGlobal('Game', {
+      creeps: {},
+      cpu: createTestCpu(0.7),
+      getObjectById: (objectId: string) => (objectId === 'tower-1' ? towerStructure : null),
+      notify: () => undefined,
+      rooms: {
+        W1N1: {
+          controller: controllerTarget,
+          find: (findType: number) => {
+            if (findType === TEST_FIND_MY_STRUCTURES || findType === TEST_FIND_STRUCTURES) {
+              return [towerStructure];
+            }
+
+            return [];
+          },
+          name: 'W1N1',
+        },
+      },
+      spawns: {},
+      time: 23,
+    });
+    vi.stubGlobal('Memory', {});
+    vi.stubGlobal('RESOURCE_ENERGY', 'energy');
+    vi.stubGlobal('console', {
+      log: () => undefined,
+    });
+
+    const mainModule = await import('../../src/main');
+
+    mainModule.loop();
+
+    expect(towerActionTargets).toEqual([]);
   });
 
   it('captures a hostile core threat and activates safe mode through the runtime boundary', async () => {

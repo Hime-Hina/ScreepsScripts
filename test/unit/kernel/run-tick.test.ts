@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConstructionDecision } from '../../../src/construction/construction-planner';
 import { runTick } from '../../../src/kernel/run-tick';
 import type { DefenseDecision, RoomDefenseState } from '../../../src/defense/defense-planner';
+import type { TowerActionDecision } from '../../../src/defense/tower-planner';
 import type { WorkerActionDecision } from '../../../src/creeps/worker-decision';
 import { createEmptyScreepsMemoryState } from '../../../src/memory/screeps-memory';
 import type { ScreepsTickIO } from '../../../src/runtime/screeps-runtime';
@@ -29,6 +30,7 @@ describe('runTick', () => {
     const executedConstructionDecisions: ConstructionDecision[] = [];
     const executedDefenseDecisions: DefenseDecision[] = [];
     const executedSpawnDecisions: SpawnDecision[] = [];
+    const executedTowerDecisions: TowerActionDecision[] = [];
     const executedWorkerDecisions: WorkerActionDecision[] = [];
     const sentRuntimeAlerts: unknown[] = [];
     const roomDefenseStates: readonly RoomDefenseState[] = [
@@ -43,6 +45,7 @@ describe('runTick', () => {
       executeDefenseDecisions: (defenseDecisions) =>
         executedDefenseDecisions.push(...defenseDecisions),
       executeSpawnDecision: (spawnDecision) => executedSpawnDecisions.push(spawnDecision),
+      executeTowerActions: (towerDecisions) => executedTowerDecisions.push(...towerDecisions),
       executeWorkerActions: (workerDecisions) => executedWorkerDecisions.push(...workerDecisions),
       gameTime: 42,
       shardName: 'shard1',
@@ -132,6 +135,13 @@ describe('runTick', () => {
       readSurvivalSpawningWorld: () => {
         throw new Error('Full budget tick must not read the survival spawning world.');
       },
+      readTowerWorld: () => ({
+        hostileCreeps: [],
+        ownedCreeps: [],
+        repairTargets: [],
+        towerEnergyCost: 10,
+        towers: [],
+      }),
       readWorkerWorld: (capturedRoomDefenseStates) => {
         expect(capturedRoomDefenseStates).toEqual(roomDefenseStates);
 
@@ -179,6 +189,7 @@ describe('runTick', () => {
           type: 'fullTickBudget',
         },
       },
+      towerDecisions: [],
       workerDecisions: [],
     });
     expect(consoleLines).toHaveLength(2);
@@ -227,6 +238,7 @@ describe('runTick', () => {
     });
     expect(executedConstructionDecisions).toEqual([]);
     expect(executedDefenseDecisions).toEqual([]);
+    expect(executedTowerDecisions).toEqual([]);
     expect(executedSpawnDecisions).toEqual([
       {
         body: ['work', 'carry', 'carry', 'move', 'move'],
@@ -255,6 +267,7 @@ describe('runTick', () => {
       executeConstructionDecisions: () => runtimeEvents.push('executeConstructionDecisions'),
       executeDefenseDecisions: () => runtimeEvents.push('executeDefenseDecisions'),
       executeSpawnDecision: () => runtimeEvents.push('executeSpawnDecision'),
+      executeTowerActions: () => runtimeEvents.push('executeTowerActions'),
       executeWorkerActions: () => runtimeEvents.push('executeWorkerActions'),
       gameTime: 43,
       shardName: 'shard1',
@@ -375,6 +388,17 @@ describe('runTick', () => {
       readSurvivalSpawningWorld: () => {
         throw new Error('Full budget tick must not read the survival spawning world.');
       },
+      readTowerWorld: () => {
+        runtimeEvents.push('readTowerWorld');
+
+        return {
+          hostileCreeps: [],
+          ownedCreeps: [],
+          repairTargets: [],
+          towerEnergyCost: 10,
+          towers: [],
+        };
+      },
       readWorkerWorld: (roomDefenseStates) => {
         runtimeEvents.push('readWorkerWorld');
         expect(roomDefenseStates).toEqual([
@@ -454,10 +478,12 @@ describe('runTick', () => {
     expect(runtimeEvents).toEqual([
       'readCpuSnapshot',
       'readDefenseWorld',
+      'readTowerWorld',
       'readConstructionWorld',
       'readSpawningWorld',
       'readWorkerWorld',
       'executeDefenseDecisions',
+      'executeTowerActions',
       'executeConstructionDecisions',
       'executeSpawnDecision',
       'executeWorkerActions',
@@ -474,6 +500,7 @@ describe('runTick', () => {
       executeConstructionDecisions: () => runtimeEvents.push('executeConstructionDecisions'),
       executeDefenseDecisions: () => runtimeEvents.push('executeDefenseDecisions'),
       executeSpawnDecision: () => runtimeEvents.push('executeSpawnDecision'),
+      executeTowerActions: () => runtimeEvents.push('executeTowerActions'),
       executeWorkerActions: (workerDecisions) => {
         runtimeEvents.push('executeWorkerActions');
         executedWorkerDecisions.push(...workerDecisions);
@@ -517,6 +544,17 @@ describe('runTick', () => {
       },
       readSpawningWorld: () => {
         throw new Error('Survival-only budget must not read the full spawning world.');
+      },
+      readTowerWorld: () => {
+        runtimeEvents.push('readTowerWorld');
+
+        return {
+          hostileCreeps: [],
+          ownedCreeps: [],
+          repairTargets: [],
+          towerEnergyCost: 10,
+          towers: [],
+        };
       },
       readSurvivalSpawningWorld: () => {
         runtimeEvents.push('readSurvivalSpawningWorld');
@@ -632,9 +670,11 @@ describe('runTick', () => {
     expect(runtimeEvents).toEqual([
       'readCpuSnapshot',
       'readDefenseWorld',
+      'readTowerWorld',
       'readSurvivalSpawningWorld',
       'readSurvivalWorkerWorld',
       'executeDefenseDecisions',
+      'executeTowerActions',
       'executeConstructionDecisions',
       'executeSpawnDecision',
       'executeWorkerActions',
@@ -657,6 +697,7 @@ describe('runTick', () => {
       executeConstructionDecisions: () => runtimeEvents.push('executeConstructionDecisions'),
       executeDefenseDecisions: () => runtimeEvents.push('executeDefenseDecisions'),
       executeSpawnDecision: () => runtimeEvents.push('executeSpawnDecision'),
+      executeTowerActions: () => runtimeEvents.push('executeTowerActions'),
       executeWorkerActions: (workerDecisions) => executedWorkerDecisions.push(...workerDecisions),
       gameTime: 45,
       shardName: 'shard1',
@@ -745,6 +786,17 @@ describe('runTick', () => {
       }),
       readSurvivalSpawningWorld: () => {
         throw new Error('Full budget tick must not read the survival spawning world.');
+      },
+      readTowerWorld: () => {
+        runtimeEvents.push('readTowerWorld');
+
+        return {
+          hostileCreeps: [],
+          ownedCreeps: [],
+          repairTargets: [],
+          towerEnergyCost: 10,
+          towers: [],
+        };
       },
       readWorkerWorld: () => ({
         constructionEligibilities: [

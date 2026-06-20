@@ -38,6 +38,11 @@ import type {
   DefenseWorldSnapshot,
   RoomDefenseState,
 } from '../defense/defense-planner';
+import type {
+  TowerActionDecision,
+  TowerRepairTargetSnapshot,
+  TowerWorldSnapshot,
+} from '../defense/tower-planner';
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
 import type { SpawnDecision } from '../spawning/spawn-decision';
 import { formatRuntimeOpsEventLine, type RuntimeOpsEvent } from './ops-event';
@@ -62,6 +67,7 @@ export interface ScreepsTickIO {
   executeConstructionDecisions(constructionDecisions: readonly ConstructionDecision[]): void;
   executeDefenseDecisions(defenseDecisions: readonly DefenseDecision[]): void;
   executeSpawnDecision(spawnDecision: SpawnDecision): void;
+  executeTowerActions(towerDecisions: readonly TowerActionDecision[]): void;
   executeWorkerActions(workerDecisions: readonly WorkerActionDecision[]): void;
   installGmConsoleTools?(): void;
   readonly gameTime: number;
@@ -72,6 +78,7 @@ export interface ScreepsTickIO {
   readSpawningWorld(): SpawningWorldSnapshot;
   readSurvivalSpawningWorld(): SpawningWorldSnapshot;
   readSurvivalWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
+  readTowerWorld(): TowerWorldSnapshot;
   readWorkerWorld(roomDefenseStates: readonly RoomDefenseState[]): WorkerWorldSnapshot;
   runGmConsoleWatches?(): void;
   sendRuntimeAlert(alertDecision: RuntimeAlertDecision): void;
@@ -90,6 +97,7 @@ export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
   executeConstructionDecisions,
   executeDefenseDecisions,
   executeSpawnDecision,
+  executeTowerActions,
   executeWorkerActions,
   gameTime: Game.time,
   installGmConsoleTools,
@@ -100,6 +108,7 @@ export const captureScreepsTickRuntime = (): ScreepsTickRuntime => ({
   readSpawningWorld: captureSpawningWorld,
   readSurvivalSpawningWorld: captureSurvivalSpawningWorld,
   readSurvivalWorkerWorld: captureSurvivalWorkerWorld,
+  readTowerWorld: captureTowerWorld,
   readWorkerWorld: captureWorkerWorld,
   runGmConsoleWatches: () => runGmConsoleWatches((message) => console.log(message)),
   sendRuntimeAlert: (alertDecision) =>
@@ -307,6 +316,49 @@ const captureDefenseWorld = (): DefenseWorldSnapshot => {
   };
 };
 
+const captureTowerWorld = (): TowerWorldSnapshot => {
+  const ownedRooms = Object.values(Game.rooms).filter((room) => room.controller?.my === true);
+
+  return {
+    hostileCreeps: ownedRooms.flatMap((room) =>
+      room.find(FIND_HOSTILE_CREEPS).map((hostileCreep) => ({
+        hits: hostileCreep.hits,
+        id: hostileCreep.id,
+        roomName: hostileCreep.pos.roomName,
+        x: hostileCreep.pos.x,
+        y: hostileCreep.pos.y,
+      })),
+    ),
+    ownedCreeps: Object.values(Game.creeps)
+      .filter((creep) => Game.rooms[creep.room.name]?.controller?.my === true)
+      .map((creep) => ({
+        hits: creep.hits,
+        hitsMax: creep.hitsMax,
+        name: creep.name,
+        roomName: creep.room.name,
+        x: creep.pos?.x ?? 0,
+        y: creep.pos?.y ?? 0,
+      })),
+    repairTargets: ownedRooms.flatMap((room) =>
+      room.find(FIND_STRUCTURES).flatMap(toTowerRepairTargetSnapshot),
+    ),
+    towerEnergyCost: TOWER_ENERGY_COST,
+    towers: ownedRooms.flatMap((room) =>
+      room
+        .find(FIND_MY_STRUCTURES)
+        .filter(isTowerStructure)
+        .map((tower) => ({
+          energy: tower.store.getUsedCapacity(RESOURCE_ENERGY),
+          energyCapacity: readTowerEnergyCapacity(tower),
+          id: tower.id,
+          roomName: tower.pos.roomName,
+          x: tower.pos.x,
+          y: tower.pos.y,
+        })),
+    ),
+  };
+};
+
 const captureWorkerWorld = (
   roomDefenseStates: readonly RoomDefenseState[],
 ): WorkerWorldSnapshot => ({
@@ -373,18 +425,7 @@ const captureWorkerWorld = (
   }),
   creeps: Object.values(Game.creeps).map(captureWorkerCreepSnapshot),
   energyStructures: Object.values(Game.rooms).flatMap((room) =>
-    room
-      .find(FIND_MY_STRUCTURES)
-      .filter(isWorkerEnergyStructure)
-      .map((energyStructure) => ({
-        availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
-        energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
-        id: energyStructure.id,
-        roomName: energyStructure.pos.roomName,
-        structureType: energyStructure.structureType,
-        x: energyStructure.pos.x,
-        y: energyStructure.pos.y,
-      })),
+    captureRoomWorkerEnergyStructures(room, { includeTowers: true }),
   ),
   repairTargets: Object.values(Game.rooms).flatMap(captureRoomRepairTargets),
   sources: Object.values(Game.rooms).flatMap((room) =>
@@ -453,18 +494,7 @@ const captureSurvivalWorkerWorld = (
   }),
   creeps: Object.values(Game.creeps).map(captureWorkerCreepSnapshot),
   energyStructures: Object.values(Game.rooms).flatMap((room) =>
-    room
-      .find(FIND_MY_STRUCTURES)
-      .filter(isWorkerEnergyStructure)
-      .map((energyStructure) => ({
-        availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
-        energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
-        id: energyStructure.id,
-        roomName: energyStructure.pos.roomName,
-        structureType: energyStructure.structureType,
-        x: energyStructure.pos.x,
-        y: energyStructure.pos.y,
-      })),
+    captureRoomWorkerEnergyStructures(room, { includeTowers: false }),
   ),
   repairTargets: [],
   sources: Object.values(Game.rooms).flatMap((room) =>
@@ -573,10 +603,31 @@ const readRoomDefenseState = (
 const captureRoomEnergyStructures = (room: Room): readonly SpawnExtensionEnergySnapshot[] =>
   room
     .find(FIND_MY_STRUCTURES)
-    .filter(isWorkerEnergyStructure)
+    .filter(isSpawnExtensionEnergyStructure)
     .map((energyStructure) => ({
       availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
       energyCapacity: readSpawnExtensionEnergyCapacity(energyStructure, room),
+    }));
+
+const captureRoomWorkerEnergyStructures = (
+  room: Room,
+  options: { readonly includeTowers: boolean },
+): WorkerWorldSnapshot['energyStructures'] =>
+  room
+    .find(FIND_MY_STRUCTURES)
+    .filter((structure): structure is StructureExtension | StructureSpawn | StructureTower =>
+      options.includeTowers
+        ? isWorkerEnergyStructure(structure)
+        : isSpawnExtensionEnergyStructure(structure),
+    )
+    .map((energyStructure) => ({
+      availableEnergy: energyStructure.store.getUsedCapacity(RESOURCE_ENERGY),
+      energyCapacity: readWorkerEnergyCapacity(energyStructure, room),
+      id: energyStructure.id,
+      roomName: energyStructure.pos.roomName,
+      structureType: energyStructure.structureType,
+      x: energyStructure.pos.x,
+      y: energyStructure.pos.y,
     }));
 
 const captureRoomRepairTargets = (room: Room): readonly WorkerRepairTargetSnapshot[] => {
@@ -605,6 +656,42 @@ const toWorkerRepairTargetSnapshot = (
       y: structure.pos.y,
     },
   ];
+};
+
+const toTowerRepairTargetSnapshot = (
+  structure: Structure,
+): readonly [TowerRepairTargetSnapshot] | readonly [] => {
+  if (!isTowerRepairStructureType(structure.structureType)) {
+    return [];
+  }
+
+  return [
+    {
+      hits: structure.hits,
+      hitsMax: structure.hitsMax,
+      id: structure.id,
+      roomName: structure.pos.roomName,
+      structureType: structure.structureType,
+      x: structure.pos.x,
+      y: structure.pos.y,
+    },
+  ];
+};
+
+const isTowerRepairStructureType = (
+  structureType: string,
+): structureType is TowerRepairTargetSnapshot['structureType'] => {
+  switch (structureType) {
+    case STRUCTURE_CONTAINER:
+    case STRUCTURE_EXTENSION:
+    case STRUCTURE_ROAD:
+    case STRUCTURE_SPAWN:
+    case STRUCTURE_TOWER:
+      return true;
+
+    default:
+      return false;
+  }
 };
 
 const captureRoomWorkerCreeps = (
@@ -769,6 +856,33 @@ const executeDefenseDecision = (defenseDecision: DefenseDecision): void => {
   }
 };
 
+const executeTowerActions = (towerDecisions: readonly TowerActionDecision[]): void => {
+  for (const towerDecision of towerDecisions) {
+    executeTowerAction(towerDecision);
+  }
+};
+
+const executeTowerAction = (towerDecision: TowerActionDecision): void => {
+  const tower = readTower(towerDecision.towerId);
+
+  switch (towerDecision.type) {
+    case 'attackHostileCreep': {
+      tower.attack(readTowerHostileCreep(towerDecision.hostileCreepId));
+      return;
+    }
+
+    case 'healOwnedCreep': {
+      tower.heal(readOwnedCreep(towerDecision.creepName));
+      return;
+    }
+
+    case 'repairStructure': {
+      tower.repair(readTowerRepairStructure(towerDecision.structureId));
+      return;
+    }
+  }
+};
+
 const executeSpawnDecision = (spawnDecision: SpawnDecision): void => {
   const spawn = Game.spawns[spawnDecision.spawnName];
 
@@ -879,9 +993,11 @@ const readOwnedCreep = (creepName: string): Creep => {
   return creep;
 };
 
-const readEnergyStructure = (structureId: string): StructureExtension | StructureSpawn => {
+const readEnergyStructure = (
+  structureId: string,
+): StructureExtension | StructureSpawn | StructureTower => {
   const energyStructure = Game.getObjectById(
-    structureId as Id<StructureExtension | StructureSpawn>,
+    structureId as Id<StructureExtension | StructureSpawn | StructureTower>,
   );
 
   if (energyStructure === null) {
@@ -909,6 +1025,36 @@ const readRepairStructure = (structureId: string): Structure => {
   }
 
   return repairStructure;
+};
+
+const readTower = (towerId: string): StructureTower => {
+  const tower = Game.getObjectById(towerId as Id<StructureTower>);
+
+  if (tower === null) {
+    throw new Error(`Tower "${towerId}" does not exist for tower action.`);
+  }
+
+  return tower;
+};
+
+const readTowerHostileCreep = (creepId: string): Creep => {
+  const creep = Game.getObjectById(creepId as Id<Creep>);
+
+  if (creep === null) {
+    throw new Error(`Hostile creep "${creepId}" does not exist for tower action.`);
+  }
+
+  return creep;
+};
+
+const readTowerRepairStructure = (structureId: string): Structure => {
+  const structure = Game.getObjectById(structureId as Id<Structure>);
+
+  if (structure === null) {
+    throw new Error(`Repair structure "${structureId}" does not exist for tower action.`);
+  }
+
+  return structure;
 };
 
 const readSource = (sourceId: string): Source => {
@@ -973,8 +1119,32 @@ const moveToActionTargetWhenOutOfRange = (
 
 const isWorkerEnergyStructure = (
   structure: AnyOwnedStructure,
+): structure is StructureExtension | StructureSpawn | StructureTower =>
+  isSpawnExtensionEnergyStructure(structure) || isTowerStructure(structure);
+
+const isSpawnExtensionEnergyStructure = (
+  structure: AnyOwnedStructure,
 ): structure is StructureExtension | StructureSpawn =>
   structure.structureType === STRUCTURE_EXTENSION || structure.structureType === STRUCTURE_SPAWN;
+
+const isTowerStructure = (structure: AnyOwnedStructure): structure is StructureTower =>
+  structure.structureType === STRUCTURE_TOWER;
+
+const readWorkerEnergyCapacity = (
+  energyStructure: StructureExtension | StructureSpawn | StructureTower,
+  room: Room,
+): number => {
+  switch (energyStructure.structureType) {
+    case STRUCTURE_EXTENSION:
+    case STRUCTURE_SPAWN:
+      return readSpawnExtensionEnergyCapacity(energyStructure, room);
+    case STRUCTURE_TOWER:
+      return readTowerEnergyCapacity(energyStructure);
+  }
+};
+
+const readTowerEnergyCapacity = (tower: StructureTower): number =>
+  tower.store.getCapacity(RESOURCE_ENERGY) ?? 0;
 
 const readSpawnExtensionEnergyCapacity = (
   energyStructure: StructureExtension | StructureSpawn,

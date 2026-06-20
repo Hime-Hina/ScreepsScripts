@@ -4,6 +4,7 @@ import {
 } from '../construction/construction-planner';
 import { planBootstrapWorkerActions, type WorkerActionDecision } from '../creeps/worker-decision';
 import { planRoomDefense, type DefenseDecision } from '../defense/defense-planner';
+import { planTowerActions, type TowerActionDecision } from '../defense/tower-planner';
 import type { ScreepsMemoryState } from '../memory/screeps-memory';
 import { createRuntimeHeartbeatOpsEvent, formatRuntimeOpsEventLine } from '../runtime/ops-event';
 import type {
@@ -31,6 +32,7 @@ export interface TickExecution {
   readonly memoryState: ScreepsMemoryState;
   readonly spawnDecision: SpawnDecision | null;
   readonly telemetry: TickTelemetry;
+  readonly towerDecisions: readonly TowerActionDecision[];
   readonly workerDecisions: readonly WorkerActionDecision[];
 }
 
@@ -52,6 +54,7 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
   const tickBudgetDecision = selectTickBudgetDecision(cpuSnapshot);
   const defenseWorld = runtime.readDefenseWorld();
   const defensePlan = planRoomDefense(defenseWorld);
+  const towerDecisions = planTowerActions(runtime.readTowerWorld());
   const constructionDecisions =
     tickBudgetDecision.type === 'fullTickBudget'
       ? planRoomConstruction(runtime.readConstructionWorld())
@@ -78,6 +81,9 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
 
   executeCriticalRuntimeOperation(alertContext, actionFailures, 'defense', () =>
     runtime.executeDefenseDecisions(defensePlan.decisions),
+  );
+  executeCriticalRuntimeOperation(alertContext, actionFailures, 'tower', () =>
+    runtime.executeTowerActions(towerDecisions),
   );
   executeNonCriticalRuntimeOperation(actionFailures, 'construction', () =>
     runtime.executeConstructionDecisions(constructionDecisions),
@@ -136,6 +142,7 @@ export const runTick = (runtime: ScreepsTickIO, memoryState: ScreepsMemoryState)
       gameTime: runtime.gameTime,
       tickBudgetDecision,
     },
+    towerDecisions,
     workerDecisions,
   };
 };
@@ -149,7 +156,7 @@ interface RuntimeAlertContext {
 const executeCriticalRuntimeOperation = (
   alertContext: RuntimeAlertContext,
   actionFailures: RuntimeActionFailure[],
-  operation: 'defense' | 'spawn' | 'workerCritical',
+  operation: 'defense' | 'spawn' | 'tower' | 'workerCritical',
   executeRuntimeOperation: () => void,
 ): void => {
   try {

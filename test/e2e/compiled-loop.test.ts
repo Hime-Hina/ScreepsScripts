@@ -31,6 +31,7 @@ const TEST_ATTACK_POWER = 30;
 const TEST_DISMANTLE_POWER = 50;
 const TEST_HEAL_POWER = 12;
 const TEST_RANGED_ATTACK_POWER = 10;
+const TEST_TOWER_ENERGY_COST = 10;
 const TEST_SPAWN_ENERGY_CAPACITY = 300;
 const TEST_EXTENSION_ENERGY_CAPACITY = {
   0: 50,
@@ -151,6 +152,7 @@ describe('compiled Screeps bundle', () => {
       STRUCTURE_STORAGE: TEST_STRUCTURE_STORAGE,
       STRUCTURE_TERMINAL: TEST_STRUCTURE_TERMINAL,
       STRUCTURE_TOWER: TEST_STRUCTURE_TOWER,
+      TOWER_ENERGY_COST: TEST_TOWER_ENERGY_COST,
       WORK: TEST_WORK,
       console: {
         log: (message: string) => consoleLines.push(message),
