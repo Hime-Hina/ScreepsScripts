@@ -262,6 +262,515 @@ describe('bootstrap worker action decision', () => {
     ]);
   });
 
+  it('prioritizes source-local container withdrawals for haulers over larger controller-side stores', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [],
+        energyWithdrawals: [
+          {
+            availableEnergy: 1000,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 11,
+            y: 10,
+          },
+          {
+            availableEnergy: 100,
+            id: 'source-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 21,
+            y: 20,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Hauler1',
+        structureId: 'source-container-1',
+        type: 'withdrawEnergy',
+      },
+    ]);
+  });
+
+  it('uses another source-local container before non-source withdrawals when the assigned source is empty', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+        energyStructures: [],
+        energyWithdrawals: [
+          {
+            availableEnergy: 1000,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 11,
+            y: 10,
+          },
+          {
+            availableEnergy: 100,
+            id: 'other-source-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 31,
+            y: 30,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+          {
+            id: 'source-2',
+            roomName: 'W1N1',
+            x: 30,
+            y: 30,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Hauler1',
+        structureId: 'other-source-container-1',
+        type: 'withdrawEnergy',
+      },
+    ]);
+  });
+
+  it('deposits hauler surplus into a controller-side container when room energy is full', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+            x: 10,
+            y: 10,
+          },
+        ],
+        creeps: [
+          {
+            energy: 100,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 12,
+            y: 10,
+          },
+        ],
+        energyDeposits: [
+          {
+            freeCapacity: 200,
+            id: 'source-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 21,
+            y: 20,
+          },
+          {
+            freeCapacity: 200,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 11,
+            y: 10,
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+          },
+          {
+            availableEnergy: 50,
+            energyCapacity: 50,
+            id: 'extension-1',
+            roomName: 'W1N1',
+            structureType: 'extension',
+          },
+          {
+            availableEnergy: 1000,
+            energyCapacity: 1000,
+            id: 'tower-1',
+            roomName: 'W1N1',
+            structureType: 'tower',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Hauler1',
+        structureId: 'controller-container-1',
+        type: 'depositEnergy',
+      },
+    ]);
+  });
+
+  it('keeps haulers on critical downgrade upgrade before surplus container deposits', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_CRITICAL_TICKS,
+            x: 10,
+            y: 10,
+          },
+        ],
+        creeps: [
+          {
+            energy: 100,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 12,
+            y: 10,
+          },
+        ],
+        energyDeposits: [
+          {
+            freeCapacity: 200,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 11,
+            y: 10,
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        controllerId: 'controller-1',
+        creepName: 'Hauler1',
+        type: 'upgradeController',
+      },
+    ]);
+  });
+
+  it('refills primary structures before controller-container deposits for haulers', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+            x: 10,
+            y: 10,
+          },
+        ],
+        creeps: [
+          {
+            energy: 100,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 12,
+            y: 10,
+          },
+        ],
+        energyDeposits: [
+          {
+            freeCapacity: 200,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 11,
+            y: 10,
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 200,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Hauler1',
+        structureId: 'spawn-1',
+        type: 'refillEnergyStructure',
+      },
+    ]);
+  });
+
+  it('reserves controller-container deposit capacity across multiple haulers', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+            x: 10,
+            y: 10,
+          },
+        ],
+        creeps: [
+          {
+            energy: 100,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'HaulerA',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 12,
+            y: 10,
+          },
+          {
+            energy: 100,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'HaulerB',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 13,
+            y: 10,
+          },
+        ],
+        energyDeposits: [
+          {
+            freeCapacity: 100,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 11,
+            y: 10,
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'HaulerA',
+        structureId: 'controller-container-1',
+        type: 'depositEnergy',
+      },
+    ]);
+  });
+
+  it('keeps full haulers idle when no controller-local surplus sink exists', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+            x: 10,
+            y: 10,
+          },
+        ],
+        creeps: [
+          {
+            energy: 100,
+            energyMode: 'working',
+            freeCapacity: 0,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+          },
+        ],
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it('falls back to non-source stored withdrawals before harvesting with haulers', () => {
+    expect(
+      planWorkerActions({
+        constructionSites: [],
+        controllers: [
+          {
+            id: 'controller-1',
+            level: TEST_CONTROLLER_LEVEL,
+            roomName: 'W1N1',
+            ticksToDowngrade: TEST_CONTROLLER_SAFE_TICKS,
+            x: 10,
+            y: 10,
+          },
+        ],
+        creeps: [
+          {
+            energy: 0,
+            freeCapacity: 50,
+            name: 'Hauler1',
+            role: 'hauler',
+            roomName: 'W1N1',
+            x: 11,
+            y: 10,
+          },
+        ],
+        energyStructures: [],
+        energyWithdrawals: [
+          {
+            availableEnergy: 100,
+            id: 'controller-container-1',
+            roomName: 'W1N1',
+            targetType: 'container',
+            x: 11,
+            y: 10,
+          },
+        ],
+        sources: [
+          {
+            id: 'source-1',
+            roomName: 'W1N1',
+            x: 20,
+            y: 20,
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        creepName: 'Hauler1',
+        structureId: 'controller-container-1',
+        type: 'withdrawEnergy',
+      },
+    ]);
+  });
+
   it('distributes harvesting workers across room sources', () => {
     expect(
       planWorkerActions({

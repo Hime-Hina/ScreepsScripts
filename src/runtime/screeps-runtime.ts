@@ -463,6 +463,8 @@ const captureWorkerWorld = (
         level: roomController.level,
         roomName: room.name,
         ticksToDowngrade: roomController.ticksToDowngrade,
+        x: roomController.pos.x,
+        y: roomController.pos.y,
       },
     ];
   }),
@@ -533,6 +535,8 @@ const captureSurvivalWorkerWorld = (
         level: roomController.level,
         roomName: room.name,
         ticksToDowngrade: roomController.ticksToDowngrade,
+        x: roomController.pos.x,
+        y: roomController.pos.y,
       },
     ];
   }),

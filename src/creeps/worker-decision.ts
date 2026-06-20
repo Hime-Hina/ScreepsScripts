@@ -29,6 +29,8 @@ export interface WorkerControllerSnapshot {
   readonly level: number;
   readonly roomName: string;
   readonly ticksToDowngrade: number;
+  readonly x?: number;
+  readonly y?: number;
 }
 
 export interface WorkerConstructionSiteSnapshot {
@@ -245,6 +247,19 @@ const planBootstrapWorkerAction = (
     );
   }
 
+  if (workerCreep.role === 'hauler') {
+    return planHaulerAction(
+      workerWorld,
+      workerCreep,
+      harvestSourceByCreepName.get(workerCreep.name),
+      controllerDowngradeStateByRoomName.get(workerCreep.roomName),
+      downgradeWorkerByRoomName,
+      reservedWithdrawEnergyById,
+      reservedRefillEnergyById,
+      reservedDepositEnergyById,
+    );
+  }
+
   if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
     const energyPickup = selectEnergyPickup(
       workerWorld,
@@ -446,6 +461,147 @@ const planSourceMinerAction = (
   };
 };
 
+const planHaulerAction = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+  controllerDowngradeState: ControllerDowngradeState | undefined,
+  downgradeWorkerByRoomName: ReadonlyMap<string, string>,
+  reservedWithdrawEnergyById: Map<string, number>,
+  reservedRefillEnergyById: Map<string, number>,
+  reservedDepositEnergyById: Map<string, number>,
+): WorkerActionDecision | null => {
+  if (selectWorkerEnergyMode(workerCreep) === 'harvesting') {
+    const sourceLocalEnergyWithdrawal = selectSourceLocalEnergyWithdrawal(
+      workerWorld,
+      workerCreep,
+      assignedSource,
+      workerCreep.freeCapacity,
+      reservedWithdrawEnergyById,
+    );
+
+    if (sourceLocalEnergyWithdrawal !== undefined) {
+      reserveTargetEnergy(
+        sourceLocalEnergyWithdrawal.id,
+        workerCreep.freeCapacity,
+        reservedWithdrawEnergyById,
+      );
+
+      return {
+        creepName: workerCreep.name,
+        structureId: sourceLocalEnergyWithdrawal.id,
+        type: 'withdrawEnergy',
+      };
+    }
+
+    const energyWithdrawal = selectEnergyWithdrawal(
+      workerWorld,
+      workerCreep,
+      workerCreep.freeCapacity,
+      reservedWithdrawEnergyById,
+    );
+
+    if (energyWithdrawal !== undefined) {
+      reserveTargetEnergy(
+        energyWithdrawal.id,
+        workerCreep.freeCapacity,
+        reservedWithdrawEnergyById,
+      );
+
+      return {
+        creepName: workerCreep.name,
+        structureId: energyWithdrawal.id,
+        type: 'withdrawEnergy',
+      };
+    }
+
+    if (assignedSource === undefined) {
+      return null;
+    }
+
+    return {
+      creepName: workerCreep.name,
+      sourceId: assignedSource.id,
+      type: 'harvestSource',
+    };
+  }
+
+  if (workerCreep.energy <= 0) {
+    return null;
+  }
+
+  const depletedEnergyStructure = selectDepletedEnergyStructure(
+    workerWorld,
+    workerCreep,
+    reservedRefillEnergyById,
+    isPrimaryEnergyStructure,
+  );
+
+  if (depletedEnergyStructure !== undefined) {
+    reserveTargetEnergy(depletedEnergyStructure.id, workerCreep.energy, reservedRefillEnergyById);
+
+    return {
+      creepName: workerCreep.name,
+      structureId: depletedEnergyStructure.id,
+      type: 'refillEnergyStructure',
+    };
+  }
+
+  if (
+    controllerDowngradeState !== undefined &&
+    shouldUpgradeControllerBeforeBuild(
+      workerCreep,
+      controllerDowngradeState,
+      downgradeWorkerByRoomName,
+    )
+  ) {
+    return {
+      controllerId: controllerDowngradeState.controllerId,
+      creepName: workerCreep.name,
+      type: 'upgradeController',
+    };
+  }
+
+  const depletedTower = selectDepletedEnergyStructure(
+    workerWorld,
+    workerCreep,
+    reservedRefillEnergyById,
+    isTowerEnergyStructure,
+  );
+
+  if (depletedTower !== undefined) {
+    reserveTargetEnergy(depletedTower.id, workerCreep.energy, reservedRefillEnergyById);
+
+    return {
+      creepName: workerCreep.name,
+      structureId: depletedTower.id,
+      type: 'refillEnergyStructure',
+    };
+  }
+
+  const controllerLocalEnergyDeposit = selectControllerLocalEnergyDeposit(
+    workerWorld,
+    workerCreep,
+    reservedDepositEnergyById,
+  );
+
+  if (controllerLocalEnergyDeposit === undefined) {
+    return null;
+  }
+
+  reserveTargetEnergy(
+    controllerLocalEnergyDeposit.id,
+    workerCreep.energy,
+    reservedDepositEnergyById,
+  );
+
+  return {
+    creepName: workerCreep.name,
+    structureId: controllerLocalEnergyDeposit.id,
+    type: 'depositEnergy',
+  };
+};
+
 const selectWorkerEnergyMode = (workerCreep: WorkerCreepSnapshot): WorkerEnergyMode => {
   if (workerCreep.energy <= 0) {
     return 'harvesting';
@@ -545,6 +701,127 @@ const selectEnergyWithdrawal = (
       ),
     )[0];
 
+const selectSourceLocalEnergyWithdrawal = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+  creepFreeCapacity: number,
+  reservedWithdrawEnergyById: ReadonlyMap<string, number>,
+): WorkerEnergyWithdrawSnapshot | undefined => {
+  if (creepFreeCapacity <= 0) {
+    return undefined;
+  }
+
+  return workerWorld.energyWithdrawals
+    .filter(
+      (energyWithdrawal) =>
+        energyWithdrawal.roomName === workerCreep.roomName &&
+        energyWithdrawal.targetType === 'container' &&
+        energyWithdrawal.availableEnergy -
+          (reservedWithdrawEnergyById.get(energyWithdrawal.id) ?? 0) >
+          0 &&
+        isSourceLocalToAnyRoomSource(workerWorld, energyWithdrawal),
+    )
+    .sort((leftWithdrawal, rightWithdrawal) =>
+      compareSourceLocalEnergyWithdrawals(
+        leftWithdrawal,
+        rightWithdrawal,
+        workerCreep,
+        assignedSource,
+        reservedWithdrawEnergyById,
+      ),
+    )[0];
+};
+
+const compareSourceLocalEnergyWithdrawals = (
+  leftWithdrawal: WorkerEnergyWithdrawSnapshot,
+  rightWithdrawal: WorkerEnergyWithdrawSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  assignedSource: WorkerSourceSnapshot | undefined,
+  reservedWithdrawEnergyById: ReadonlyMap<string, number>,
+): number => {
+  const leftAssignedSourceLocality = measureAssignedSourceEnergyTargetPriority(
+    leftWithdrawal,
+    assignedSource,
+  );
+  const rightAssignedSourceLocality = measureAssignedSourceEnergyTargetPriority(
+    rightWithdrawal,
+    assignedSource,
+  );
+
+  if (leftAssignedSourceLocality !== rightAssignedSourceLocality) {
+    return leftAssignedSourceLocality - rightAssignedSourceLocality;
+  }
+
+  const leftRemainingEnergy =
+    leftWithdrawal.availableEnergy - (reservedWithdrawEnergyById.get(leftWithdrawal.id) ?? 0);
+  const rightRemainingEnergy =
+    rightWithdrawal.availableEnergy - (reservedWithdrawEnergyById.get(rightWithdrawal.id) ?? 0);
+
+  if (leftRemainingEnergy !== rightRemainingEnergy) {
+    return rightRemainingEnergy - leftRemainingEnergy;
+  }
+
+  return compareTargetRangeThenId(leftWithdrawal, rightWithdrawal, workerCreep);
+};
+
+const measureAssignedSourceEnergyTargetPriority = (
+  energyTarget: { readonly x?: number; readonly y?: number },
+  assignedSource: WorkerSourceSnapshot | undefined,
+): number =>
+  assignedSource !== undefined && isSourceLocalEnergyTarget(energyTarget, assignedSource) ? 0 : 1;
+
+const selectControllerLocalEnergyDeposit = (
+  workerWorld: WorkerWorldSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  reservedDepositEnergyById: ReadonlyMap<string, number>,
+): WorkerEnergyDepositSnapshot | undefined => {
+  const roomController = workerWorld.controllers.find(
+    (controllerSnapshot) => controllerSnapshot.roomName === workerCreep.roomName,
+  );
+
+  if (roomController?.x === undefined || roomController.y === undefined) {
+    return undefined;
+  }
+
+  const candidateDeposits = workerWorld.energyDeposits.filter(
+    (energyDeposit) =>
+      energyDeposit.roomName === workerCreep.roomName &&
+      energyDeposit.targetType === 'container' &&
+      measureRemainingDepositCapacity(energyDeposit, reservedDepositEnergyById) > 0 &&
+      measureOptionalRange(energyDeposit, roomController) <= 3,
+  );
+
+  const hasNonSourceLocalDeposit = candidateDeposits.some(
+    (energyDeposit) => !isSourceLocalToAnyRoomSource(workerWorld, energyDeposit),
+  );
+
+  return candidateDeposits
+    .filter(
+      (energyDeposit) =>
+        !hasNonSourceLocalDeposit || !isSourceLocalToAnyRoomSource(workerWorld, energyDeposit),
+    )
+    .sort((leftDeposit, rightDeposit) =>
+      compareControllerLocalEnergyDeposits(leftDeposit, rightDeposit, workerCreep, roomController),
+    )[0];
+};
+
+const compareControllerLocalEnergyDeposits = (
+  leftDeposit: WorkerEnergyDepositSnapshot,
+  rightDeposit: WorkerEnergyDepositSnapshot,
+  workerCreep: WorkerCreepSnapshot,
+  roomController: WorkerControllerSnapshot,
+): number => {
+  const leftControllerRange = measureOptionalRange(leftDeposit, roomController);
+  const rightControllerRange = measureOptionalRange(rightDeposit, roomController);
+
+  if (leftControllerRange !== rightControllerRange) {
+    return leftControllerRange - rightControllerRange;
+  }
+
+  return compareTargetRangeThenId(leftDeposit, rightDeposit, workerCreep);
+};
+
 const selectSourceLocalEnergyDeposit = (
   workerWorld: WorkerWorldSnapshot,
   workerCreep: WorkerCreepSnapshot,
@@ -571,15 +848,28 @@ const measureRemainingDepositCapacity = (
 const isSourceLocalEnergyDeposit = (
   energyDeposit: WorkerEnergyDepositSnapshot,
   assignedSource: WorkerSourceSnapshot,
+): boolean => isSourceLocalEnergyTarget(energyDeposit, assignedSource);
+
+const isSourceLocalEnergyTarget = (
+  energyTarget: { readonly x?: number; readonly y?: number },
+  assignedSource: WorkerSourceSnapshot,
 ): boolean =>
   assignedSource.x !== undefined &&
   assignedSource.y !== undefined &&
-  energyDeposit.x !== undefined &&
-  energyDeposit.y !== undefined &&
+  energyTarget.x !== undefined &&
+  energyTarget.y !== undefined &&
   measureRange(
-    { x: energyDeposit.x, y: energyDeposit.y },
+    { x: energyTarget.x, y: energyTarget.y },
     { x: assignedSource.x, y: assignedSource.y },
   ) <= 1;
+
+const isSourceLocalToAnyRoomSource = (
+  workerWorld: WorkerWorldSnapshot,
+  energyTarget: { readonly roomName: string; readonly x?: number; readonly y?: number },
+): boolean =>
+  workerWorld.sources
+    .filter((sourceSnapshot) => sourceSnapshot.roomName === energyTarget.roomName)
+    .some((sourceSnapshot) => isSourceLocalEnergyTarget(energyTarget, sourceSnapshot));
 
 const compareSourceLocalEnergyDeposits = (
   leftDeposit: WorkerEnergyDepositSnapshot,
