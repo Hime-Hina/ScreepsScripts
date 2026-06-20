@@ -1,0 +1,5 @@
+{"file":".trellis/spec/runtime/diagnostics.md","reason":"Runtime alert severity and operational diagnostics conventions."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Verify pure runtime/bridge side-effect boundary remains intact."}
+{"file":".trellis/spec/testing/completion-definition.md","reason":"Completion gates beyond passing tests."}
+{"file":".trellis/tasks/06-20-hostile-alert-noise/prd.md","reason":"Acceptance criteria."}
+{"file":".trellis/tasks/06-20-hostile-alert-noise/implement.md","reason":"Verification commands."}

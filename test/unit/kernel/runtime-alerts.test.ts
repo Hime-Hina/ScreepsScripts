@@ -126,9 +126,9 @@ describe('runtime alert decisions', () => {
       },
       {
         dedupeKey: 'hostile_present:shard1:W1N1',
-        emailFallback: true,
+        emailFallback: false,
         kind: 'hostile_present',
-        severity: 'critical',
+        severity: 'warning',
       },
     ]);
     expect(
@@ -292,6 +292,61 @@ describe('runtime alert decisions', () => {
       {
         emailFallback: true,
         kind: 'worker_count_low',
+        severity: 'critical',
+      },
+    ]);
+  });
+
+  it('keeps hostile presence critical when a damaging hostile is near core structures', () => {
+    const alertDecisions = selectRuntimeAlertDecisions({
+      actionFailures: [],
+      defenseWorld: {
+        ...emptyDefenseWorld,
+        coreStructures: [
+          {
+            id: 'spawn-1',
+            roomName: 'W1N1',
+            structureType: 'spawn',
+            x: 11,
+            y: 10,
+          },
+        ],
+        hostileCreeps: [
+          {
+            bodyParts: [{ hits: 100, type: 'attack' }],
+            hits: 100,
+            id: 'hostile-1',
+            owner: 'Invader',
+            roomName: 'W1N1',
+            x: 10,
+            y: 10,
+          },
+        ],
+      },
+      gameTime: 51,
+      shardName: 'shard1',
+      spawningWorld: createSpawningWorld({
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 300,
+          },
+        ],
+        ticksToDowngrade: 9000,
+        workerCreepCount: 3,
+      }),
+    });
+
+    expect(
+      alertDecisions.map((alertDecision) => ({
+        emailFallback: alertDecision.emailFallback,
+        kind: alertDecision.opsEvent.kind,
+        severity: alertDecision.opsEvent.severity,
+      })),
+    ).toEqual([
+      {
+        emailFallback: true,
+        kind: 'hostile_present',
         severity: 'critical',
       },
     ]);

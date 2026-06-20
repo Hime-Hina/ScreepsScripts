@@ -242,6 +242,22 @@ describe('Screeps ops event store and policy', () => {
     });
   });
 
+  it('records warning events without notifying or waking Hermes', async () => {
+    const opsEventModule = await loadOpsEventModule();
+    const opsEvent = opsEventModule.parseOpsEventLine(
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"hostile-present-1","severity":"warning","kind":"hostile_present","tick":10,"shard":"shard1","room":"W51N21","summary":"hostile creep observed"}',
+    );
+
+    if (opsEvent === null) {
+      throw new Error('Expected structured event.');
+    }
+
+    expect(opsEventModule.decideOpsEventActions(opsEvent)).toMatchObject({
+      actions: ['record'],
+      suppressed: false,
+    });
+  });
+
   it('wakes Hermes for actionable events and suppresses repeated cooldown events', async () => {
     const opsEventModule = await loadOpsEventModule();
     const policyState = opsEventModule.createOpsEventPolicyState();
@@ -270,6 +286,38 @@ describe('Screeps ops event store and policy', () => {
     const opsEventModule = await loadOpsEventModule();
     const opsEvent = opsEventModule.parseOpsEventLine(
       '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"spawn-missing-1","severity":"critical","kind":"spawn_missing","tick":200,"shard":"shard1","room":"W51N21","summary":"spawn missing"}',
+    );
+
+    if (opsEvent === null) {
+      throw new Error('Expected structured event.');
+    }
+
+    expect(opsEventModule.decideOpsEventActions(opsEvent)).toMatchObject({
+      actions: ['record', 'notify', 'wake_hermes'],
+      suppressed: false,
+    });
+  });
+
+  it('records legacy hostile critical events without threat metrics as transient observations', async () => {
+    const opsEventModule = await loadOpsEventModule();
+    const opsEvent = opsEventModule.parseOpsEventLine(
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"hostile-present-legacy","severity":"critical","kind":"hostile_present","tick":200,"shard":"shard1","room":"W51N21","summary":"hostile creep present"}',
+    );
+
+    if (opsEvent === null) {
+      throw new Error('Expected structured event.');
+    }
+
+    expect(opsEventModule.decideOpsEventActions(opsEvent)).toMatchObject({
+      actions: ['record'],
+      suppressed: false,
+    });
+  });
+
+  it('notifies and wakes Hermes for critical hostile events with core-threat metrics', async () => {
+    const opsEventModule = await loadOpsEventModule();
+    const opsEvent = opsEventModule.parseOpsEventLine(
+      '[HERMES_EVENT] {"schema":"screeps.ops.event.v1","id":"hostile-present-dangerous","severity":"critical","kind":"hostile_present","tick":200,"shard":"shard1","room":"W51N21","summary":"dangerous hostile near core","metrics":{"nearCore":true,"canDamage":true,"canDismantle":false}}',
     );
 
     if (opsEvent === null) {

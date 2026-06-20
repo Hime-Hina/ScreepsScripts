@@ -135,6 +135,10 @@ export const decideOpsEventActions = (opsEvent, policyState = createOpsEventPoli
 };
 
 const readActiveActions = (opsEvent) => {
+  if (isTransientHostilePresenceEvent(opsEvent)) {
+    return [];
+  }
+
   if (opsEvent.severity === 'critical') {
     return ['notify', 'wake_hermes'];
   }
@@ -145,6 +149,13 @@ const readActiveActions = (opsEvent) => {
 
   return [];
 };
+
+const isTransientHostilePresenceEvent = (opsEvent) =>
+  opsEvent.kind === 'hostile_present' &&
+  !(
+    opsEvent.metrics?.nearCore === true &&
+    (opsEvent.metrics.canDamage === true || opsEvent.metrics.canDismantle === true)
+  );
 
 const readDefaultCooldownTicks = (severity) => {
   if (severity === 'critical') {

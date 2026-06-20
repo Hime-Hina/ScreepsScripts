@@ -2,7 +2,11 @@ import {
   BOOTSTRAP_SURVIVAL_WORKER_COUNT,
   classifyBootstrapControllerDowngradeState,
 } from '../colony/bootstrap-economy';
-import type { DefenseWorldSnapshot } from '../defense/defense-planner';
+import {
+  planRoomDefense,
+  type DefenseHostileClassification,
+  type DefenseWorldSnapshot,
+} from '../defense/defense-planner';
 import { createRuntimeOpsEvent, formatRuntimeOpsEventLine } from '../runtime/ops-event';
 import type { RuntimeAlertDecision } from '../runtime/screeps-runtime';
 import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
@@ -188,23 +192,54 @@ const selectSpawnEnergyAlerts = (
 
 const selectHostilePresenceAlerts = (
   alertInput: RuntimeAlertDecisionInput,
-): readonly RuntimeAlertDecision[] =>
-  alertInput.defenseWorld.hostileCreeps.map((hostileCreep) =>
-    createAlertDecision({
-      emailFallback: true,
+): readonly RuntimeAlertDecision[] => {
+  const hostileClassifications = planRoomDefense(alertInput.defenseWorld).hostileClassifications;
+
+  return alertInput.defenseWorld.hostileCreeps.map((hostileCreep) => {
+    const hostileClassification = selectHostileClassification(
+      hostileClassifications,
+      hostileCreep.id,
+    );
+    const isCriticalHostile = isCriticalHostilePresence(hostileClassification);
+
+    return createAlertDecision({
+      emailFallback: isCriticalHostile,
       gameTime: alertInput.gameTime,
       kind: 'hostile_present',
       metrics: {
+        canDamage: hostileClassification?.canDamage ?? false,
+        canDismantle: hostileClassification?.canDismantle ?? false,
         hostileId: hostileCreep.id,
+        nearCore: hostileClassification?.nearCore ?? false,
         owner: hostileCreep.owner,
       },
-      recommendedAction: 'inspect room defense state and safe mode availability',
+      recommendedAction: isCriticalHostile
+        ? 'inspect room defense state and safe mode availability'
+        : 'record transient hostile observation; inspect if repeated or paired with room damage',
       roomName: hostileCreep.roomName,
-      severity: 'critical',
+      severity: isCriticalHostile ? 'critical' : 'warning',
       shardName: alertInput.shardName,
-      summary: `hostile creep present in ${hostileCreep.roomName}`,
-    }),
+      summary: isCriticalHostile
+        ? `dangerous hostile near core structures in ${hostileCreep.roomName}`
+        : `hostile creep observed in ${hostileCreep.roomName}`,
+    });
+  });
+};
+
+const selectHostileClassification = (
+  hostileClassifications: readonly DefenseHostileClassification[],
+  hostileCreepId: string,
+): DefenseHostileClassification | undefined =>
+  hostileClassifications.find(
+    (hostileClassification) => hostileClassification.hostileCreepId === hostileCreepId,
   );
+
+const isCriticalHostilePresence = (
+  hostileClassification: DefenseHostileClassification | undefined,
+): boolean =>
+  hostileClassification !== undefined &&
+  hostileClassification.nearCore &&
+  (hostileClassification.canDamage || hostileClassification.canDismantle);
 
 const selectActionFailureAlerts = (
   alertInput: RuntimeAlertDecisionInput,
@@ -256,10 +291,10 @@ const createAlertDecision = ({
   readonly emailFallback: boolean;
   readonly gameTime: number;
   readonly kind: string;
-  readonly metrics?: Record<string, string | number>;
+  readonly metrics?: Record<string, boolean | number | string>;
   readonly recommendedAction: string;
   readonly roomName?: string;
-  readonly severity: 'actionable' | 'critical';
+  readonly severity: 'actionable' | 'critical' | 'warning';
   readonly shardName: string;
   readonly summary: string;
 }): RuntimeAlertDecision => {

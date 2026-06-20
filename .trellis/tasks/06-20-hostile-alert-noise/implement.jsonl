@@ -1,0 +1,5 @@
+{"file":".trellis/spec/runtime/diagnostics.md","reason":"Runtime alert severity and operational diagnostics conventions."}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Keep runtime alert selection pure and side effects in bridge hooks."}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/VERIFY workflow for alert policy regression."}
+{"file":".trellis/tasks/06-20-hostile-alert-noise/prd.md","reason":"Task requirements and acceptance criteria."}
+{"file":".trellis/tasks/06-20-hostile-alert-noise/implement.md","reason":"Execution and verification plan."}
