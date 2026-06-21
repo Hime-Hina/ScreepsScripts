@@ -1,0 +1,4 @@
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"Check that behavior changes have focused regression coverage"}
+{"file":".trellis/spec/testing/completion-definition.md","reason":"Completion gate expectations before commit"}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Review that spawning-only changes do not leak into runtime execution"}
+{"file":".trellis/spec/tooling/package-manager.md","reason":"Confirm pnpm check and no production deploy scripts are invoked without authorization"}

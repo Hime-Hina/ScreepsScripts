@@ -773,10 +773,60 @@ describe('bootstrap worker spawn decision', () => {
         ],
       }),
     ).toEqual({
-      body: ['work', 'work', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move'],
+      body: ['work', 'work', 'work', 'work', 'carry', 'move', 'move'],
       creepName: 'SpawnReplacement-miner-170',
       creepRole: 'miner',
       spawnName: 'SpawnReplacement',
+    });
+  });
+
+  it('creates hauler spawn decisions with a carry/move recovery body', () => {
+    expect(
+      planWorkerSpawn({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 1701,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            controllerEnergyAvailable: 0,
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 150, energyCapacity: 800 }],
+            sourceContainerCount: 2,
+            sourceContainerEnergyAvailable: 1800,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'tower' },
+              ...Array.from({ length: 10 }, () => ({ structureType: 'extension' })),
+              { structureType: 'container' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 7,
+            workerCreepWorkParts: 10,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'upgrader', ticksToLive: 1500 },
+              ...createWorkerCreeps(4, 1500),
+            ],
+          }),
+        ],
+        workerCreepCount: 7,
+        spawns: [
+          createSpawnSnapshot('SpawnHaulerRecovery', 'W51N21', {
+            availableEnergy: 200,
+            energyCapacity: 800,
+          }),
+        ],
+      }),
+    ).toEqual({
+      body: ['carry', 'carry', 'move', 'move'],
+      creepName: 'SpawnHaulerRecovery-hauler-1701',
+      creepRole: 'hauler',
+      spawnName: 'SpawnHaulerRecovery',
     });
   });
 
@@ -1003,6 +1053,62 @@ describe('bootstrap worker spawn decision', () => {
     );
 
     expect(spawnRequests[0]).toMatchObject({
+      requestType: 'haulerWorker',
+      targetGap: 1,
+    });
+  });
+
+  it('requests a missing hauler before replacing surplus expiring miners during a logistics outage', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            3: 10,
+          },
+        },
+        gameTime: 1731,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            controllerEnergyAvailable: 0,
+            controllerLevel: 3,
+            energyStructures: [{ availableEnergy: 161, energyCapacity: 800 }],
+            sourceContainerCount: 2,
+            sourceContainerEnergyAvailable: 3882,
+            sourceCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'tower' },
+              ...Array.from({ length: 10 }, () => ({ structureType: 'extension' })),
+              { structureType: 'container' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 11,
+            workerCreepWorkParts: 22,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 100 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'upgrader', ticksToLive: 1500 },
+              { role: 'upgrader', ticksToLive: 1500 },
+              { role: 'upgrader', ticksToLive: 1500 },
+              ...createWorkerCreeps(4, 1500),
+            ],
+          }),
+        ],
+        workerCreepCount: 11,
+        spawns: [
+          createSpawnSnapshot('SpawnLogisticsRecovery', 'W51N21', {
+            availableEnergy: 161,
+            energyCapacity: 800,
+          }),
+        ],
+      }),
+    );
+
+    expect(spawnRequests[0]).toMatchObject({
+      priority: 145,
       requestType: 'haulerWorker',
       targetGap: 1,
     });

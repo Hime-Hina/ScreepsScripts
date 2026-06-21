@@ -81,6 +81,21 @@ const EARLY_WORKER_BODIES = [
   ['work', 'carry', 'carry', 'move', 'move'],
   INITIAL_WORKER_BODY,
 ] as const satisfies readonly (readonly SpawnBodyPart[])[];
+const EARLY_MINER_BODIES = [
+  ['work', 'work', 'work', 'work', 'carry', 'move', 'move'],
+  ['work', 'work', 'carry', 'move'],
+  INITIAL_WORKER_BODY,
+] as const satisfies readonly (readonly SpawnBodyPart[])[];
+const EARLY_HAULER_BODIES = [
+  ['carry', 'carry', 'carry', 'carry', 'carry', 'move', 'move', 'move', 'move', 'move'],
+  ['carry', 'carry', 'carry', 'move', 'move', 'move'],
+  ['carry', 'carry', 'move', 'move'],
+] as const satisfies readonly (readonly SpawnBodyPart[])[];
+const EARLY_UPGRADER_BODIES = [
+  ['work', 'work', 'work', 'carry', 'move', 'move'],
+  ['work', 'work', 'carry', 'move'],
+  INITIAL_WORKER_BODY,
+] as const satisfies readonly (readonly SpawnBodyPart[])[];
 
 const SURVIVAL_WORKER_REQUEST_PRIORITY = 200;
 const MINER_WORKER_REQUEST_PRIORITY = 150;
@@ -140,10 +155,10 @@ const EARLY_WORKER_BODY_CATALOG: Readonly<
 > = {
   builderWorker: EARLY_WORKER_BODIES,
   developmentWorker: EARLY_WORKER_BODIES,
-  haulerWorker: EARLY_WORKER_BODIES,
-  minerWorker: EARLY_WORKER_BODIES,
+  haulerWorker: EARLY_HAULER_BODIES,
+  minerWorker: EARLY_MINER_BODIES,
   survivalWorker: EARLY_WORKER_BODIES,
-  upgraderWorker: EARLY_WORKER_BODIES,
+  upgraderWorker: EARLY_UPGRADER_BODIES,
 };
 
 export const selectBootstrapWorkerSpawnRequests = (
@@ -308,16 +323,34 @@ const selectRoleSplitRequest = ({
     sourceContainerCount,
     spawningRoom,
   });
-  const roleReplacementRequest = selectRoleReplacementRequest(spawningRoom, roleTargets);
+  const roleGapRequest = selectRoleGapRequest({
+    genericTargetGap,
+    roleTargets,
+    spawningRoom,
+  });
 
-  if (roleReplacementRequest !== null) {
-    return roleReplacementRequest;
+  if (roleGapRequest !== null) {
+    return roleGapRequest;
   }
 
-  if (genericTargetGap <= 0) {
-    return null;
-  }
+  return selectRoleReplacementRequest(spawningRoom, roleTargets);
+};
 
+interface RoleTarget {
+  readonly allowPopulationSurplus?: boolean;
+  readonly requestType: SpawnRequestType;
+  readonly targetCount: number;
+}
+
+const selectRoleGapRequest = ({
+  genericTargetGap,
+  roleTargets,
+  spawningRoom,
+}: {
+  readonly genericTargetGap: number;
+  readonly roleTargets: readonly RoleTarget[];
+  readonly spawningRoom: SpawningRoomSnapshot;
+}): { readonly requestType: SpawnRequestType; readonly targetGap: number } | null => {
   for (const roleTarget of roleTargets) {
     const targetRoleGap = Math.max(
       roleTarget.targetCount -
@@ -325,21 +358,27 @@ const selectRoleSplitRequest = ({
       0,
     );
 
-    if (targetRoleGap > 0) {
+    if (targetRoleGap <= 0) {
+      continue;
+    }
+
+    if (genericTargetGap > 0) {
       return {
         requestType: roleTarget.requestType,
         targetGap: Math.min(genericTargetGap, targetRoleGap),
+      };
+    }
+
+    if (roleTarget.allowPopulationSurplus === true) {
+      return {
+        requestType: roleTarget.requestType,
+        targetGap: 1,
       };
     }
   }
 
   return null;
 };
-
-interface RoleTarget {
-  readonly requestType: SpawnRequestType;
-  readonly targetCount: number;
-}
 
 const createRoleTargets = ({
   constructionBacklogEnergy,
@@ -357,6 +396,7 @@ const createRoleTargets = ({
     targetCount: Math.min(spawningRoom.sourceCount, sourceContainerCount),
   },
   {
+    allowPopulationSurplus: shouldAllowHaulerPopulationSurplus(spawningRoom),
     requestType: 'haulerWorker',
     targetCount: calculateHaulerRoleTarget(spawningRoom),
   },
@@ -375,16 +415,39 @@ const createRoleTargets = ({
 ];
 
 const calculateHaulerRoleTarget = (spawningRoom: SpawningRoomSnapshot): number => {
+  const logisticsPressure = summarizeHaulerLogisticsPressure(spawningRoom);
+
+  return (
+    1 + (logisticsPressure.hasBackloggedSourceEnergy && logisticsPressure.hasEnergySink ? 1 : 0)
+  );
+};
+
+const shouldAllowHaulerPopulationSurplus = (spawningRoom: SpawningRoomSnapshot): boolean => {
+  const logisticsPressure = summarizeHaulerLogisticsPressure(spawningRoom);
+
+  return logisticsPressure.hasRecoverableSourceEnergy && logisticsPressure.hasEnergySink;
+};
+
+const summarizeHaulerLogisticsPressure = (
+  spawningRoom: SpawningRoomSnapshot,
+): {
+  readonly hasBackloggedSourceEnergy: boolean;
+  readonly hasEnergySink: boolean;
+  readonly hasRecoverableSourceEnergy: boolean;
+} => {
   const sourceContainerEnergyAvailable = spawningRoom.sourceContainerEnergyAvailable ?? 0;
   const hasPrimaryEnergySink = spawningRoom.energyStructures.some(
     (energyStructure) => energyStructure.availableEnergy < energyStructure.energyCapacity,
   );
-  const hasControllerEnergyDeficit = (spawningRoom.controllerEnergyAvailable ?? 0) < 200;
-  const hasBackloggedSourceEnergy = sourceContainerEnergyAvailable >= 800;
+  const hasControllerEnergyDeficit =
+    spawningRoom.controllerEnergyAvailable !== undefined &&
+    spawningRoom.controllerEnergyAvailable < 200;
 
-  return (
-    1 + (hasBackloggedSourceEnergy && (hasPrimaryEnergySink || hasControllerEnergyDeficit) ? 1 : 0)
-  );
+  return {
+    hasBackloggedSourceEnergy: sourceContainerEnergyAvailable >= 800,
+    hasEnergySink: hasPrimaryEnergySink || hasControllerEnergyDeficit,
+    hasRecoverableSourceEnergy: sourceContainerEnergyAvailable >= 200,
+  };
 };
 
 const calculateBuilderRoleTarget = (constructionBacklogEnergy: number): number => {

@@ -1,0 +1,3 @@
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/VERIFY workflow and regression-test expectations"}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Spawning vs creeps vs runtime ownership boundaries for role and body decisions"}
+{"file":".trellis/spec/tooling/package-manager.md","reason":"pnpm-only verification commands and production-affecting script boundaries"}
