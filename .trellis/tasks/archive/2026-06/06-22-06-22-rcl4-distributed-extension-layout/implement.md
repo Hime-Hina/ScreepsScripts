@@ -16,7 +16,7 @@
 5. Run full gates:
    - `pnpm check`
    - `git diff --check`
-   - `python3 .trellis/scripts/task.py validate .trellis/tasks/06-22-06-22-rcl4-distributed-extension-layout`
+   - `python3 .trellis/scripts/task.py validate .trellis/tasks/archive/2026-06/06-22-06-22-rcl4-distributed-extension-layout`
 6. Deploy and verify.
 7. Live migration:
    - remove only low-progress dense extension construction sites;
@@ -26,4 +26,4 @@
 
 - `src/construction/construction-planner.ts`
 - `test/unit/construction/construction-planner.test.ts`
-- task docs/context under `.trellis/tasks/06-22-06-22-rcl4-distributed-extension-layout/`
+- task docs/context under `.trellis/tasks/archive/2026-06/06-22-06-22-rcl4-distributed-extension-layout/`

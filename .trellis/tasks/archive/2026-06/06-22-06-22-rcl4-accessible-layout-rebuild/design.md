@@ -49,7 +49,7 @@ After deploying the recurrence fix:
 - `pnpm vitest run test/unit/construction/construction-planner.test.ts`
 - `pnpm check`
 - `git diff --check`
-- `python3 .trellis/scripts/task.py validate .trellis/tasks/06-22-06-22-rcl4-accessible-layout-rebuild`
+- `python3 .trellis/scripts/task.py validate .trellis/tasks/archive/2026-06/06-22-06-22-rcl4-accessible-layout-rebuild`
 - `pnpm deploy:screeps`
 - `pnpm verify:live:screeps`
 - `pnpm status:role-recovery:screeps`
