@@ -1254,6 +1254,55 @@ describe('bootstrap worker spawn decision', () => {
     });
   });
 
+  it('recovers missing upgraders after builders recover before replacing surplus expiring miners', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            4: 20,
+          },
+        },
+        gameTime: 71836253,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            constructionSites: [{ remainingWork: 21120, structureType: 'storage' }],
+            controllerEnergyAvailable: 2000,
+            controllerLevel: 4,
+            energyStructures: [{ availableEnergy: 1050, energyCapacity: 1050 }],
+            sourceContainerCount: 2,
+            sourceContainerEnergyAvailable: 4000,
+            sourceCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'tower' },
+              ...Array.from({ length: 15 }, () => ({ structureType: 'extension' })),
+              { structureType: 'container' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 15,
+            workerCreepWorkParts: 15,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 100 },
+              ...Array.from({ length: 11 }, () => ({ role: 'miner' as const, ticksToLive: 1500 })),
+              { role: 'hauler', ticksToLive: 1500 },
+              { role: 'builder', ticksToLive: 1500 },
+              { role: 'builder', ticksToLive: 1500 },
+            ],
+          }),
+        ],
+        workerCreepCount: 15,
+        spawns: [createSpawnSnapshot('SpawnRoleDriftUpgrader', 'W51N21', { energyCapacity: 1050 })],
+      }),
+    );
+
+    expect(spawnRequests[0]).toMatchObject({
+      priority: 110,
+      requestType: 'upgraderWorker',
+      targetGap: 1,
+    });
+  });
+
   it('does not perpetuate surplus expiring miners when role targets remain covered', () => {
     const spawnRequests = selectBootstrapWorkerSpawnRequests(
       createSpawningWorld({

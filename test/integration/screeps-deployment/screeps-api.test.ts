@@ -1,3 +1,5 @@
+import { gzipSync } from 'node:zlib';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -224,6 +226,79 @@ describe('Screeps API deployment boundary', () => {
     expect(capturedInit?.headers).toEqual({
       'X-Token': 'secret-token',
     });
+  });
+
+  it('reads and decodes gzipped user memory through the shard and path query', async () => {
+    let capturedUrl = '';
+    let capturedInit: RequestInit | undefined;
+    const memoryPayload = {
+      'Spawn1-builder-1': { role: 'builder' },
+      'Spawn1-miner-1': { role: 'miner' },
+    };
+    const gzippedMemory = `gz:${gzipSync(JSON.stringify(memoryPayload)).toString('base64')}`;
+
+    vi.stubGlobal('fetch', (requestInput: string | URL, requestInit?: RequestInit) => {
+      capturedUrl = requestInput.toString();
+      capturedInit = requestInit;
+
+      return Promise.resolve(
+        new Response(JSON.stringify({ data: gzippedMemory, ok: 1 }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      );
+    });
+
+    const screepsApiModule = await loadScreepsApiModule();
+
+    await expect(
+      screepsApiModule.readUserMemory(screepsConfig, 'shard1', 'creeps'),
+    ).resolves.toEqual(memoryPayload);
+    expect(capturedUrl).toBe('http://127.0.0.1:21025/api/user/memory?path=creeps&shard=shard1');
+    expect(capturedUrl).not.toContain('secret-token');
+    expect(capturedInit?.headers).toEqual({
+      'X-Token': 'secret-token',
+    });
+  });
+
+  it('rejects invalid user memory payloads with normalized errors', async () => {
+    const screepsApiModule = await loadScreepsApiModule();
+
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: 1 }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+    await expect(
+      screepsApiModule.readUserMemory(screepsConfig, 'shard1', 'creeps'),
+    ).rejects.toThrow('Screeps API memory response did not include data.');
+
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: '{not-json', ok: 1 }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+    await expect(
+      screepsApiModule.readUserMemory(screepsConfig, 'shard1', 'creeps'),
+    ).rejects.toThrow('Screeps API memory response data contained invalid JSON.');
+
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ data: 'gz:not-valid-gzip', ok: 1 }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        }),
+      ),
+    );
+    await expect(
+      screepsApiModule.readUserMemory(screepsConfig, 'shard1', 'creeps'),
+    ).rejects.toThrow('Screeps API memory response data contained invalid gzip.');
   });
 
   it('reads room status without logging credential material', async () => {

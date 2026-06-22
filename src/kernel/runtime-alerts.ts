@@ -9,7 +9,7 @@ import {
 } from '../defense/defense-planner';
 import { createRuntimeOpsEvent, formatRuntimeOpsEventLine } from '../runtime/ops-event';
 import type { RuntimeAlertDecision } from '../runtime/screeps-runtime';
-import type { SpawningWorldSnapshot } from '../spawning/spawn-decision';
+import type { SpawnCreepRole, SpawningWorldSnapshot } from '../spawning/spawn-decision';
 
 export type RuntimeActionFailure =
   | {
@@ -40,6 +40,7 @@ export const selectRuntimeAlertDecisions = (
   ...selectControllerDowngradeAlerts(alertInput),
   ...selectWorkerCountAlerts(alertInput),
   ...selectSpawnEnergyAlerts(alertInput),
+  ...selectRoleCompositionDriftAlerts(alertInput),
   ...selectHostilePresenceAlerts(alertInput),
   ...selectActionFailureAlerts(alertInput),
 ];
@@ -189,6 +190,161 @@ const selectSpawnEnergyAlerts = (
       }),
     ];
   });
+
+const selectRoleCompositionDriftAlerts = (
+  alertInput: RuntimeAlertDecisionInput,
+): readonly RuntimeAlertDecision[] =>
+  alertInput.spawningWorld.rooms.flatMap((spawningRoom) => {
+    const driftSummary = summarizeRoleCompositionDrift(spawningRoom);
+
+    if (driftSummary === null) {
+      return [];
+    }
+
+    return [
+      createAlertDecision({
+        emailFallback: false,
+        gameTime: alertInput.gameTime,
+        kind: 'role_composition_drift',
+        metrics: driftSummary,
+        recommendedAction:
+          'inspect role-specific spawn recovery; surplus miners should age out while missing roles recover',
+        roomName: spawningRoom.roomName,
+        severity: 'actionable',
+        shardName: alertInput.shardName,
+        summary: `role composition drift in ${spawningRoom.roomName}`,
+      }),
+    ];
+  });
+
+const summarizeRoleCompositionDrift = (
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): Record<string, number> | null => {
+  const roleCounts = countWorkerRoles(spawningRoom);
+
+  if (!hasRoleSpecificWorkerCreeps(roleCounts)) {
+    return null;
+  }
+
+  const constructionBacklogEnergy = sumConstructionBacklogEnergy(spawningRoom);
+  const minerTarget = Math.min(spawningRoom.sourceCount, spawningRoom.sourceContainerCount ?? 0);
+  const minerSurplus = roleCounts.miner - minerTarget;
+
+  if (minerTarget <= 0 || minerSurplus < 3) {
+    return null;
+  }
+
+  const haulerTarget = calculateRoleDriftHaulerTarget(spawningRoom);
+  const builderTarget = calculateRoleDriftBuilderTarget(constructionBacklogEnergy);
+  const upgraderTarget = calculateRoleDriftUpgraderTarget(spawningRoom);
+  const haulerGap = Math.max(haulerTarget - roleCounts.hauler, 0);
+  const builderGap = Math.max(builderTarget - roleCounts.builder, 0);
+  const upgraderGap = Math.max(upgraderTarget - roleCounts.upgrader, 0);
+
+  if (haulerGap + builderGap + upgraderGap <= 0) {
+    return null;
+  }
+
+  return {
+    builderCount: roleCounts.builder,
+    builderGap,
+    builderTarget,
+    constructionBacklogEnergy,
+    haulerCount: roleCounts.hauler,
+    haulerGap,
+    haulerTarget,
+    minerCount: roleCounts.miner,
+    minerSurplus,
+    minerTarget,
+    sourceContainerEnergyAvailable: spawningRoom.sourceContainerEnergyAvailable ?? 0,
+    upgraderCount: roleCounts.upgrader,
+    upgraderGap,
+    upgraderTarget,
+    workerCount: spawningRoom.workerCreepCount,
+  };
+};
+
+const countWorkerRoles = (
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): Record<SpawnCreepRole, number> => {
+  const roleCounts: Record<SpawnCreepRole, number> = {
+    builder: 0,
+    hauler: 0,
+    miner: 0,
+    upgrader: 0,
+    worker: 0,
+  };
+
+  for (const workerCreep of spawningRoom.workerCreeps ?? []) {
+    if (workerCreep.role !== undefined) {
+      roleCounts[workerCreep.role] += 1;
+    }
+  }
+
+  return roleCounts;
+};
+
+const hasRoleSpecificWorkerCreeps = (roleCounts: Record<SpawnCreepRole, number>): boolean =>
+  roleCounts.miner + roleCounts.hauler + roleCounts.builder + roleCounts.upgrader > 0;
+
+const sumConstructionBacklogEnergy = (
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): number =>
+  spawningRoom.constructionSites.reduce(
+    (totalBacklogEnergy, constructionSite) =>
+      totalBacklogEnergy + Math.max(constructionSite.remainingWork, 0),
+    0,
+  );
+
+const calculateRoleDriftHaulerTarget = (
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): number => {
+  if ((spawningRoom.sourceContainerCount ?? 0) <= 0) {
+    return 0;
+  }
+
+  return 1 + (hasBackloggedSourceEnergy(spawningRoom) && hasEnergySink(spawningRoom) ? 1 : 0);
+};
+
+const hasBackloggedSourceEnergy = (spawningRoom: SpawningWorldSnapshot['rooms'][number]): boolean =>
+  (spawningRoom.sourceContainerEnergyAvailable ?? 0) >= 800;
+
+const hasEnergySink = (spawningRoom: SpawningWorldSnapshot['rooms'][number]): boolean =>
+  spawningRoom.energyStructures.some(
+    (energyStructure) => energyStructure.availableEnergy < energyStructure.energyCapacity,
+  ) ||
+  (spawningRoom.controllerEnergyAvailable !== undefined &&
+    spawningRoom.controllerEnergyAvailable < 200);
+
+const calculateRoleDriftBuilderTarget = (constructionBacklogEnergy: number): number => {
+  if (constructionBacklogEnergy >= 6000) {
+    return 2;
+  }
+
+  return constructionBacklogEnergy > 0 ? 1 : 0;
+};
+
+const calculateRoleDriftUpgraderTarget = (
+  spawningRoom: SpawningWorldSnapshot['rooms'][number],
+): number => {
+  if (isControllerDowngradeCritical(spawningRoom)) {
+    return 2;
+  }
+
+  if (
+    classifyBootstrapControllerDowngradeState({
+      roomName: spawningRoom.roomName,
+      ticksToDowngrade: spawningRoom.ticksToDowngrade,
+    }).type === 'controllerDowngradeWarning'
+  ) {
+    return 1;
+  }
+
+  return (spawningRoom.sourceContainerCount ?? 0) > 0 ||
+    (spawningRoom.controllerEnergyAvailable ?? 0) > 0
+    ? 1
+    : 0;
+};
 
 const selectHostilePresenceAlerts = (
   alertInput: RuntimeAlertDecisionInput,

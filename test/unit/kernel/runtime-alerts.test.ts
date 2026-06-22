@@ -352,6 +352,136 @@ describe('runtime alert decisions', () => {
     ]);
   });
 
+  it('creates an actionable role composition drift event when surplus miners mask missing recovery roles', () => {
+    const alertDecisions = selectRuntimeAlertDecisions({
+      actionFailures: [],
+      defenseWorld: emptyDefenseWorld,
+      gameTime: 71835876,
+      shardName: 'shard1',
+      spawningWorld: createSpawningWorld({
+        constructionSites: [{ remainingWork: 21120, structureType: 'storage' }],
+        controllerEnergyAvailable: 2000,
+        controllerLevel: 4,
+        energyStructures: [
+          {
+            availableEnergy: 300,
+            energyCapacity: 1050,
+          },
+        ],
+        sourceContainerCount: 2,
+        sourceContainerEnergyAvailable: 4000,
+        sourceCount: 2,
+        ticksToDowngrade: 9000,
+        workerCreepCount: 15,
+        workerCreeps: [
+          ...Array.from({ length: 14 }, () => ({ role: 'miner' as const, ticksToLive: 1500 })),
+          { role: 'hauler' as const, ticksToLive: 1500 },
+        ],
+      }),
+    });
+
+    expect(
+      alertDecisions.map((alertDecision) => ({
+        emailFallback: alertDecision.emailFallback,
+        kind: alertDecision.opsEvent.kind,
+        metrics: alertDecision.opsEvent.metrics,
+        severity: alertDecision.opsEvent.severity,
+      })),
+    ).toEqual([
+      {
+        emailFallback: false,
+        kind: 'role_composition_drift',
+        metrics: {
+          builderCount: 0,
+          builderGap: 2,
+          builderTarget: 2,
+          constructionBacklogEnergy: 21120,
+          haulerCount: 1,
+          haulerGap: 1,
+          haulerTarget: 2,
+          minerCount: 14,
+          minerSurplus: 12,
+          minerTarget: 2,
+          sourceContainerEnergyAvailable: 4000,
+          upgraderCount: 0,
+          upgraderGap: 1,
+          upgraderTarget: 1,
+          workerCount: 15,
+        },
+        severity: 'actionable',
+      },
+    ]);
+    expect(alertDecisions[0]?.message).toContain('[HERMES_EVENT] ');
+    expect(alertDecisions[0]?.opsEvent.dedupeKey).toBe('role_composition_drift:shard1:W1N1');
+  });
+
+  it('does not create role composition drift events for generic-only bootstrap rooms', () => {
+    expect(
+      selectRuntimeAlertDecisions({
+        actionFailures: [],
+        defenseWorld: emptyDefenseWorld,
+        gameTime: 71835876,
+        shardName: 'shard1',
+        spawningWorld: createSpawningWorld({
+          constructionSites: [{ remainingWork: 21120, structureType: 'storage' }],
+          controllerEnergyAvailable: 2000,
+          controllerLevel: 4,
+          energyStructures: [
+            {
+              availableEnergy: 1050,
+              energyCapacity: 1050,
+            },
+          ],
+          sourceContainerCount: 2,
+          sourceContainerEnergyAvailable: 4000,
+          sourceCount: 2,
+          ticksToDowngrade: 9000,
+          workerCreepCount: 15,
+          workerCreeps: Array.from({ length: 15 }, () => ({
+            role: 'worker' as const,
+            ticksToLive: 1500,
+          })),
+        }),
+      }),
+    ).toEqual([]);
+  });
+
+  it('does not create role composition drift events when role targets are covered', () => {
+    expect(
+      selectRuntimeAlertDecisions({
+        actionFailures: [],
+        defenseWorld: emptyDefenseWorld,
+        gameTime: 71835876,
+        shardName: 'shard1',
+        spawningWorld: createSpawningWorld({
+          constructionSites: [{ remainingWork: 21120, structureType: 'storage' }],
+          controllerEnergyAvailable: 2000,
+          controllerLevel: 4,
+          energyStructures: [
+            {
+              availableEnergy: 1050,
+              energyCapacity: 1050,
+            },
+          ],
+          sourceContainerCount: 2,
+          sourceContainerEnergyAvailable: 4000,
+          sourceCount: 2,
+          ticksToDowngrade: 9000,
+          workerCreepCount: 7,
+          workerCreeps: [
+            { role: 'miner', ticksToLive: 1500 },
+            { role: 'miner', ticksToLive: 1500 },
+            { role: 'hauler', ticksToLive: 1500 },
+            { role: 'hauler', ticksToLive: 1500 },
+            { role: 'builder', ticksToLive: 1500 },
+            { role: 'builder', ticksToLive: 1500 },
+            { role: 'upgrader', ticksToLive: 1500 },
+          ],
+        }),
+      }),
+    ).toEqual([]);
+  });
+
   it('does not notify when survival signals are stable', () => {
     expect(
       selectRuntimeAlertDecisions({

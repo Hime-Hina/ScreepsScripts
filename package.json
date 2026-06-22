@@ -25,6 +25,7 @@
     "ops:event-wake-hermes:screeps": "node scripts/screeps/ops-event-waker.mjs",
     "ops:event-email-fallback:screeps": "node scripts/screeps/ops-event-email-fallback.mjs",
     "status:live:screeps": "node scripts/screeps/live-survival-status.mjs --shard shard1 --room W51N21",
+    "status:role-recovery:screeps": "node scripts/screeps/role-recovery-status.mjs --shard shard1 --room W51N21",
     "test": "vitest run test/unit test/integration",
     "test:bundle": "pnpm build && vitest run test/e2e",
     "test:integration": "vitest run test/integration",

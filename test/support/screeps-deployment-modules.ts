@@ -92,6 +92,11 @@ export interface ScreepsApiModule {
     shardName: string,
     roomName: string,
   ): Promise<string>;
+  readUserMemory(
+    screepsConfig: ScreepsConfig,
+    shardName: string,
+    memoryPath: string,
+  ): Promise<unknown>;
   readRemoteModuleSet(screepsConfig: ScreepsConfig): Promise<Record<string, string>>;
   uploadRemoteModuleSet(
     screepsConfig: ScreepsConfig,
@@ -152,6 +157,17 @@ export interface LiveSurvivalStatusModule {
     commandArguments: readonly string[],
   ): Promise<void>;
   parseLiveSurvivalStatusRequest(commandArguments: readonly string[]): {
+    readonly roomName: string;
+    readonly shardName: string;
+  };
+}
+
+export interface RoleRecoveryStatusModule {
+  checkRoleRecoveryStatusFrom(
+    workspacePath: string,
+    commandArguments: readonly string[],
+  ): Promise<void>;
+  parseRoleRecoveryStatusRequest(commandArguments: readonly string[]): {
     readonly roomName: string;
     readonly shardName: string;
   };
@@ -277,6 +293,16 @@ export const loadLiveSurvivalStatusModule = async (): Promise<LiveSurvivalStatus
   return loadedModule;
 };
 
+export const loadRoleRecoveryStatusModule = async (): Promise<RoleRecoveryStatusModule> => {
+  const loadedModule = await loadDeploymentModule('scripts/screeps/role-recovery-status.mjs');
+
+  if (!isRoleRecoveryStatusModule(loadedModule)) {
+    throw new Error('role-recovery-status.mjs exports changed.');
+  }
+
+  return loadedModule;
+};
+
 const loadDeploymentModule = async (relativePath: string): Promise<unknown> => {
   const loadedModule = (await import(pathToFileURL(resolve(relativePath)).href)) as unknown;
 
@@ -330,6 +356,7 @@ const isScreepsApiModule = (candidateModule: unknown): candidateModule is Screep
   hasFunction(candidateModule, 'readRoomObjects') &&
   hasFunction(candidateModule, 'readRoomStatus') &&
   hasFunction(candidateModule, 'readRoomTerrainText') &&
+  hasFunction(candidateModule, 'readUserMemory') &&
   hasFunction(candidateModule, 'readRemoteModuleSet') &&
   hasFunction(candidateModule, 'uploadRemoteModuleSet');
 
@@ -364,6 +391,13 @@ const isLiveSurvivalStatusModule = (
   isRecord(candidateModule) &&
   hasFunction(candidateModule, 'checkLiveSurvivalStatusFrom') &&
   hasFunction(candidateModule, 'parseLiveSurvivalStatusRequest');
+
+const isRoleRecoveryStatusModule = (
+  candidateModule: unknown,
+): candidateModule is RoleRecoveryStatusModule =>
+  isRecord(candidateModule) &&
+  hasFunction(candidateModule, 'checkRoleRecoveryStatusFrom') &&
+  hasFunction(candidateModule, 'parseRoleRecoveryStatusRequest');
 
 const isRecord = (candidateValue: unknown): candidateValue is Record<string, unknown> =>
   typeof candidateValue === 'object' && candidateValue !== null;

@@ -1,0 +1,6 @@
+{"file":".trellis/spec/testing/completion-definition.md","reason":"Completion gates before deploy"}
+{"file":"src/kernel/runtime-alerts.ts","reason":"Review drift alert gating and metrics"}
+{"file":"scripts/screeps/role-recovery-status.mjs","reason":"Review read-only live monitoring command"}
+{"file":"scripts/screeps/screeps-api.mjs","reason":"Review memory API helper and no secret output"}
+{"file":"test/unit/kernel/runtime-alerts.test.ts","reason":"Review runtime alert regressions"}
+{"file":"test/integration/screeps-deployment/role-recovery-status.test.ts","reason":"Review live monitor integration coverage"}

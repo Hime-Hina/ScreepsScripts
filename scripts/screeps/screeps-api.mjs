@@ -1,3 +1,5 @@
+import { gunzipSync } from 'node:zlib';
+
 import { decodeRemoteModuleSet } from './module-set.mjs';
 
 const READ_REQUEST_ATTEMPTS = 3;
@@ -64,6 +66,17 @@ export const readRoomTerrainText = async (screepsConfig, shardName, roomName) =>
   );
 
   return decodeRoomTerrainResponse(apiPayload, roomName);
+};
+
+export const readUserMemory = async (screepsConfig, shardName, memoryPath) => {
+  const apiPayload = await readScreepsJsonPayloadWithRetry(
+    buildUserMemoryUrl(screepsConfig, shardName, memoryPath),
+    {
+      headers: buildAuthHeaders(screepsConfig),
+    },
+  );
+
+  return decodeUserMemoryResponse(apiPayload);
 };
 
 const readScreepsJsonPayloadWithRetry = async (requestUrl, requestInit) => {
@@ -134,6 +147,18 @@ export const buildRoomStatusUrl = (screepsConfig, shardName, roomName) =>
 
 export const buildRoomTerrainUrl = (screepsConfig, shardName, roomName) =>
   buildGameRoomUrl(screepsConfig, '/api/game/room-terrain', shardName, roomName);
+
+export const buildUserMemoryUrl = (screepsConfig, shardName, memoryPath) => {
+  const userMemoryUrl = new URL(
+    '/api/user/memory',
+    `${screepsConfig.protocol}://${screepsConfig.server}`,
+  );
+
+  userMemoryUrl.searchParams.set('path', memoryPath);
+  userMemoryUrl.searchParams.set('shard', shardName);
+
+  return userMemoryUrl;
+};
 
 const buildGameRoomUrl = (screepsConfig, apiPath, shardName, roomName) => {
   const gameRoomUrl = new URL(apiPath, `${screepsConfig.protocol}://${screepsConfig.server}`);
@@ -248,6 +273,42 @@ const decodeRoomStatusResponse = (apiPayload) => {
   }
 
   return apiPayload.room.status.trim();
+};
+
+const decodeUserMemoryResponse = (apiPayload) => {
+  if (!('data' in apiPayload)) {
+    throw new ScreepsApiError('Screeps API memory response did not include data.');
+  }
+
+  const memoryData = apiPayload.data;
+
+  if (isPlainObject(memoryData) || Array.isArray(memoryData) || memoryData === null) {
+    return memoryData;
+  }
+
+  if (typeof memoryData !== 'string') {
+    throw new ScreepsApiError('Screeps API memory response data was not JSON text.');
+  }
+
+  const memoryText = decodeUserMemoryText(memoryData);
+
+  try {
+    return JSON.parse(memoryText);
+  } catch {
+    throw new ScreepsApiError('Screeps API memory response data contained invalid JSON.');
+  }
+};
+
+const decodeUserMemoryText = (memoryData) => {
+  if (!memoryData.startsWith('gz:')) {
+    return memoryData;
+  }
+
+  try {
+    return gunzipSync(Buffer.from(memoryData.slice(3), 'base64')).toString('utf8');
+  } catch {
+    throw new ScreepsApiError('Screeps API memory response data contained invalid gzip.');
+  }
 };
 
 const decodeRoomTerrainResponse = (apiPayload, roomName) => {

@@ -1,0 +1,9 @@
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"Follow RED/GREEN/VERIFY for additional regression tests"}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Keep live monitor read-only and runtime alert deterministic"}
+{"file":"src/spawning/spawn-decision.ts","reason":"Existing role recovery behavior under test"}
+{"file":"src/kernel/runtime-alerts.ts","reason":"Runtime role-composition drift monitoring"}
+{"file":"scripts/screeps/screeps-api.mjs","reason":"Shared API helper for decoded user memory"}
+{"file":"scripts/screeps/live-survival-status.mjs","reason":"Existing live command pattern and output style"}
+{"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Spawning regression coverage"}
+{"file":"test/unit/kernel/runtime-alerts.test.ts","reason":"Runtime alert regression coverage"}
+{"file":"test/integration/screeps-deployment/live-survival-status.test.ts","reason":"Live command integration test pattern"}
