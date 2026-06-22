@@ -1,3 +1,14 @@
+import {
+  compareLayoutStampCandidateScores,
+  scoreLayoutStampCandidate,
+  transformLayoutStamp,
+  type LayoutPlacedStructure,
+  type LayoutStamp,
+  type LayoutStampReflection,
+  type LayoutStampRotation,
+  type LayoutTerrainTile,
+} from './layout-stamp';
+
 export type ConstructionTerrain = 'plain' | 'swamp' | 'wall';
 export type ConstructionStructureType = 'container' | 'extension' | 'road' | 'storage' | 'tower';
 
@@ -78,6 +89,72 @@ const ORTHOGONAL_POSITION_OFFSETS = [
   { x: 1, y: 0 },
   { x: 0, y: 1 },
 ] as const satisfies readonly ConstructionPositionSnapshot[];
+const RCL_STAGED_EXTENSION_GARDEN_STAMP = {
+  name: 'rcl-staged-extension-garden',
+  cells: [
+    { type: 'road', x: -4, y: -3 },
+    { type: 'road', x: -3, y: -3 },
+    { type: 'road', x: -2, y: -3 },
+    { type: 'road', x: -1, y: -3 },
+    { type: 'road', x: 0, y: -3 },
+    { type: 'road', x: 1, y: -3 },
+    { type: 'road', x: 2, y: -3 },
+    { type: 'road', x: 3, y: -3 },
+    { type: 'road', x: 4, y: -3 },
+    { type: 'road', x: -4, y: 3 },
+    { type: 'road', x: -3, y: 3 },
+    { type: 'road', x: -2, y: 3 },
+    { type: 'road', x: -1, y: 3 },
+    { type: 'road', x: 0, y: 3 },
+    { type: 'road', x: 1, y: 3 },
+    { type: 'road', x: 2, y: 3 },
+    { type: 'road', x: 3, y: 3 },
+    { type: 'road', x: 4, y: 3 },
+    { type: 'road', x: -3, y: -2 },
+    { type: 'road', x: -3, y: -1 },
+    { type: 'road', x: -3, y: 0 },
+    { type: 'road', x: -3, y: 1 },
+    { type: 'road', x: -3, y: 2 },
+    { type: 'road', x: 3, y: -2 },
+    { type: 'road', x: 3, y: -1 },
+    { type: 'road', x: 3, y: 0 },
+    { type: 'road', x: 3, y: 1 },
+    { type: 'road', x: 3, y: 2 },
+    { type: 'extension', x: -4, y: -4 },
+    { type: 'extension', x: -2, y: -4 },
+    { type: 'extension', x: 0, y: -4 },
+    { type: 'extension', x: 2, y: -4 },
+    { type: 'extension', x: 4, y: -4 },
+    { type: 'extension', x: -4, y: 4 },
+    { type: 'extension', x: -2, y: 4 },
+    { type: 'extension', x: 0, y: 4 },
+    { type: 'extension', x: 2, y: 4 },
+    { type: 'extension', x: 4, y: 4 },
+    { type: 'extension', x: -4, y: -2 },
+    { type: 'extension', x: -4, y: 0 },
+    { type: 'extension', x: -4, y: 2 },
+    { type: 'extension', x: 4, y: -2 },
+    { type: 'extension', x: 4, y: 0 },
+    { type: 'extension', x: 4, y: 2 },
+    { type: 'exit', x: 0, y: -5 },
+    { type: 'exit', x: 0, y: 5 },
+    { type: 'exit', x: -5, y: 0 },
+    { type: 'exit', x: 5, y: 0 },
+  ],
+} as const satisfies LayoutStamp;
+const RCL_STAGED_EXTENSION_GARDEN_TRANSFORMS = [
+  { reflection: 'none', rotation: 0 },
+  { reflection: 'none', rotation: 90 },
+  { reflection: 'none', rotation: 180 },
+  { reflection: 'none', rotation: 270 },
+  { reflection: 'x', rotation: 0 },
+  { reflection: 'x', rotation: 90 },
+  { reflection: 'y', rotation: 0 },
+  { reflection: 'y', rotation: 90 },
+] as const satisfies readonly {
+  readonly reflection: LayoutStampReflection;
+  readonly rotation: LayoutStampRotation;
+}[];
 
 export const planRoomConstruction = (
   constructionWorld: ConstructionWorldSnapshot,
@@ -197,14 +274,34 @@ const planRclExtensionSites = (
   const extensionAdjacencyBlockers = shouldDistributeExtensions
     ? [...listExtensionPositions(ownedRoom)]
     : [];
-  const interleavedRoadPositions = shouldDistributeExtensions
-    ? [...listRoadPositions(ownedRoom)]
-    : [];
+  const existingRoadPositions = shouldDistributeExtensions ? [...listRoadPositions(ownedRoom)] : [];
+  const stagedExtensionGarden = shouldDistributeExtensions
+    ? selectRclStagedExtensionGarden(ownedRoom)
+    : null;
+  const stagedExtensionGardenRoadPositions =
+    stagedExtensionGarden?.cells.filter((cell) => cell.type === 'road') ?? [];
+  const stagedExtensionGardenPositionKeys = new Set(
+    (stagedExtensionGarden?.cells ?? [])
+      .filter((cell) => cell.type === 'extension')
+      .map((cell) => serializePosition(cell)),
+  );
+  const roadLatticePositions = [...existingRoadPositions, ...stagedExtensionGardenRoadPositions];
+  const interleavedRoadPositions = [...existingRoadPositions];
   const maxNewInterleavedRoadSiteCount = shouldDistributeExtensions
     ? calculateAvailableInterleavedRoadSiteCount(ownedRoom)
     : 0;
+  const extensionCandidatePositions = shouldDistributeExtensions
+    ? [...listExtensionCandidatePositions(ownedRoom)].sort(
+        compareRclStagedExtensionGardenCandidatePositions({
+          existingRoadPositions,
+          roadLatticePositions,
+          spawnPosition: ownedRoom.spawnPosition,
+          stagedExtensionGardenPositionKeys,
+        }),
+      )
+    : listExtensionCandidatePositions(ownedRoom);
 
-  for (const candidatePosition of listExtensionCandidatePositions(ownedRoom)) {
+  for (const candidatePosition of extensionCandidatePositions) {
     if (extensionDecisions.length >= missingExtensionCount) {
       return [...extensionDecisions, ...interleavedRoadDecisions];
     }
@@ -230,7 +327,8 @@ const planRclExtensionSites = (
       shouldDistributeExtensions && interleavedRoadDecisions.length < maxNewInterleavedRoadSiteCount
         ? selectInterleavedRoadPosition({
             candidatePosition,
-            interleavedRoadPositions,
+            existingRoadPositions: interleavedRoadPositions,
+            preferredRoadPositions: stagedExtensionGardenRoadPositions,
             spawnPosition: ownedRoom.spawnPosition,
             terrainByPositionKey,
             unavailablePositionKeys,
@@ -653,19 +751,31 @@ const listRoadPositions = (
 
 const selectInterleavedRoadPosition = ({
   candidatePosition,
-  interleavedRoadPositions,
+  existingRoadPositions,
+  preferredRoadPositions,
   spawnPosition,
   terrainByPositionKey,
   unavailablePositionKeys,
 }: {
   readonly candidatePosition: ConstructionPositionSnapshot;
-  readonly interleavedRoadPositions: readonly ConstructionPositionSnapshot[];
+  readonly existingRoadPositions: readonly ConstructionPositionSnapshot[];
+  readonly preferredRoadPositions: readonly ConstructionPositionSnapshot[];
   readonly spawnPosition: ConstructionPositionSnapshot;
   readonly terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>;
   readonly unavailablePositionKeys: ReadonlySet<string>;
 }): ConstructionPositionSnapshot | null | undefined => {
-  if (isOrthogonallyAdjacentToAny(candidatePosition, interleavedRoadPositions)) {
+  if (isOrthogonallyAdjacentToAny(candidatePosition, existingRoadPositions)) {
     return null;
+  }
+
+  const preferredRoadPosition = preferredRoadPositions
+    .filter((roadPosition) => isOrthogonallyAdjacent(candidatePosition, roadPosition))
+    .filter((roadPosition) => isBuildableTile(roadPosition, terrainByPositionKey))
+    .filter((roadPosition) => !unavailablePositionKeys.has(serializePosition(roadPosition)))
+    .sort(compareInterleavedRoadCandidatePositions(spawnPosition, existingRoadPositions))[0];
+
+  if (preferredRoadPosition !== undefined) {
+    return preferredRoadPosition;
   }
 
   return listOrthogonalCandidatePositions(candidatePosition)
@@ -675,19 +785,22 @@ const selectInterleavedRoadPosition = ({
       (roadPosition) =>
         measureRange(roadPosition, spawnPosition) <= measureRange(candidatePosition, spawnPosition),
     )
-    .sort(compareInterleavedRoadCandidatePositions(spawnPosition, interleavedRoadPositions))[0];
+    .sort(compareInterleavedRoadCandidatePositions(spawnPosition, existingRoadPositions))[0];
 };
 
 const isOrthogonallyAdjacentToAny = (
   candidatePosition: ConstructionPositionSnapshot,
   targetPositions: readonly ConstructionPositionSnapshot[],
 ): boolean =>
-  targetPositions.some(
-    (targetPosition) =>
-      Math.abs(candidatePosition.x - targetPosition.x) +
-        Math.abs(candidatePosition.y - targetPosition.y) ===
-      1,
+  targetPositions.some((targetPosition) =>
+    isOrthogonallyAdjacent(candidatePosition, targetPosition),
   );
+
+const isOrthogonallyAdjacent = (
+  leftPosition: ConstructionPositionSnapshot,
+  rightPosition: ConstructionPositionSnapshot,
+): boolean =>
+  Math.abs(leftPosition.x - rightPosition.x) + Math.abs(leftPosition.y - rightPosition.y) === 1;
 
 const collectAccessBlockedPositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot): Set<string> =>
   new Set<string>([
@@ -730,6 +843,117 @@ const isSamePosition = (
 
 const selectNearSpawnCandidateRadius = (controllerLevel: number): number =>
   controllerLevel >= 4 ? RCL4_NEAR_SPAWN_CANDIDATE_RADIUS : EARLY_NEAR_SPAWN_CANDIDATE_RADIUS;
+
+const selectRclStagedExtensionGarden = (ownedRoom: ConstructionOwnedRoomSnapshot): LayoutStamp => {
+  const placementContext = {
+    blockedPositions: ownedRoom.blockedPositions,
+    existingStructures: listLayoutPlacedStructures(ownedRoom),
+    minimumRefillAccess: MIN_REFILL_ACCESS_POSITION_COUNT,
+    terrain: listLayoutTerrainTiles(ownedRoom),
+  };
+
+  return RCL_STAGED_EXTENSION_GARDEN_TRANSFORMS.map((transform) =>
+    transformLayoutStamp(RCL_STAGED_EXTENSION_GARDEN_STAMP, {
+      ...transform,
+      offset: ownedRoom.spawnPosition,
+    }),
+  ).sort((leftStamp, rightStamp) =>
+    compareLayoutStampCandidateScores(
+      scoreLayoutStampCandidate(leftStamp, placementContext),
+      scoreLayoutStampCandidate(rightStamp, placementContext),
+    ),
+  )[0];
+};
+
+const listLayoutTerrainTiles = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly LayoutTerrainTile[] =>
+  ownedRoom.terrain.map((terrainSnapshot) => ({
+    terrain: terrainSnapshot.terrain,
+    x: terrainSnapshot.x,
+    y: terrainSnapshot.y,
+  }));
+
+const listLayoutPlacedStructures = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly LayoutPlacedStructure[] => [
+  ...ownedRoom.structures.map((structureSnapshot) => ({
+    structureType: structureSnapshot.structureType,
+    x: structureSnapshot.x,
+    y: structureSnapshot.y,
+  })),
+  ...ownedRoom.constructionSites.map((constructionSiteSnapshot) => ({
+    structureType: constructionSiteSnapshot.structureType,
+    useful: false,
+    x: constructionSiteSnapshot.x,
+    y: constructionSiteSnapshot.y,
+  })),
+];
+
+const compareRclStagedExtensionGardenCandidatePositions =
+  ({
+    existingRoadPositions,
+    roadLatticePositions,
+    spawnPosition,
+    stagedExtensionGardenPositionKeys,
+  }: {
+    readonly existingRoadPositions: readonly ConstructionPositionSnapshot[];
+    readonly roadLatticePositions: readonly ConstructionPositionSnapshot[];
+    readonly spawnPosition: ConstructionPositionSnapshot;
+    readonly stagedExtensionGardenPositionKeys: ReadonlySet<string>;
+  }) =>
+  (
+    leftPosition: ConstructionPositionSnapshot,
+    rightPosition: ConstructionPositionSnapshot,
+  ): number => {
+    const leftRoadPriority = measureRoadLatticePriority(leftPosition, {
+      existingRoadPositions,
+      roadLatticePositions,
+    });
+    const rightRoadPriority = measureRoadLatticePriority(rightPosition, {
+      existingRoadPositions,
+      roadLatticePositions,
+    });
+
+    if (leftRoadPriority !== rightRoadPriority) {
+      return leftRoadPriority - rightRoadPriority;
+    }
+
+    const leftStampPriority = stagedExtensionGardenPositionKeys.has(serializePosition(leftPosition))
+      ? 0
+      : 1;
+    const rightStampPriority = stagedExtensionGardenPositionKeys.has(
+      serializePosition(rightPosition),
+    )
+      ? 0
+      : 1;
+
+    if (leftStampPriority !== rightStampPriority) {
+      return leftStampPriority - rightStampPriority;
+    }
+
+    return compareDistributedExtensionCandidatePositions(spawnPosition)(
+      leftPosition,
+      rightPosition,
+    );
+  };
+
+const measureRoadLatticePriority = (
+  candidatePosition: ConstructionPositionSnapshot,
+  {
+    existingRoadPositions,
+    roadLatticePositions,
+  }: {
+    readonly existingRoadPositions: readonly ConstructionPositionSnapshot[];
+    readonly roadLatticePositions: readonly ConstructionPositionSnapshot[];
+  },
+): number => {
+  if (isOrthogonallyAdjacentToAny(candidatePosition, existingRoadPositions)) {
+    return 0;
+  }
+
+  return isOrthogonallyAdjacentToAny(candidatePosition, roadLatticePositions) ? 1 : 2;
+};
 
 const listExtensionCandidatePositions = (
   ownedRoom: ConstructionOwnedRoomSnapshot,

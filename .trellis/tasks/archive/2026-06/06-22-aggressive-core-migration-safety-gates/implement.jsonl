@@ -5,3 +5,4 @@
 {"file": "src/console/gm-console.ts", "reason": "operator-facing GM/console output style and safety patterns"}
 {"file": "scripts/screeps/screeps-api.mjs", "reason": "read-only and console/API boundary context"}
 {"file": "scripts/screeps/role-recovery-status.mjs", "reason": "refillAccess and room health status metrics"}
+{"file": ".trellis/tasks/06-22-aggressive-core-migration-safety-gates/research/migration-safety-gates.md", "reason": "operator-gated live migration safety report"}

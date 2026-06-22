@@ -1,3 +1,4 @@
 {"file": "package.json", "reason": "verification scripts: focused tests, check, deploy/status commands"}
 {"file": "test/unit/construction/construction-planner.test.ts", "reason": "planner regression suite and layout invariants"}
 {"file": "docs/game-state.md", "reason": "live migration context and current room constraints"}
+{"file": "test/unit/construction/layout-stamp.test.ts", "reason": "primitive regression suite used by planner integration"}

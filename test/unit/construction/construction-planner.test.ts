@@ -1268,6 +1268,55 @@ describe('room construction planner', () => {
     ).toBe(true);
   });
 
+  it('prefers existing RCL4 road lattice pockets before creating new local roads', () => {
+    const existingLatticeRoads = createHorizontalRoadStructures(6, 14, 13);
+    const decisions = planConstruction({
+      ownedRooms: [
+        {
+          blockedPositions: [],
+          constructionSites: [],
+          controllerLevel: 4,
+          controllerPosition: { x: 14, y: 10 },
+          roomName: 'W1N1',
+          spawnPosition: { x: 10, y: 10 },
+          structures: [
+            {
+              structureType: 'spawn',
+              x: 10,
+              y: 10,
+            },
+            {
+              structureType: 'storage',
+              x: 12,
+              y: 10,
+            },
+            {
+              structureType: 'tower',
+              x: 12,
+              y: 9,
+            },
+            ...createSaturatedRadiusTwoCoreStructures(),
+            ...existingLatticeRoads,
+          ],
+          terrain: createPlainTerrainRectangle(4, 4, 16, 16),
+        },
+      ],
+    });
+
+    const extensionDecisions = decisions.filter(
+      (decision) => decision.structureType === 'extension',
+    );
+    const roadDecisions = decisions.filter((decision) => decision.structureType === 'road');
+
+    expect(extensionDecisions).toHaveLength(5);
+    expect(roadDecisions).toHaveLength(0);
+    expect(
+      extensionDecisions.every((extensionDecision) =>
+        isOrthogonallyAdjacentToAny(extensionDecision, existingLatticeRoads),
+      ),
+    ).toBe(true);
+  });
+
   it('interleaves RCL4 extension expansion with road access lanes', () => {
     const decisions = planConstruction({
       ownedRooms: [
@@ -1430,6 +1479,13 @@ const createConstructionSiteBacklog = () =>
     structureType: 'road',
     x: 20 + index,
     y: 20,
+  }));
+
+const createHorizontalRoadStructures = (minX: number, maxX: number, y: number) =>
+  Array.from({ length: maxX - minX + 1 }, (_, index) => ({
+    structureType: 'road',
+    x: minX + index,
+    y,
   }));
 
 const createSpawnRingPositions = (

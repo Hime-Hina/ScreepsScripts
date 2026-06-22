@@ -1,6 +1,0 @@
-{"file": "AGENTS.md", "reason": "project-local operating instructions and Trellis entry points"}
-{"file": ".trellis/workflow.md", "reason": "Trellis lifecycle and task artifact contract"}
-{"file": ".trellis/spec/runtime/index.md", "reason": "Screeps runtime boundary and quality constraints"}
-{"file": "docs/game-state.md", "reason": "current live room history, deployment evidence, and migration constraints"}
-{"file": "src/construction/construction-planner.ts", "reason": "integration point for RCL staged construction decisions"}
-{"file": "test/unit/construction/construction-planner.test.ts", "reason": "focused planner regression tests"}
