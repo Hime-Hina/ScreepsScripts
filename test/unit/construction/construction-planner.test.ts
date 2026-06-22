@@ -1260,7 +1260,7 @@ describe('room construction planner', () => {
     expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
   });
 
-  it('expands RCL4 extension planning beyond the saturated radius-two spawn ring', () => {
+  it('expands RCL4 extension planning into distributed positions beyond the spawn ring', () => {
     const decisions = planConstruction({
       ownedRooms: [
         {
@@ -1288,7 +1288,7 @@ describe('room construction planner', () => {
             },
             ...createSaturatedRadiusTwoCoreStructures(),
           ],
-          terrain: createPlainTerrainRectangle(7, 7, 13, 13),
+          terrain: createPlainTerrainRectangle(5, 5, 15, 15),
         },
       ],
     });
@@ -1297,11 +1297,86 @@ describe('room construction planner', () => {
     expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
     expect(
       decisions.every(
-        (decision) => Math.max(Math.abs(decision.x - 10), Math.abs(decision.y - 10)) === 3,
+        (decision) => Math.max(Math.abs(decision.x - 10), Math.abs(decision.y - 10)) >= 3,
+      ),
+    ).toBe(true);
+    expect(hasOrthogonallyAdjacentPositions(decisions)).toBe(false);
+  });
+
+  it('keeps high-controller extension planning from exhausting the radius-five layout', () => {
+    const decisions = planConstruction({
+      controllerStructureLimits: {
+        extension: {
+          8: 60,
+        },
+      },
+      ownedRooms: [
+        {
+          blockedPositions: createSpawnRingPositions(10, 10, 3, 5),
+          constructionSites: [],
+          controllerLevel: 8,
+          controllerPosition: { x: 14, y: 10 },
+          roomName: 'W1N1',
+          spawnPosition: { x: 10, y: 10 },
+          structures: [
+            {
+              structureType: 'spawn',
+              x: 10,
+              y: 10,
+            },
+            {
+              structureType: 'storage',
+              x: 12,
+              y: 10,
+            },
+          ],
+          terrain: createPlainTerrainRectangle(2, 2, 18, 18),
+        },
+      ],
+    });
+
+    expect(decisions).toHaveLength(5);
+    expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
+    expect(
+      decisions.every(
+        (decision) => Math.max(Math.abs(decision.x - 10), Math.abs(decision.y - 10)) > 5,
       ),
     ).toBe(true);
   });
 });
+
+const hasOrthogonallyAdjacentPositions = (
+  positions: readonly { readonly x: number; readonly y: number }[],
+): boolean =>
+  positions.some((leftPosition, leftIndex) =>
+    positions
+      .slice(leftIndex + 1)
+      .some(
+        (rightPosition) =>
+          Math.abs(leftPosition.x - rightPosition.x) +
+            Math.abs(leftPosition.y - rightPosition.y) ===
+          1,
+      ),
+  );
+
+const createSpawnRingPositions = (
+  spawnX: number,
+  spawnY: number,
+  minRange: number,
+  maxRange: number,
+): readonly { readonly x: number; readonly y: number }[] =>
+  createPlainTerrainRectangle(
+    spawnX - maxRange,
+    spawnY - maxRange,
+    spawnX + maxRange,
+    spawnY + maxRange,
+  )
+    .map(({ x, y }) => ({ x, y }))
+    .filter((position) => {
+      const range = Math.max(Math.abs(position.x - spawnX), Math.abs(position.y - spawnY));
+
+      return range >= minRange && range <= maxRange;
+    });
 
 const createExtensionStructuresAroundSpawn10 = () =>
   [

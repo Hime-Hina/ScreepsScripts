@@ -54,6 +54,8 @@ export interface CreateConstructionSiteDecision {
 }
 
 const EARLY_NEAR_SPAWN_CANDIDATE_RADIUS = 2;
+const RCL4_EXTENSION_CANDIDATE_MIN_RADIUS = 3;
+const DISTRIBUTED_EXTENSION_CANDIDATE_RADIUS = 8;
 const RCL4_NEAR_SPAWN_CANDIDATE_RADIUS = 3;
 const MIN_REFILL_ACCESS_POSITION_COUNT = 2;
 const MAX_NEW_EXTENSION_SITES_PER_ROOM = 5;
@@ -183,10 +185,12 @@ const planRclExtensionSites = (
   const refillAccessTargets = [...listRefillAccessTargets(ownedRoom)];
   const extensionDecisions: ConstructionDecision[] = [];
 
-  for (const candidatePosition of listNearSpawnCandidatePositions(
-    ownedRoom.spawnPosition,
-    selectNearSpawnCandidateRadius(ownedRoom.controllerLevel),
-  )) {
+  const shouldDistributeExtensions = ownedRoom.controllerLevel >= 4;
+  const extensionAdjacencyBlockers = shouldDistributeExtensions
+    ? [...listExtensionPositions(ownedRoom)]
+    : [];
+
+  for (const candidatePosition of listExtensionCandidatePositions(ownedRoom)) {
     if (extensionDecisions.length >= missingExtensionCount) {
       return extensionDecisions;
     }
@@ -198,6 +202,13 @@ const planRclExtensionSites = (
     const candidatePositionKey = serializePosition(candidatePosition);
 
     if (unavailablePositionKeys.has(candidatePositionKey)) {
+      continue;
+    }
+
+    if (
+      shouldDistributeExtensions &&
+      isOrthogonallyAdjacentToAny(candidatePosition, extensionAdjacencyBlockers)
+    ) {
       continue;
     }
 
@@ -218,6 +229,7 @@ const planRclExtensionSites = (
     unavailablePositionKeys.add(candidatePositionKey);
     accessBlockedPositionKeys.add(candidatePositionKey);
     refillAccessTargets.push(candidatePosition);
+    extensionAdjacencyBlockers.push(candidatePosition);
   }
 
   return extensionDecisions;
@@ -572,6 +584,28 @@ const listRefillAccessTargets = (
   ),
 ];
 
+const listExtensionPositions = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly ConstructionPositionSnapshot[] => [
+  ...ownedRoom.structures.filter(
+    (structureSnapshot) => structureSnapshot.structureType === 'extension',
+  ),
+  ...ownedRoom.constructionSites.filter(
+    (constructionSiteSnapshot) => constructionSiteSnapshot.structureType === 'extension',
+  ),
+];
+
+const isOrthogonallyAdjacentToAny = (
+  candidatePosition: ConstructionPositionSnapshot,
+  targetPositions: readonly ConstructionPositionSnapshot[],
+): boolean =>
+  targetPositions.some(
+    (targetPosition) =>
+      Math.abs(candidatePosition.x - targetPosition.x) +
+        Math.abs(candidatePosition.y - targetPosition.y) ===
+      1,
+  );
+
 const collectAccessBlockedPositionKeys = (ownedRoom: ConstructionOwnedRoomSnapshot): Set<string> =>
   new Set<string>([
     ...ownedRoom.blockedPositions.map((blockedPosition) => serializePosition(blockedPosition)),
@@ -614,6 +648,28 @@ const isSamePosition = (
 const selectNearSpawnCandidateRadius = (controllerLevel: number): number =>
   controllerLevel >= 4 ? RCL4_NEAR_SPAWN_CANDIDATE_RADIUS : EARLY_NEAR_SPAWN_CANDIDATE_RADIUS;
 
+const listExtensionCandidatePositions = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly ConstructionPositionSnapshot[] => {
+  if (ownedRoom.controllerLevel < 4) {
+    return listNearSpawnCandidatePositions(
+      ownedRoom.spawnPosition,
+      selectNearSpawnCandidateRadius(ownedRoom.controllerLevel),
+    );
+  }
+
+  return listNearSpawnCandidatePositions(
+    ownedRoom.spawnPosition,
+    DISTRIBUTED_EXTENSION_CANDIDATE_RADIUS,
+  )
+    .filter(
+      (candidatePosition) =>
+        measureRange(candidatePosition, ownedRoom.spawnPosition) >=
+        RCL4_EXTENSION_CANDIDATE_MIN_RADIUS,
+    )
+    .sort(compareDistributedExtensionCandidatePositions(ownedRoom.spawnPosition));
+};
+
 const listNearSpawnCandidatePositions = (
   spawnPosition: ConstructionPositionSnapshot,
   candidateRadius: number,
@@ -643,6 +699,37 @@ const listNearSpawnCandidatePositions = (
 
   return candidatePositions;
 };
+
+const compareDistributedExtensionCandidatePositions =
+  (spawnPosition: ConstructionPositionSnapshot) =>
+  (
+    leftPosition: ConstructionPositionSnapshot,
+    rightPosition: ConstructionPositionSnapshot,
+  ): number => {
+    const leftRange = measureRange(leftPosition, spawnPosition);
+    const rightRange = measureRange(rightPosition, spawnPosition);
+
+    if (leftRange !== rightRange) {
+      return leftRange - rightRange;
+    }
+
+    const leftCheckerboardPriority = measureCheckerboardPriority(leftPosition, spawnPosition);
+    const rightCheckerboardPriority = measureCheckerboardPriority(rightPosition, spawnPosition);
+
+    if (leftCheckerboardPriority !== rightCheckerboardPriority) {
+      return leftCheckerboardPriority - rightCheckerboardPriority;
+    }
+
+    return comparePositionsByDistanceTo(spawnPosition)(leftPosition, rightPosition);
+  };
+
+const measureCheckerboardPriority = (
+  candidatePosition: ConstructionPositionSnapshot,
+  spawnPosition: ConstructionPositionSnapshot,
+): number =>
+  (candidatePosition.x + candidatePosition.y) % 2 === (spawnPosition.x + spawnPosition.y) % 2
+    ? 0
+    : 1;
 
 const listAdjacentCandidatePositions = (
   centerPosition: ConstructionPositionSnapshot,
