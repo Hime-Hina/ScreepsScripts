@@ -1,0 +1,4 @@
+{"file":".trellis/spec/testing/completion-definition.md","reason":"Completion gates before deploy"}
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"Check focused regression coverage"}
+{"file":"src/spawning/spawn-decision.ts","reason":"Review final role gap and replacement logic"}
+{"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Review focused regression expectations"}

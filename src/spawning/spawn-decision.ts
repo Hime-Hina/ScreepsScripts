@@ -390,29 +390,44 @@ const createRoleTargets = ({
   readonly controllerDowngradeState: ReturnType<typeof classifyBootstrapControllerDowngradeState>;
   readonly sourceContainerCount: number;
   readonly spawningRoom: SpawningRoomSnapshot;
-}): readonly RoleTarget[] => [
-  {
-    requestType: 'minerWorker',
-    targetCount: Math.min(spawningRoom.sourceCount, sourceContainerCount),
-  },
-  {
-    allowPopulationSurplus: shouldAllowHaulerPopulationSurplus(spawningRoom),
-    requestType: 'haulerWorker',
-    targetCount: calculateHaulerRoleTarget(spawningRoom),
-  },
-  {
-    requestType: 'builderWorker',
-    targetCount: calculateBuilderRoleTarget(constructionBacklogEnergy),
-  },
-  {
-    requestType: 'upgraderWorker',
-    targetCount: calculateUpgraderRoleTarget({
-      controllerDowngradeState,
-      sourceContainerCount,
-      spawningRoom,
-    }),
-  },
-];
+}): readonly RoleTarget[] => {
+  const builderTargetCount = calculateBuilderRoleTarget(constructionBacklogEnergy);
+  const hasRoleSpecificCreeps = hasRoleSpecificWorkerCreeps(spawningRoom);
+  const upgraderTargetCount = calculateUpgraderRoleTarget({
+    controllerDowngradeState,
+    sourceContainerCount,
+    spawningRoom,
+  });
+
+  return [
+    {
+      requestType: 'minerWorker',
+      targetCount: Math.min(spawningRoom.sourceCount, sourceContainerCount),
+    },
+    {
+      allowPopulationSurplus: shouldAllowHaulerPopulationSurplus(spawningRoom),
+      requestType: 'haulerWorker',
+      targetCount: calculateHaulerRoleTarget(spawningRoom),
+    },
+    {
+      allowPopulationSurplus: builderTargetCount > 0 && hasRoleSpecificCreeps,
+      requestType: 'builderWorker',
+      targetCount: builderTargetCount,
+    },
+    {
+      allowPopulationSurplus: upgraderTargetCount > 0 && hasRoleSpecificCreeps,
+      requestType: 'upgraderWorker',
+      targetCount: upgraderTargetCount,
+    },
+  ];
+};
+
+const hasRoleSpecificWorkerCreeps = (spawningRoom: SpawningRoomSnapshot): boolean =>
+  (spawningRoom.workerCreeps ?? []).some((workerCreep) => {
+    const workerRole = workerCreep.role;
+
+    return workerRole !== undefined && workerRole !== 'worker';
+  });
 
 const calculateHaulerRoleTarget = (spawningRoom: SpawningRoomSnapshot): number => {
   const logisticsPressure = summarizeHaulerLogisticsPressure(spawningRoom);
@@ -484,11 +499,13 @@ const selectRoleReplacementRequest = (
 ): { readonly requestType: SpawnRequestType; readonly targetGap: number } | null => {
   for (const roleTarget of roleTargets) {
     const creepRole = readSpawnRequestRole(roleTarget.requestType);
+    const roleCreepCount = countWorkerCreepsByRole(spawningRoom, creepRole);
+    const expiringRoleCreepCount = countExpiringWorkerCreepsByRole(spawningRoom, creepRole);
 
     if (
       roleTarget.targetCount > 0 &&
-      countWorkerCreepsByRole(spawningRoom, creepRole) >= roleTarget.targetCount &&
-      countExpiringWorkerCreepsByRole(spawningRoom, creepRole) > 0
+      expiringRoleCreepCount > 0 &&
+      roleCreepCount - expiringRoleCreepCount < roleTarget.targetCount
     ) {
       return {
         requestType: roleTarget.requestType,

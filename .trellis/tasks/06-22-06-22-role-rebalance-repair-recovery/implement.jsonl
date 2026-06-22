@@ -1,0 +1,4 @@
+{"file":".trellis/spec/testing/tdd-workflow.md","reason":"RED/GREEN/VERIFY workflow for live regression fix"}
+{"file":".trellis/spec/runtime/domain-boundaries.md","reason":"Keep spawning policy changes separate from runtime Memory/console operations"}
+{"file":"src/spawning/spawn-decision.ts","reason":"Role target gap and replacement policy implementation"}
+{"file":"test/unit/spawning/spawn-decision.test.ts","reason":"Focused spawning regression tests"}

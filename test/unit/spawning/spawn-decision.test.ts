@@ -1207,6 +1207,100 @@ describe('bootstrap worker spawn decision', () => {
     });
   });
 
+  it('recovers missing builders before replacing surplus expiring miners when role composition drifts', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            4: 20,
+          },
+        },
+        gameTime: 71835876,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            constructionSites: [{ remainingWork: 21120, structureType: 'storage' }],
+            controllerEnergyAvailable: 2000,
+            controllerLevel: 4,
+            energyStructures: [{ availableEnergy: 1050, energyCapacity: 1050 }],
+            sourceContainerCount: 2,
+            sourceContainerEnergyAvailable: 4000,
+            sourceCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'tower' },
+              ...Array.from({ length: 15 }, () => ({ structureType: 'extension' })),
+              { structureType: 'container' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 18,
+            workerCreepWorkParts: 18,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 100 },
+              ...Array.from({ length: 16 }, () => ({ role: 'miner' as const, ticksToLive: 1500 })),
+              { role: 'hauler', ticksToLive: 1500 },
+            ],
+          }),
+        ],
+        workerCreepCount: 18,
+        spawns: [createSpawnSnapshot('SpawnRoleDriftBuilder', 'W51N21', { energyCapacity: 1050 })],
+      }),
+    );
+
+    expect(spawnRequests[0]).toMatchObject({
+      priority: 120,
+      requestType: 'builderWorker',
+      targetGap: 1,
+    });
+  });
+
+  it('does not perpetuate surplus expiring miners when role targets remain covered', () => {
+    const spawnRequests = selectBootstrapWorkerSpawnRequests(
+      createSpawningWorld({
+        controllerStructureLimits: {
+          extension: {
+            4: 20,
+          },
+        },
+        gameTime: 71835877,
+        rooms: [
+          createRoomSnapshot('W51N21', {
+            constructionSites: [],
+            controllerEnergyAvailable: 2000,
+            controllerLevel: 4,
+            energyStructures: [{ availableEnergy: 1050, energyCapacity: 1050 }],
+            sourceContainerCount: 2,
+            sourceContainerEnergyAvailable: 0,
+            sourceCount: 2,
+            structures: [
+              { structureType: 'spawn' },
+              { structureType: 'tower' },
+              ...Array.from({ length: 15 }, () => ({ structureType: 'extension' })),
+              { structureType: 'container' },
+              { structureType: 'container' },
+              { structureType: 'container' },
+            ],
+            workerCreepCount: 10,
+            workerCreepWorkParts: 10,
+            workerCreeps: [
+              { role: 'miner', ticksToLive: 100 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'miner', ticksToLive: 1500 },
+              { role: 'hauler', ticksToLive: 1500 },
+              { role: 'upgrader', ticksToLive: 1500 },
+              ...createWorkerCreeps(4, 1500),
+            ],
+          }),
+        ],
+        workerCreepCount: 10,
+        spawns: [createSpawnSnapshot('SpawnSurplusMiner', 'W51N21', { energyCapacity: 1050 })],
+      }),
+    );
+
+    expect(spawnRequests[0]?.requestType).not.toBe('minerWorker');
+  });
+
   it('replaces an expiring critical role even when total population is above target', () => {
     const spawnRequests = selectBootstrapWorkerSpawnRequests(
       createSpawningWorld({
