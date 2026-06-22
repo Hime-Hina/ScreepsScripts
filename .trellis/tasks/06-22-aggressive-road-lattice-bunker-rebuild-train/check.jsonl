@@ -1,0 +1,8 @@
+{"file": "package.json", "reason": "verification scripts: focused tests, check, deploy/status commands"}
+{"file": "test/unit/construction/construction-planner.test.ts", "reason": "planner regression suite and layout invariants"}
+{"file": ".trellis/tasks/06-22-mature-bunker-layout-survey/implement.md", "reason": "P1 child implementation plan"}
+{"file": ".trellis/tasks/06-22-room-geometry-layout-simulator/implement.md", "reason": "P2 child implementation plan"}
+{"file": ".trellis/tasks/06-22-road-lattice-stamp-primitives/implement.md", "reason": "P3 child implementation plan"}
+{"file": ".trellis/tasks/06-22-rcl-staged-extension-garden-planner/implement.md", "reason": "P4 child implementation plan"}
+{"file": ".trellis/tasks/06-22-aggressive-core-migration-safety-gates/implement.md", "reason": "P5 child implementation plan"}
+{"file": ".trellis/tasks/06-22-layout-rollout-rehearsal-monitoring/implement.md", "reason": "P6 child implementation plan"}

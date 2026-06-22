@@ -1,0 +1,3 @@
+{"file": "package.json", "reason": "verification scripts: focused tests, check, deploy/status commands"}
+{"file": "test/unit/construction/construction-planner.test.ts", "reason": "planner regression suite and layout invariants"}
+{"file": "src/construction/construction-planner.ts", "reason": "planner compatibility review"}

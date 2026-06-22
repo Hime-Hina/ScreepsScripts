@@ -1,0 +1,33 @@
+{
+  "id": "aggressive-road-lattice-bunker-rebuild-train",
+  "name": "aggressive-road-lattice-bunker-rebuild-train",
+  "title": "Aggressive road-lattice bunker base rebuild train",
+  "description": "Parent roadmap for a more aggressive mature-bot-inspired road-lattice/bunker-style base layout redesign, staged behind explicit design and live-operation gates.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "hermes",
+  "assignee": "hermes",
+  "createdAt": "2026-06-22",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-22-mature-bunker-layout-survey",
+    "06-22-room-geometry-layout-simulator",
+    "06-22-road-lattice-stamp-primitives",
+    "06-22-rcl-staged-extension-garden-planner",
+    "06-22-aggressive-core-migration-safety-gates",
+    "06-22-layout-rollout-rehearsal-monitoring"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

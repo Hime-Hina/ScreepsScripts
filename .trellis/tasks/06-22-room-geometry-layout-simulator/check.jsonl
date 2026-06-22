@@ -1,0 +1,3 @@
+{"file": "package.json", "reason": "verification scripts: focused tests, check, deploy/status commands"}
+{"file": "test/unit/construction/construction-planner.test.ts", "reason": "planner regression suite and layout invariants"}
+{"file": "scripts/screeps/live-survival-status.mjs", "reason": "read-only status behavior to preserve"}
