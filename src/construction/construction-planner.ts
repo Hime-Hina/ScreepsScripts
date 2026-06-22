@@ -53,7 +53,9 @@ export interface CreateConstructionSiteDecision {
   readonly y: number;
 }
 
-const NEAR_SPAWN_CANDIDATE_RADIUS = 2;
+const EARLY_NEAR_SPAWN_CANDIDATE_RADIUS = 2;
+const RCL4_NEAR_SPAWN_CANDIDATE_RADIUS = 3;
+const MIN_REFILL_ACCESS_POSITION_COUNT = 2;
 const MAX_NEW_EXTENSION_SITES_PER_ROOM = 5;
 const MAX_NEW_ROAD_SITES_PER_ROOM = 2;
 const MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS = 10;
@@ -122,7 +124,12 @@ const planRclStorageSite = (
   const accessBlockedPositionKeys = collectAccessBlockedPositionKeys(ownedRoom);
   const refillAccessTargets = [...listRefillAccessTargets(ownedRoom)];
   const controllerCorePosition = ownedRoom.controllerPosition ?? ownedRoom.spawnPosition;
-  const storagePosition = [...listNearSpawnCandidatePositions(ownedRoom.spawnPosition)]
+  const storagePosition = [
+    ...listNearSpawnCandidatePositions(
+      ownedRoom.spawnPosition,
+      selectNearSpawnCandidateRadius(ownedRoom.controllerLevel),
+    ),
+  ]
     .filter((candidatePosition) => isBuildableTile(candidatePosition, terrainByPositionKey))
     .filter(
       (candidatePosition) => !unavailablePositionKeys.has(serializePosition(candidatePosition)),
@@ -176,7 +183,10 @@ const planRclExtensionSites = (
   const refillAccessTargets = [...listRefillAccessTargets(ownedRoom)];
   const extensionDecisions: ConstructionDecision[] = [];
 
-  for (const candidatePosition of listNearSpawnCandidatePositions(ownedRoom.spawnPosition)) {
+  for (const candidatePosition of listNearSpawnCandidatePositions(
+    ownedRoom.spawnPosition,
+    selectNearSpawnCandidateRadius(ownedRoom.controllerLevel),
+  )) {
     if (extensionDecisions.length >= missingExtensionCount) {
       return extensionDecisions;
     }
@@ -233,7 +243,12 @@ const planRclTowerSite = (
   const terrainByPositionKey = createTerrainByPositionKey(ownedRoom.terrain);
   const unavailablePositionKeys = collectUnavailablePositionKeys(ownedRoom);
   const controllerCorePosition = ownedRoom.controllerPosition ?? ownedRoom.spawnPosition;
-  const towerPosition = [...listNearSpawnCandidatePositions(ownedRoom.spawnPosition)]
+  const towerPosition = [
+    ...listNearSpawnCandidatePositions(
+      ownedRoom.spawnPosition,
+      selectNearSpawnCandidateRadius(ownedRoom.controllerLevel),
+    ),
+  ]
     .filter((candidatePosition) => isBuildableTile(candidatePosition, terrainByPositionKey))
     .filter(
       (candidatePosition) => !unavailablePositionKeys.has(serializePosition(candidatePosition)),
@@ -511,12 +526,16 @@ const preservesRefillAccess = ({
       return true;
     }
 
+    const minimumAccessCount = isSamePosition(targetPosition, candidatePosition)
+      ? MIN_REFILL_ACCESS_POSITION_COUNT
+      : Math.min(MIN_REFILL_ACCESS_POSITION_COUNT, currentAccessCount);
+
     return (
       countAccessibleAdjacentPositions(
         targetPosition,
         terrainByPositionKey,
         accessBlockedPositionKeysWithCandidate,
-      ) > 0
+      ) >= minimumAccessCount
     );
   });
 };
@@ -592,12 +611,16 @@ const isSamePosition = (
   rightPosition: ConstructionPositionSnapshot,
 ): boolean => leftPosition.x === rightPosition.x && leftPosition.y === rightPosition.y;
 
+const selectNearSpawnCandidateRadius = (controllerLevel: number): number =>
+  controllerLevel >= 4 ? RCL4_NEAR_SPAWN_CANDIDATE_RADIUS : EARLY_NEAR_SPAWN_CANDIDATE_RADIUS;
+
 const listNearSpawnCandidatePositions = (
   spawnPosition: ConstructionPositionSnapshot,
+  candidateRadius: number,
 ): readonly ConstructionPositionSnapshot[] => {
   const candidatePositions: ConstructionPositionSnapshot[] = [];
 
-  for (let spawnRange = 1; spawnRange <= NEAR_SPAWN_CANDIDATE_RADIUS; spawnRange += 1) {
+  for (let spawnRange = 1; spawnRange <= candidateRadius; spawnRange += 1) {
     for (let y = spawnPosition.y - spawnRange; y <= spawnPosition.y + spawnRange; y += 1) {
       for (let x = spawnPosition.x - spawnRange; x <= spawnPosition.x + spawnRange; x += 1) {
         const candidateRange = Math.max(

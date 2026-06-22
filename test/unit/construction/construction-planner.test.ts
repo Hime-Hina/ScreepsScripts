@@ -290,7 +290,7 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'extension',
         type: 'createConstructionSite',
-        x: 9,
+        x: 10,
         y: 8,
       },
     ]);
@@ -315,8 +315,8 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'extension',
         type: 'createConstructionSite',
-        x: 12,
-        y: 8,
+        x: 8,
+        y: 9,
       },
     ]);
   });
@@ -336,15 +336,15 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'extension',
         type: 'createConstructionSite',
-        x: 9,
+        x: 12,
         y: 8,
       },
       {
         roomName: 'W1N1',
         structureType: 'extension',
         type: 'createConstructionSite',
-        x: 12,
-        y: 8,
+        x: 8,
+        y: 9,
       },
     ]);
   });
@@ -1174,10 +1174,53 @@ describe('room construction planner', () => {
         roomName: 'W1N1',
         structureType: 'storage',
         type: 'createConstructionSite',
-        x: 12,
+        x: 13,
         y: 10,
       },
     ]);
+  });
+
+  it('does not place RCL4 storage where it reduces extension refill access to one tile', () => {
+    const decisions = planConstruction({
+      controllerStructureLimits: {
+        extension: {
+          4: 1,
+        },
+      },
+      ownedRooms: [
+        {
+          blockedPositions: [
+            { x: 10, y: 9 },
+            { x: 10, y: 11 },
+            { x: 11, y: 9 },
+            { x: 11, y: 11 },
+            { x: 12, y: 11 },
+          ],
+          constructionSites: [],
+          controllerLevel: 4,
+          controllerPosition: { x: 14, y: 10 },
+          roomName: 'W1N1',
+          spawnPosition: { x: 10, y: 10 },
+          structures: [
+            {
+              structureType: 'spawn',
+              x: 10,
+              y: 10,
+            },
+            {
+              structureType: 'extension',
+              x: 11,
+              y: 10,
+            },
+          ],
+          terrain: createPlainTerrainRectangle(8, 8, 14, 12),
+        },
+      ],
+    });
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]).toMatchObject({ structureType: 'storage' });
+    expect(decisions[0]).not.toMatchObject({ x: 12, y: 10 });
   });
 
   it('caps RCL4 extension expansion to a small staged frontier', () => {
@@ -1216,6 +1259,48 @@ describe('room construction planner', () => {
     expect(decisions).toHaveLength(5);
     expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
   });
+
+  it('expands RCL4 extension planning beyond the saturated radius-two spawn ring', () => {
+    const decisions = planConstruction({
+      ownedRooms: [
+        {
+          blockedPositions: [],
+          constructionSites: [],
+          controllerLevel: 4,
+          controllerPosition: { x: 14, y: 10 },
+          roomName: 'W1N1',
+          spawnPosition: { x: 10, y: 10 },
+          structures: [
+            {
+              structureType: 'spawn',
+              x: 10,
+              y: 10,
+            },
+            {
+              structureType: 'storage',
+              x: 12,
+              y: 10,
+            },
+            {
+              structureType: 'tower',
+              x: 12,
+              y: 9,
+            },
+            ...createSaturatedRadiusTwoCoreStructures(),
+          ],
+          terrain: createPlainTerrainRectangle(7, 7, 13, 13),
+        },
+      ],
+    });
+
+    expect(decisions).toHaveLength(5);
+    expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
+    expect(
+      decisions.every(
+        (decision) => Math.max(Math.abs(decision.x - 10), Math.abs(decision.y - 10)) === 3,
+      ),
+    ).toBe(true);
+  });
 });
 
 const createExtensionStructuresAroundSpawn10 = () =>
@@ -1234,6 +1319,19 @@ const createExtensionStructuresAroundSpawn10 = () =>
     structureType: 'extension',
     ...position,
   }));
+
+const createSaturatedRadiusTwoCoreStructures = () => {
+  const rangeTwoPositions = createPlainTerrainRectangle(8, 8, 12, 12)
+    .filter((position) => position.x !== 10 || position.y !== 10)
+    .filter((position) => position.x !== 12 || position.y !== 9)
+    .filter((position) => position.x !== 12 || position.y !== 10)
+    .map(({ x, y }) => ({ x, y }));
+
+  return rangeTwoPositions.map((position, index) => ({
+    structureType: index < 15 ? 'extension' : 'road',
+    ...position,
+  }));
+};
 
 const openTerrainAroundSpawn10: readonly ConstructionTerrainSnapshot[] = [
   { terrain: 'plain', x: 9, y: 9 },

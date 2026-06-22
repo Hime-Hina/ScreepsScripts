@@ -10,6 +10,7 @@ import {
   readRemoteModuleSet,
   readRoomObjects,
   readRoomStatus,
+  readRoomTerrainText,
   readUserMemory,
 } from './screeps-api.mjs';
 
@@ -91,6 +92,11 @@ const printRoleRecoveryStatus = async (screepsConfig, statusRequest) => {
     statusRequest.shardName,
     statusRequest.roomName,
   );
+  const roomTerrainText = await readRoomTerrainText(
+    screepsConfig,
+    statusRequest.shardName,
+    statusRequest.roomName,
+  );
   const creepMemory = normalizeCreepMemory(
     await readUserMemory(screepsConfig, statusRequest.shardName, 'creeps'),
   );
@@ -99,6 +105,7 @@ const printRoleRecoveryStatus = async (screepsConfig, statusRequest) => {
     roomObjects,
     accountIdentity.accountId,
     creepMemory,
+    roomTerrainText,
   );
 
   console.log(
@@ -118,11 +125,12 @@ const printRoleRecoveryStatus = async (screepsConfig, statusRequest) => {
       `roadDamaged=${roleRecoverySummary.roadDamaged}`,
       `roadMinHits=${roleRecoverySummary.roadMinHits}`,
       `sourceContainers=${roleRecoverySummary.sourceContainers}`,
+      `refillAccess=${roleRecoverySummary.refillAccess}`,
     ].join(' '),
   );
 };
 
-const summarizeRoleRecoveryRoom = (roomObjects, ownedUserId, creepMemory) => {
+const summarizeRoleRecoveryRoom = (roomObjects, ownedUserId, creepMemory, terrainText) => {
   const ownedSpawn = selectOwnedSpawn(roomObjects, ownedUserId);
   const ownedCreeps = roomObjects.filter(
     (roomObject) =>
@@ -144,6 +152,7 @@ const summarizeRoleRecoveryRoom = (roomObjects, ownedUserId, creepMemory) => {
     roadCritical: formatRoadRatioCount(roads, ROAD_CRITICAL_RATIO),
     roadDamaged: formatRoadRatioCount(roads, ROAD_DAMAGED_RATIO),
     roadMinHits: formatRoadMinHits(roads),
+    refillAccess: formatRefillAccess(roomObjects, ownedUserId, terrainText),
     roleCounts: formatRoleCounts(roleCounts),
     sourceContainers: formatSourceContainerEnergy(roomObjects),
     spawningRole: readSpawnedCreepRole(ownedSpawn, creepMemory),
@@ -263,6 +272,99 @@ const formatConstructionProgress = (constructionSites) => {
 
   return `${progress}/${progressTotal}`;
 };
+
+const formatRefillAccess = (roomObjects, ownedUserId, terrainText) => {
+  const refillTargets = roomObjects
+    .filter(
+      (roomObject) =>
+        isRefillAccessTarget(roomObject) && objectBelongsToUser(roomObject, ownedUserId),
+    )
+    .map((roomObject) => ({
+      accessCount: countAccessibleAdjacentPositions(roomObject, roomObjects, terrainText),
+      label: formatRefillTargetLabel(roomObject),
+    }))
+    .sort((leftTarget, rightTarget) =>
+      leftTarget.accessCount === rightTarget.accessCount
+        ? leftTarget.label.localeCompare(rightTarget.label)
+        : leftTarget.accessCount - rightTarget.accessCount,
+    );
+
+  if (refillTargets.length === 0) {
+    return '-';
+  }
+
+  const lowAccessTargets = refillTargets.filter((target) => target.accessCount <= 1);
+  const worstTarget = refillTargets[0];
+
+  return `min=${worstTarget.accessCount} low=${lowAccessTargets.length}/${refillTargets.length} worst=${worstTarget.label}:${worstTarget.accessCount}`;
+};
+
+const countAccessibleAdjacentPositions = (targetObject, roomObjects, terrainText) => {
+  const targetX = readNumberField(targetObject, 'x');
+  const targetY = readNumberField(targetObject, 'y');
+
+  if (targetX === null || targetY === null) {
+    return 0;
+  }
+
+  const accessBlockedPositionKeys = collectAccessBlockedPositionKeys(roomObjects);
+  let accessCount = 0;
+
+  for (let y = targetY - 1; y <= targetY + 1; y += 1) {
+    for (let x = targetX - 1; x <= targetX + 1; x += 1) {
+      if ((x === targetX && y === targetY) || x <= 0 || x >= 49 || y <= 0 || y >= 49) {
+        continue;
+      }
+
+      if (!isWallTerrain(x, y, terrainText) && !accessBlockedPositionKeys.has(`${x},${y}`)) {
+        accessCount += 1;
+      }
+    }
+  }
+
+  return accessCount;
+};
+
+const collectAccessBlockedPositionKeys = (roomObjects) =>
+  new Set(
+    roomObjects
+      .filter((roomObject) => !isWalkableAccessObject(roomObject))
+      .flatMap((roomObject) => {
+        const x = readNumberField(roomObject, 'x');
+        const y = readNumberField(roomObject, 'y');
+
+        return x === null || y === null ? [] : [`${x},${y}`];
+      }),
+  );
+
+const isRefillAccessTarget = (roomObject) =>
+  ['spawn', 'extension', 'tower', 'storage'].includes(readStructureType(roomObject));
+
+const isWalkableAccessObject = (roomObject) =>
+  [
+    'container',
+    'creep',
+    'energy',
+    'resource',
+    'road',
+    'rampart',
+    'ruin',
+    'source',
+    'tombstone',
+  ].includes(readStructureType(roomObject));
+
+const readStructureType = (roomObject) =>
+  readStringField(roomObject, 'type') === 'constructionSite'
+    ? readStringField(roomObject, 'structureType')
+    : readStringField(roomObject, 'type');
+
+const formatRefillTargetLabel = (roomObject) =>
+  `${readStructureType(roomObject)}@${readNumberField(roomObject, 'x')},${readNumberField(
+    roomObject,
+    'y',
+  )}`;
+
+const isWallTerrain = (x, y, terrainText) => terrainText[y * 50 + x] === '1';
 
 const formatSourceContainerEnergy = (roomObjects) => {
   const sourceObjects = roomObjects.filter(

@@ -17,6 +17,7 @@ interface RoleRecoveryFetchPayloads {
   readonly remoteModules: Record<string, unknown>;
   readonly roomObjects: Record<string, unknown>;
   readonly roomStatus: Record<string, unknown>;
+  readonly roomTerrain: Record<string, unknown>;
   readonly userMemory: Record<string, unknown>;
 }
 
@@ -105,6 +106,47 @@ describe('role recovery live status command', () => {
             y: 23,
           },
           {
+            store: { energy: 0 },
+            storeCapacityResource: { energy: 50 },
+            type: 'extension',
+            user: 'alice-user',
+            x: 36,
+            y: 23,
+          },
+          {
+            store: { energy: 100 },
+            storeCapacityResource: { energy: 1000000 },
+            type: 'storage',
+            user: 'alice-user',
+            x: 37,
+            y: 23,
+          },
+          {
+            type: 'constructedWall',
+            x: 36,
+            y: 22,
+          },
+          {
+            type: 'constructedWall',
+            x: 36,
+            y: 24,
+          },
+          {
+            type: 'constructedWall',
+            x: 35,
+            y: 24,
+          },
+          {
+            type: 'constructedWall',
+            x: 37,
+            y: 22,
+          },
+          {
+            type: 'constructedWall',
+            x: 37,
+            y: 24,
+          },
+          {
             name: 'Spawn1-miner-71835092',
             store: { energy: 22 },
             type: 'creep',
@@ -173,6 +215,8 @@ describe('role recovery live status command', () => {
             structureType: 'storage',
             type: 'constructionSite',
             user: 'alice-user',
+            x: 40,
+            y: 40,
           },
           {
             store: { energy: 2000 },
@@ -205,6 +249,10 @@ describe('role recovery live status command', () => {
         ok: 1,
         room: { status: 'normal' },
       },
+      roomTerrain: {
+        ok: 1,
+        terrain: '0'.repeat(2500),
+      },
       userMemory: {
         data: `gz:${gzipSync(JSON.stringify(memoryPayload)).toString('base64')}`,
         ok: 1,
@@ -226,10 +274,12 @@ describe('role recovery live status command', () => {
         'https://screeps.com/api/auth/me',
         'https://screeps.com/api/game/room-status?room=W51N21&shard=shard1',
         'https://screeps.com/api/game/room-objects?room=W51N21&shard=shard1',
+        'https://screeps.com/api/game/room-terrain?room=W51N21&shard=shard1',
         'https://screeps.com/api/user/memory?path=creeps&shard=shard1',
         'https://screeps.com/api/user/code?branch=main',
       ]);
       expect(fetchRecords.map((fetchRecord) => fetchRecord.init?.headers)).toEqual([
+        { 'X-Token': 'secret-token' },
         { 'X-Token': 'secret-token' },
         { 'X-Token': 'secret-token' },
         { 'X-Token': 'secret-token' },
@@ -250,6 +300,9 @@ describe('role recovery live status command', () => {
         'roadCritical=1/3 roadDamaged=2/3 roadMinHits=200/5000',
       );
       expect(joinedLogLines(logSpy)).toContain('sourceContainers=20,43:1800/2000|29,6:2000/2000');
+      expect(joinedLogLines(logSpy)).toContain(
+        'refillAccess=min=1 low=1/4 worst=extension@36,23:1',
+      );
       expect(joinedLogLines(logSpy)).not.toContain('secret-token');
       expect(joinedLogLines(logSpy)).not.toContain('remote-main-source');
     } finally {
@@ -304,6 +357,10 @@ const selectRoleRecoveryApiPayload = (
 
   if (apiPath === '/api/game/room-objects') {
     return apiPayloadsByRoute.roomObjects;
+  }
+
+  if (apiPath === '/api/game/room-terrain') {
+    return apiPayloadsByRoute.roomTerrain;
   }
 
   if (apiPath === '/api/user/memory') {
