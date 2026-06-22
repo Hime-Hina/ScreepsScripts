@@ -54,11 +54,12 @@ export interface CreateConstructionSiteDecision {
 }
 
 const EARLY_NEAR_SPAWN_CANDIDATE_RADIUS = 2;
-const RCL4_EXTENSION_CANDIDATE_MIN_RADIUS = 3;
+const RCL4_EXTENSION_CANDIDATE_MIN_RADIUS = 4;
 const DISTRIBUTED_EXTENSION_CANDIDATE_RADIUS = 8;
 const RCL4_NEAR_SPAWN_CANDIDATE_RADIUS = 3;
 const MIN_REFILL_ACCESS_POSITION_COUNT = 2;
 const MAX_NEW_EXTENSION_SITES_PER_ROOM = 5;
+const MAX_NEW_INTERLEAVED_ROAD_SITES_PER_ROOM = 5;
 const MAX_NEW_ROAD_SITES_PER_ROOM = 2;
 const MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS = 10;
 const ADJACENT_POSITION_OFFSETS = [
@@ -70,6 +71,12 @@ const ADJACENT_POSITION_OFFSETS = [
   { x: -1, y: 1 },
   { x: 0, y: 1 },
   { x: 1, y: 1 },
+] as const satisfies readonly ConstructionPositionSnapshot[];
+const ORTHOGONAL_POSITION_OFFSETS = [
+  { x: 0, y: -1 },
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+  { x: 0, y: 1 },
 ] as const satisfies readonly ConstructionPositionSnapshot[];
 
 export const planRoomConstruction = (
@@ -184,15 +191,22 @@ const planRclExtensionSites = (
   const accessBlockedPositionKeys = collectAccessBlockedPositionKeys(ownedRoom);
   const refillAccessTargets = [...listRefillAccessTargets(ownedRoom)];
   const extensionDecisions: ConstructionDecision[] = [];
+  const interleavedRoadDecisions: ConstructionDecision[] = [];
 
   const shouldDistributeExtensions = ownedRoom.controllerLevel >= 4;
   const extensionAdjacencyBlockers = shouldDistributeExtensions
     ? [...listExtensionPositions(ownedRoom)]
     : [];
+  const interleavedRoadPositions = shouldDistributeExtensions
+    ? [...listRoadPositions(ownedRoom)]
+    : [];
+  const maxNewInterleavedRoadSiteCount = shouldDistributeExtensions
+    ? calculateAvailableInterleavedRoadSiteCount(ownedRoom)
+    : 0;
 
   for (const candidatePosition of listExtensionCandidatePositions(ownedRoom)) {
     if (extensionDecisions.length >= missingExtensionCount) {
-      return extensionDecisions;
+      return [...extensionDecisions, ...interleavedRoadDecisions];
     }
 
     if (!isBuildableTile(candidatePosition, terrainByPositionKey)) {
@@ -212,6 +226,21 @@ const planRclExtensionSites = (
       continue;
     }
 
+    const interleavedRoadPosition =
+      shouldDistributeExtensions && interleavedRoadDecisions.length < maxNewInterleavedRoadSiteCount
+        ? selectInterleavedRoadPosition({
+            candidatePosition,
+            interleavedRoadPositions,
+            spawnPosition: ownedRoom.spawnPosition,
+            terrainByPositionKey,
+            unavailablePositionKeys,
+          })
+        : null;
+
+    if (interleavedRoadPosition === undefined) {
+      continue;
+    }
+
     if (
       !preservesRefillAccess({
         accessBlockedPositionKeys,
@@ -223,6 +252,16 @@ const planRclExtensionSites = (
       continue;
     }
 
+    if (interleavedRoadPosition !== null) {
+      const interleavedRoadPositionKey = serializePosition(interleavedRoadPosition);
+
+      interleavedRoadDecisions.push(
+        createConstructionSiteDecision(ownedRoom.roomName, interleavedRoadPosition, 'road'),
+      );
+      unavailablePositionKeys.add(interleavedRoadPositionKey);
+      interleavedRoadPositions.push(interleavedRoadPosition);
+    }
+
     extensionDecisions.push(
       createConstructionSiteDecision(ownedRoom.roomName, candidatePosition, 'extension'),
     );
@@ -232,7 +271,7 @@ const planRclExtensionSites = (
     extensionAdjacencyBlockers.push(candidatePosition);
   }
 
-  return extensionDecisions;
+  return [...extensionDecisions, ...interleavedRoadDecisions];
 };
 
 const planRclTowerSite = (
@@ -483,6 +522,14 @@ const limitLowPriorityRoadDecisions = (
 const canPlanLowPriorityRoads = (ownedRoom: ConstructionOwnedRoomSnapshot): boolean =>
   ownedRoom.constructionSites.length < MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS;
 
+const calculateAvailableInterleavedRoadSiteCount = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): number =>
+  Math.min(
+    MAX_NEW_INTERLEAVED_ROAD_SITES_PER_ROOM,
+    Math.max(0, MAX_ACTIVE_SITE_BACKLOG_FOR_NEW_ROADS - ownedRoom.constructionSites.length),
+  );
+
 const createTerrainByPositionKey = (
   terrainSnapshots: readonly ConstructionTerrainSnapshot[],
 ): ReadonlyMap<string, ConstructionTerrain> =>
@@ -594,6 +641,42 @@ const listExtensionPositions = (
     (constructionSiteSnapshot) => constructionSiteSnapshot.structureType === 'extension',
   ),
 ];
+
+const listRoadPositions = (
+  ownedRoom: ConstructionOwnedRoomSnapshot,
+): readonly ConstructionPositionSnapshot[] => [
+  ...ownedRoom.structures.filter((structureSnapshot) => structureSnapshot.structureType === 'road'),
+  ...ownedRoom.constructionSites.filter(
+    (constructionSiteSnapshot) => constructionSiteSnapshot.structureType === 'road',
+  ),
+];
+
+const selectInterleavedRoadPosition = ({
+  candidatePosition,
+  interleavedRoadPositions,
+  spawnPosition,
+  terrainByPositionKey,
+  unavailablePositionKeys,
+}: {
+  readonly candidatePosition: ConstructionPositionSnapshot;
+  readonly interleavedRoadPositions: readonly ConstructionPositionSnapshot[];
+  readonly spawnPosition: ConstructionPositionSnapshot;
+  readonly terrainByPositionKey: ReadonlyMap<string, ConstructionTerrain>;
+  readonly unavailablePositionKeys: ReadonlySet<string>;
+}): ConstructionPositionSnapshot | null | undefined => {
+  if (isOrthogonallyAdjacentToAny(candidatePosition, interleavedRoadPositions)) {
+    return null;
+  }
+
+  return listOrthogonalCandidatePositions(candidatePosition)
+    .filter((roadPosition) => isBuildableTile(roadPosition, terrainByPositionKey))
+    .filter((roadPosition) => !unavailablePositionKeys.has(serializePosition(roadPosition)))
+    .filter(
+      (roadPosition) =>
+        measureRange(roadPosition, spawnPosition) <= measureRange(candidatePosition, spawnPosition),
+    )
+    .sort(compareInterleavedRoadCandidatePositions(spawnPosition, interleavedRoadPositions))[0];
+};
 
 const isOrthogonallyAdjacentToAny = (
   candidatePosition: ConstructionPositionSnapshot,
@@ -723,6 +806,35 @@ const compareDistributedExtensionCandidatePositions =
     return comparePositionsByDistanceTo(spawnPosition)(leftPosition, rightPosition);
   };
 
+const compareInterleavedRoadCandidatePositions =
+  (
+    spawnPosition: ConstructionPositionSnapshot,
+    interleavedRoadPositions: readonly ConstructionPositionSnapshot[],
+  ) =>
+  (
+    leftPosition: ConstructionPositionSnapshot,
+    rightPosition: ConstructionPositionSnapshot,
+  ): number => {
+    const leftConnectionPriority = isOrthogonallyAdjacentToAny(
+      leftPosition,
+      interleavedRoadPositions,
+    )
+      ? 0
+      : 1;
+    const rightConnectionPriority = isOrthogonallyAdjacentToAny(
+      rightPosition,
+      interleavedRoadPositions,
+    )
+      ? 0
+      : 1;
+
+    if (leftConnectionPriority !== rightConnectionPriority) {
+      return leftConnectionPriority - rightConnectionPriority;
+    }
+
+    return comparePositionsByDistanceTo(spawnPosition)(leftPosition, rightPosition);
+  };
+
 const measureCheckerboardPriority = (
   candidatePosition: ConstructionPositionSnapshot,
   spawnPosition: ConstructionPositionSnapshot,
@@ -735,6 +847,14 @@ const listAdjacentCandidatePositions = (
   centerPosition: ConstructionPositionSnapshot,
 ): readonly ConstructionPositionSnapshot[] =>
   ADJACENT_POSITION_OFFSETS.map((offset) => ({
+    x: centerPosition.x + offset.x,
+    y: centerPosition.y + offset.y,
+  })).filter(isBuildableRoomInterior);
+
+const listOrthogonalCandidatePositions = (
+  centerPosition: ConstructionPositionSnapshot,
+): readonly ConstructionPositionSnapshot[] =>
+  ORTHOGONAL_POSITION_OFFSETS.map((offset) => ({
     x: centerPosition.x + offset.x,
     y: centerPosition.y + offset.y,
   })).filter(isBuildableRoomInterior);

@@ -1251,16 +1251,24 @@ describe('room construction planner', () => {
             },
             ...createExtensionStructuresAroundSpawn10(),
           ],
-          terrain: createPlainTerrainRectangle(7, 7, 14, 13),
+          terrain: createPlainTerrainRectangle(4, 4, 16, 16),
         },
       ],
     });
 
-    expect(decisions).toHaveLength(5);
-    expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
+    const extensionDecisions = decisions.filter(
+      (decision) => decision.structureType === 'extension',
+    );
+
+    expect(extensionDecisions).toHaveLength(5);
+    expect(
+      decisions.every(
+        (decision) => decision.structureType === 'extension' || decision.structureType === 'road',
+      ),
+    ).toBe(true);
   });
 
-  it('expands RCL4 extension planning into distributed positions beyond the spawn ring', () => {
+  it('interleaves RCL4 extension expansion with road access lanes', () => {
     const decisions = planConstruction({
       ownedRooms: [
         {
@@ -1288,19 +1296,67 @@ describe('room construction planner', () => {
             },
             ...createSaturatedRadiusTwoCoreStructures(),
           ],
-          terrain: createPlainTerrainRectangle(5, 5, 15, 15),
+          terrain: createPlainTerrainRectangle(4, 4, 16, 16),
         },
       ],
     });
 
-    expect(decisions).toHaveLength(5);
-    expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
+    const extensionDecisions = decisions.filter(
+      (decision) => decision.structureType === 'extension',
+    );
+    const roadDecisions = decisions.filter((decision) => decision.structureType === 'road');
+
+    expect(extensionDecisions).toHaveLength(5);
+    expect(roadDecisions.length).toBeGreaterThan(0);
     expect(
-      decisions.every(
-        (decision) => Math.max(Math.abs(decision.x - 10), Math.abs(decision.y - 10)) >= 3,
+      extensionDecisions.every(
+        (decision) => Math.max(Math.abs(decision.x - 10), Math.abs(decision.y - 10)) >= 4,
       ),
     ).toBe(true);
-    expect(hasOrthogonallyAdjacentPositions(decisions)).toBe(false);
+    expect(hasOrthogonallyAdjacentPositions(extensionDecisions)).toBe(false);
+    expect(
+      extensionDecisions.every((extensionDecision) =>
+        isOrthogonallyAdjacentToAny(extensionDecision, roadDecisions),
+      ),
+    ).toBe(true);
+    expect(decisions.slice(0, extensionDecisions.length)).toEqual(extensionDecisions);
+  });
+
+  it('does not add interleaved RCL4 roads above the construction backlog throttle', () => {
+    const decisions = planConstruction({
+      ownedRooms: [
+        {
+          blockedPositions: [],
+          constructionSites: createConstructionSiteBacklog(),
+          controllerLevel: 4,
+          controllerPosition: { x: 14, y: 10 },
+          roomName: 'W1N1',
+          spawnPosition: { x: 10, y: 10 },
+          structures: [
+            {
+              structureType: 'spawn',
+              x: 10,
+              y: 10,
+            },
+            {
+              structureType: 'storage',
+              x: 12,
+              y: 10,
+            },
+            {
+              structureType: 'tower',
+              x: 12,
+              y: 9,
+            },
+            ...createSaturatedRadiusTwoCoreStructures(),
+          ],
+          terrain: createPlainTerrainRectangle(4, 4, 16, 16),
+        },
+      ],
+    });
+
+    expect(decisions.some((decision) => decision.structureType === 'road')).toBe(false);
+    expect(decisions.filter((decision) => decision.structureType === 'extension')).toHaveLength(5);
   });
 
   it('keeps high-controller extension planning from exhausting the radius-five layout', () => {
@@ -1335,10 +1391,13 @@ describe('room construction planner', () => {
       ],
     });
 
-    expect(decisions).toHaveLength(5);
-    expect(decisions.every((decision) => decision.structureType === 'extension')).toBe(true);
+    const extensionDecisions = decisions.filter(
+      (decision) => decision.structureType === 'extension',
+    );
+
+    expect(extensionDecisions).toHaveLength(5);
     expect(
-      decisions.every(
+      extensionDecisions.every(
         (decision) => Math.max(Math.abs(decision.x - 10), Math.abs(decision.y - 10)) > 5,
       ),
     ).toBe(true);
@@ -1351,13 +1410,27 @@ const hasOrthogonallyAdjacentPositions = (
   positions.some((leftPosition, leftIndex) =>
     positions
       .slice(leftIndex + 1)
-      .some(
-        (rightPosition) =>
-          Math.abs(leftPosition.x - rightPosition.x) +
-            Math.abs(leftPosition.y - rightPosition.y) ===
-          1,
-      ),
+      .some((rightPosition) => isOrthogonallyAdjacent(leftPosition, rightPosition)),
   );
+
+const isOrthogonallyAdjacentToAny = (
+  position: { readonly x: number; readonly y: number },
+  targetPositions: readonly { readonly x: number; readonly y: number }[],
+): boolean =>
+  targetPositions.some((targetPosition) => isOrthogonallyAdjacent(position, targetPosition));
+
+const isOrthogonallyAdjacent = (
+  leftPosition: { readonly x: number; readonly y: number },
+  rightPosition: { readonly x: number; readonly y: number },
+): boolean =>
+  Math.abs(leftPosition.x - rightPosition.x) + Math.abs(leftPosition.y - rightPosition.y) === 1;
+
+const createConstructionSiteBacklog = () =>
+  Array.from({ length: 10 }, (_, index) => ({
+    structureType: 'road',
+    x: 20 + index,
+    y: 20,
+  }));
 
 const createSpawnRingPositions = (
   spawnX: number,
