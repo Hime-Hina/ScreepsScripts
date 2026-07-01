@@ -136,6 +136,33 @@ describe('runtime alert decisions', () => {
     ).toBe(true);
   });
 
+  it('does not create survival critical alerts for explicitly non-owned visible rooms', () => {
+    expect(
+      selectRuntimeAlertDecisions({
+        actionFailures: [],
+        defenseWorld: emptyDefenseWorld,
+        gameTime: 72014007,
+        shardName: 'shard1',
+        spawningWorld: createSpawningWorld({
+          controllerLevel: 0,
+          energyStructures: [],
+          isOwned: false,
+          roomName: 'W51N20',
+          sourceCount: 0,
+          structures: [
+            {
+              structureType: 'constructedWall',
+            },
+          ],
+          ticksToDowngrade: 0,
+          workerCreepCount: 1,
+          workerCreeps: [],
+          workerCreepWorkParts: 0,
+        }),
+      }),
+    ).toEqual([]);
+  });
+
   it('does not notify for transient low spawn energy when the room is healthy', () => {
     expect(
       selectRuntimeAlertDecisions({

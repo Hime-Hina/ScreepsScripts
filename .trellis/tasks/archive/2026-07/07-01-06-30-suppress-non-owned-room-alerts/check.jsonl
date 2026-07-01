@@ -1,0 +1,3 @@
+{"file":"test/unit/kernel/runtime-alerts.test.ts","reason":"focused regression for non-owned room alert suppression"}
+{"file":"test/unit/kernel/run-tick.test.ts","reason":"runtime tick boundary regression for emitted alert decisions"}
+{"file":"package.json","reason":"verification scripts: pnpm check and focused vitest commands"}

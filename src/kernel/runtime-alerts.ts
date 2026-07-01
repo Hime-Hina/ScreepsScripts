@@ -49,7 +49,7 @@ const selectControllerDowngradeAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
   alertInput.spawningWorld.rooms.flatMap((spawningRoom) => {
-    if (!isControllerDowngradeCritical(spawningRoom)) {
+    if (!isOwnedSpawningRoom(spawningRoom) || !isControllerDowngradeCritical(spawningRoom)) {
       return [];
     }
 
@@ -108,6 +108,10 @@ const shouldCreateWorkerCountAlert = (
   spawningWorld: SpawningWorldSnapshot,
   spawningRoom: SpawningWorldSnapshot['rooms'][number],
 ): boolean => {
+  if (!isOwnedSpawningRoom(spawningRoom)) {
+    return false;
+  }
+
   if (spawningRoom.workerCreepCount >= SURVIVAL_WORKER_ALERT_COUNT) {
     return false;
   }
@@ -129,6 +133,9 @@ const isRecoverableOneWorkerDip = (
 ): boolean =>
   spawningRoom.workerCreepCount === SURVIVAL_WORKER_ALERT_COUNT - 1 &&
   hasAvailableSurvivalWorkerSpawn(spawningWorld, spawningRoom.roomName);
+
+const isOwnedSpawningRoom = (spawningRoom: SpawningWorldSnapshot['rooms'][number]): boolean =>
+  spawningRoom.isOwned !== false;
 
 const hasAvailableSurvivalWorkerSpawn = (
   spawningWorld: SpawningWorldSnapshot,
@@ -152,6 +159,10 @@ const selectSpawnEnergyAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
   alertInput.spawningWorld.rooms.flatMap((spawningRoom) => {
+    if (!isOwnedSpawningRoom(spawningRoom)) {
+      return [];
+    }
+
     const totalEnergyCapacity = spawningRoom.energyStructures.reduce(
       (totalCapacity, energyStructure) => totalCapacity + energyStructure.energyCapacity,
       0,
@@ -195,6 +206,10 @@ const selectRoleCompositionDriftAlerts = (
   alertInput: RuntimeAlertDecisionInput,
 ): readonly RuntimeAlertDecision[] =>
   alertInput.spawningWorld.rooms.flatMap((spawningRoom) => {
+    if (!isOwnedSpawningRoom(spawningRoom)) {
+      return [];
+    }
+
     const driftSummary = summarizeRoleCompositionDrift(spawningRoom);
 
     if (driftSummary === null) {

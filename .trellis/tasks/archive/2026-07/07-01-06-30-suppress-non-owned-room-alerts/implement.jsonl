@@ -1,0 +1,4 @@
+{"file":".trellis/tasks/archive/2026-07/07-01-06-30-suppress-non-owned-room-alerts/prd.md","reason":"requirements and false-positive evidence"}
+{"file":"src/kernel/runtime-alerts.ts","reason":"runtime survival alert selection for controller/worker/spawn/role events"}
+{"file":"test/unit/kernel/runtime-alerts.test.ts","reason":"focused regression suite for runtime alert policy"}
+{"file":"src/runtime/screeps-runtime.ts","reason":"source of SpawningRoomSnapshot.isOwned from Game.rooms controller ownership"}
